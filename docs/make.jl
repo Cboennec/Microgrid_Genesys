@@ -1,22 +1,17 @@
-using Documenter
+using Pkg
+Pkg.add(url="https://github.com/hradet/Metaheuristics.jl.git")
+using Metaheuristics
+
+Pkg.activate(".")
+
 include("..\\src\\Genesys.jl")
 
+using Documenter
 using Main.Genesys
 
-makedocs(
-    root    = "C:\\Users\\coren\\OneDrive\\Bureau\\LAPLACE\\ThesisCB\\Codes\\Microgrid",
-    source  = "docs//src",
-    build   = "build",
-    clean   = true,
-    doctest = true,
-    modules = Module[Genesys],
-    repo    = "",
-    highlightsig = true,
-    sitename = "Genesys Microgrid Tool Documentation",
-    expandfirst = [],
-    pages = [
-        "Index" => "index.md",
-    ],
-    draft = false,
-)
+makedocs(sitename="Microgrid Genesys",
+          modules=[Genesys],
+          format=Documenter.HTML())
+
+
 
