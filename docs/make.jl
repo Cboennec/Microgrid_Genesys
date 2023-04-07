@@ -1,7 +1,4 @@
 using Pkg
-Pkg.add(url="https://github.com/hradet/Metaheuristics.jl.git")
-using Metaheuristics
-
 Pkg.activate(".")
 
 include("..\\src\\Genesys.jl")
