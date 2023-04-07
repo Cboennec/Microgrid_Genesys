@@ -1,10 +1,14 @@
 MIT License
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 Copyright (c) 2022 Cboennec
 =======
 Copyright (c) 2023 Cboennec
 >>>>>>> 0af648ca0e8002272dbcff744f8bcf9291fe906d
+=======
+Copyright (c) 2023 Cboennec
+>>>>>>> b1e78c4d84946bbd9ce7989b7be41c91c1857c2f
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +27,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 <<<<<<< HEAD
+<<<<<<< HEAD
 SOFTWARE.
 =======
 SOFTWARE.
 >>>>>>> 0af648ca0e8002272dbcff744f8bcf9291fe906d
+=======
+SOFTWARE.
+>>>>>>> b1e78c4d84946bbd9ce7989b7be41c91c1857c2f
