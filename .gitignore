@@ -9,7 +9,6 @@ example/data/ausgrid_5_twostage.jld
 .vscode/
 tmp_files/
 figures/
-docs/
 Data_simu/
 build/
 
