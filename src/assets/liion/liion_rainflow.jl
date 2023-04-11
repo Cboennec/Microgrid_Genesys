@@ -34,7 +34,7 @@ mutable struct Liion_rainflow <: AbstractLiion
 	#input specific params
 	update_by_year::Int64 # Rainflow Soh computation by year
 
-	fatigue_data::DatafFrames.DataFrame #2 column data frame (DoD, ncycle) giving the number of cycle that the battery can do for a given DoD
+	fatigue_data::DataFrames.DataFrame #2 column data frame (DoD, ncycle) giving the number of cycle that the battery can do for a given DoD
 
 	artificial_soc_profil::Array{Float64,2} # soc profil for study purpose
 
