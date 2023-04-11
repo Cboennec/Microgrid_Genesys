@@ -7,7 +7,7 @@ Conda.add("numpy"; channel="conda-forge")
 
 Pkg.activate(".")
 
-#Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
+Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
 
 include("src/Genesys.jl")
 

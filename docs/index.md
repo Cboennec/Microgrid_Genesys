@@ -9,4 +9,4 @@ Description du package
 
 
 ```@autodocs
-Modules = [Genesys]
+Modules = [Main.Genesys]

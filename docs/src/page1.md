@@ -26,5 +26,6 @@ The Genesys module offers a wide range of features for microgrid simulations and
 To learn more about how to use the Genesys module, please refer to the [API Reference](index.md#API-Reference-1) and other pages in this documentation.
 
 ## Functions
+
 ```@autodocs
-Modules = [Genesys]
+Modules = [Main.Genesys]
