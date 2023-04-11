@@ -7,12 +7,48 @@
 
 #rainflow ref : Optimal Battery Control Under Cycle Aging Mechanisms in Pay for Performance Settings
 # Yuanyuan Shi, Bolun Xu, Yushi Tan, Daniel Kirschen, Baosen Zhang
+
+"""
+    Liion_rainflow
+
+A mutable struct that represents a Li-ion battery model with rainflow counting algorithm for State of Health (SoH) computation.
+
+Parameters:
+  - α_p_ch::Float64: Charging maximum C-rate
+  - α_p_dch::Float64: Discharging  maximum C-rate
+  - η_ch::Float64: Charging yield/efficiency
+  - η_dch::Float64: Discharging yield/efficiency
+  - η_self::Float64: Auto discharge factor
+  - α_soc_min::Float64: Minimum threshold of charge (normalized)
+  - α_soc_max::Float64: Maximum threshold of charge (normalized)
+  - lifetime::Int64: Battery lifetime (in years)
+  - nCycle::Float64: Number of cycles
+  - bounds::NamedTuple: Named tuple containing the lower and upper bounds for the battery
+  - SoH_threshold::Float64: SoH level to replace the battery
+  - couplage::NamedTuple: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
+  - soc_model::String: Model name for State of Charge (SoC) computation
+  - calendar::Bool: Whether to include calendar aging in the SoH computation
+  - Erated_ini::Float64: Initial battery capacity in Wh
+  - soc_ini::Float64: Initial State of Charge (SoC) for the beginning of the simulation
+  - soh_ini::Float64: Initial State of Health (SoH) for the beginning of the simulation
+  - update_by_year::Int64: Rainflow SoH computation by year
+  - fatigue_data::DataFrames.DataFrame: DataFrame containing fatigue data (DoD, ncycle)
+  - artificial_soc_profil::Array{Float64,2}: SoC profile for study purposes
+  - Erated::AbstractArray{Float64,2}: Battery capacity
+  - carrier::Electricity: Type of energy
+  - soc::AbstractArray{Float64,3}: 3D matrix containing the State of Charge (SoC)
+  - soh::AbstractArray{Float64,3}: 3D matrix containing the State of Health (SoH)
+  - voltage::Array{Float64,3}: Voltage evolution
+  - current::Array{Float64,3}: Current evolution
+  - tremblay_dessaint_params::Tremblay_dessaint_params: Parameters specific to the Tremblay-Dessaint model
+  - cost::AbstractArray{Float64,2}: Cost associated with the battery
+"""
 mutable struct Liion_rainflow <: AbstractLiion
 	# Parameters
 	α_p_ch::Float64
 	α_p_dch::Float64
-	η_ch::Float64 #Charging yield / efficacity
-	η_dch::Float64 #Discharging yield / efficacity
+	η_ch::Float64 #Charging yield / efficiency
+	η_dch::Float64 #Discharging yield / efficiency
 	η_self::Float64 #Auto discarge factor
 	α_soc_min::Float64 #min threshold of charge (normalized)
 	α_soc_max::Float64 #max threshold of charge (normalized)

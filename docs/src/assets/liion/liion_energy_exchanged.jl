@@ -3,7 +3,30 @@
 #=
     Li-ion battery modelling
  =#
+ """
+	Liion_energy_exchanged
 
+A mutable struct that represents a Li-ion battery model Energy Throughput aging model for State of Health (SoH) computation.
+
+The structure have a lot of parameters but most of them are set to default values.
+
+Parameters:
+- `α_p_ch::Float64`: Charging maximum C-rate (default : 1.5)
+- `α_p_dch::Float64`: Discharging  maximum C-rate (default : 1.5)
+- `α_soc_min::Float64`: Minimum threshold of charge (normalized) (default : 0.2)
+- `α_soc_max::Float64`: Maximum threshold of charge (normalized) (default : 0.8)
+- `nCycle::Float64`: Number of cycle before reaching EOL (should be found in the cycle to failure curve)
+- `SoH_threshold::Float64`: SoH level to replace the battery (default : 0.8)
+- `couplage::NamedTuple`: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
+- `soc_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
+- `calendar::Bool`: Whether to include calendar aging in the SoH computation  (default : true)
+- `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
+- `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
+
+Example of usage : `Liion_energy_exchanged(;calendar = true, nCycle = fatigue_data.cycle[findfirst(fatigue_data.DoD .> (0.6))], soc_model = "polynomial", couplage = (E=true, R=true))`
+
+Here the `nCycle` is selected from the cycle to failure curve using 60% DoD.
+"""
  mutable struct Liion_energy_exchanged <: AbstractLiion
 
 

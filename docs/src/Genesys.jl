@@ -46,7 +46,7 @@ include(joinpath("assets","solar.jl"))
 include(joinpath("assets","demand.jl"))
 export AbstractController, AbstractLiion, AbstractDesigner
 export Microgrid, Demand, Solar, Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params, ThermalStorage, H2Tank, FuelCell, Electrolyzer, Heater, Grid, GlobalParameters
-export Electricity, Heat, Hydrogen
+export EnergyCarrier, Electricity, Heat, Hydrogen
 export add!
 # Scenarios
 include(joinpath("scenarios","scenarios.jl"))

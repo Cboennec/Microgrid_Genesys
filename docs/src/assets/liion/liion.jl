@@ -1,3 +1,8 @@
+"""
+	abstract type AbstractLiion <: AbstractStorage
+
+An abstract type to generalize every Liion battery storage solution
+"""
 abstract type AbstractLiion <: AbstractStorage  end
 
 mutable struct Tremblay_dessaint_params
