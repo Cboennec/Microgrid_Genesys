@@ -26,7 +26,7 @@ using JuMP, Cbc, Metaheuristics, SDDP
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
-using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD
+using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD, Pandas
 # Assets
 include(joinpath("assets","microgrid.jl"))
 include(joinpath("assets","carriers.jl"))
