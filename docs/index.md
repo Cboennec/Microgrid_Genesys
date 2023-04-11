@@ -1,12 +1,7 @@
-# Adding Genesys
+# Genesys Package
 ## Pkg description
-Description du package 
-
+Tool for sizing and simulating microgrid
 ## Table Of Contents
 ```@contents
 ```
-## Functions
 
-
-```@autodocs
-Modules = [Main.Genesys]
