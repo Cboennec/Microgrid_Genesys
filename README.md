@@ -27,3 +27,7 @@ In order to use the package, follow the [managing package guideline](https://jul
   - SAA
   - Mean value
   - Feature based
+
+
+# Documentation 
+Full documentation are available [here](https://cboennec.github.io/Microgrid_Genesys/)

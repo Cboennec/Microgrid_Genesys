@@ -1,10 +1,12 @@
 # Adding Genesys
 ## Pkg description
-blabla
+Description du package 
+
 ## Table Of Contents
 ```@contents
 ```
 ## Functions
+
+
 ```@autodocs
-Modules = [Main.Genesys]
-```
+Modules = [Genesys]

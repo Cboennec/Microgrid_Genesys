@@ -1,22 +1,30 @@
-#=
-    This file includes all the funtions needed to simulate the DES
- =#
+#= 
+This file includes all the functions needed to simulate the DES (Distributed Energy System).
+=#
 
- mutable struct Options
-     mode::String
-     firstyear::Bool #simulate
-     Options(; mode = "multithreads", firstyear = false) = new(mode, firstyear)
- end
+"""
+    Options
 
-# Simulate function
+A mutable struct representing the options for the simulation.
+"""
+mutable struct Options
+    mode::String
+    firstyear::Bool # simulate
+    Options(; mode = "multithreads", firstyear = false) = new(mode, firstyear)
+end
+
+"""
+    simulate!(mg::Microgrid, controller::AbstractController, designer::AbstractDesigner, ω_simu::Scenarios; options::Options = Options())
+
+Main simulation function. Simulates the microgrid over multiple scenarios based on the given options.
+"""
 function simulate!(mg::Microgrid,
                    controller::AbstractController,
                    designer::AbstractDesigner,
                    ω_simu::Scenarios;
                    options::Options = Options())
 
-
-    #TODO Maybe need to reset some parameters like calendar aging on electochimical batteries
+    # TODO: Maybe need to reset some parameters like calendar aging on electrochemical batteries
     # Parameters
     ns = mg.parameters.ns
 
@@ -60,6 +68,12 @@ function simulate!(mg::Microgrid,
         println("Unknown mode... Please chose between 'serial', 'multicores', 'distributed' or 'multithreads'.")
     end
 end
+
+"""
+    simulate!(s::Int64, mg::Microgrid, controller::AbstractController, designer::AbstractDesigner, ω_simu::Scenarios, options::Options)
+
+Simulates the microgrid for a single scenario.
+"""
 function simulate!(s::Int64,
                    mg::Microgrid,
                    controller::AbstractController,
@@ -71,13 +85,17 @@ function simulate!(s::Int64,
     nh = mg.parameters.nh
     ny = mg.parameters.ny
 
-
-
     # We simulate over the horizon for a single scenario
     for y in 1:ny
         simulate!(y, s, mg, controller, designer, ω_simu, options)
     end
 end
+
+"""
+    simulate!(y::Int64, s::Int64, mg::Microgrid, controller::AbstractController, designer::AbstractDesigner, ω_simu::Scenarios, options::Options)
+
+Simulates the microgrid for a single year within a given scenario.
+"""
 function simulate!(y::Int64,
                    s::Int64,
                    mg::Microgrid,
@@ -99,7 +117,7 @@ function simulate!(y::Int64,
         # Compute investment dynamics
         compute_investment_dynamics!(y, s, mg, designer)
 
-        #update grid prices
+        # Update grid prices
         update_grid_cost_informations!(y, s, mg, ω_simu)
     else
         for h in 1:nh
@@ -115,12 +133,16 @@ function simulate!(y::Int64,
         # Compute investment dynamics
         compute_investment_dynamics!(y, s, mg, designer)
 
-        #update grid prices
+        # Update grid prices
         update_grid_cost_informations!(y, s, mg, ω_simu)
-
-
     end
 end
+
+"""
+    simulate!(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::AbstractController, designer::AbstractDesigner, ω_simu::Scenarios, options::Options)
+
+Simulates the microgrid for a single hour within a given year and scenario.
+"""
 function simulate!(h::Int64,
                    y::Int64,
                    s::Int64,
@@ -140,6 +162,7 @@ function simulate!(h::Int64,
     compute_operation_dynamics!(h, y, s, mg, controller)
 
     # Power balance constraint checked for each node
-    #Si désactivé rien n'est puisé sur la grid 
+    # If disabled, nothing is drawn from the grid
     compute_power_balances!(h, y, s, mg)
 end
+

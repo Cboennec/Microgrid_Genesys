@@ -15,8 +15,9 @@ using Documenter
 using Main.Genesys
 
 makedocs(sitename="Microgrid Genesys",
-          modules=[Main.Genesys],
-          format=Documenter.HTML())
+          modules=[Genesys],
+          format=Documenter.HTML(),
+          pages = Any["Home" => "index.md"])
 
 
 
