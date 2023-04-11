@@ -6,5 +6,5 @@ blabla
 ```
 ## Functions
 ```@autodocs
-Modules = [Genesys]
+Modules = [Main.Genesys]
 ```
