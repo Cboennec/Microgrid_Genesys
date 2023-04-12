@@ -17,11 +17,16 @@ using Main.Genesys
 makedocs(sitename="Microgrid Genesys",
           modules=[Genesys],
           format=Documenter.HTML(),
-          pages =  pages = Any[
-            "Home" => "index.md",
-            "Page 1" => "page1.md",
-            "Assets" => "assets.md"
-            ])
+          pages = Any[
+            "Home" => "index.md"])
+
+      #,"Page 1" => "page1.md",
+      #"Assets" => "assets.md"      
+deploydocs(
+    repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",
+)
+
+          
 
 
 
