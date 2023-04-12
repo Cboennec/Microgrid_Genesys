@@ -1,0 +1,45 @@
+"""
+    EnergyCarrier
+
+An abstract type representing an energy carrier (e.g., [`Main.Genesys.Electricity`](@ref), [`Main.Genesys.Heat`](@ref), [`Main.Genesys.Hydrogen`](@ref)).
+"""
+abstract type EnergyCarrier end
+
+"""
+    Electricity()
+
+A mutable struct representing electricity as an energy carrier. It is a subtype of `EnergyCarrier`.
+
+# Fields
+- `power::AbstractArray{Float64,3}`: A 3-dimensional array of power values associated with electricity.
+"""
+mutable struct Electricity <: EnergyCarrier
+    power::AbstractArray{Float64,3}
+    Electricity() = new()
+end
+
+"""
+    Heat()
+
+A mutable struct representing heat as an energy carrier. It is a subtype of `EnergyCarrier`.
+
+# Fields
+- `power::AbstractArray{Float64,3}`: A 3-dimensional array of power values associated with heat.
+"""
+mutable struct Heat <: EnergyCarrier
+    power::AbstractArray{Float64,3}
+    Heat() = new()
+end
+
+"""
+    Hydrogen()
+
+A mutable struct representing hydrogen as an energy carrier. It is a subtype of `EnergyCarrier`.
+
+# Fields
+- `power::AbstractArray{Float64,3}`: A 3-dimensional array of power values associated with hydrogen.
+"""
+mutable struct Hydrogen <: EnergyCarrier
+    power::AbstractArray{Float64,3}
+    Hydrogen() = new()
+end
