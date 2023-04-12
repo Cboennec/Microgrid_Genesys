@@ -1,3 +1,4 @@
+import Pkg
 using Pkg
 
 ENV["PYTHON"] = ""
@@ -6,6 +7,7 @@ using Conda
 Conda.add("numpy"; channel="conda-forge")
 
 Pkg.activate(".")
+Pkg.add("Documenter")
 
 Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
 
@@ -18,13 +20,11 @@ makedocs(sitename="Microgrid Genesys",
           modules=[Genesys],
           format=Documenter.HTML(),
           pages = Any[
-            "Home" => "index.md"])
+            "Home" => "index.md",
+            "Page 1" => "page1.md",
+            "Assets" => "assets.md"])
+            
 
-      #,"Page 1" => "page1.md",
-      #"Assets" => "assets.md"      
-deploydocs(
-    repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",
-)
 
           
 
