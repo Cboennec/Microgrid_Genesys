@@ -26,5 +26,10 @@ makedocs(sitename="Microgrid Genesys",
             
 
 
+deploydocs(
+  repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",
+  branch = "main",
+)
+
 
 
