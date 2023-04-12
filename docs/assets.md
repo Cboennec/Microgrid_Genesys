@@ -11,6 +11,16 @@ Genesys.Liion_fixed_lifetime
 Genesys.Liion_energy_exchanged
 ```
 
+### Thermal Storage
+```@docs
+Genesys.ThermalStorage
+```
+
+### Hydrogen
+```@docs
+Genesys.H2Tank
+```
+
 ## Carrier
 ```@docs
 Genesys.EnergyCarrier
