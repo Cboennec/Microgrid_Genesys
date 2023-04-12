@@ -1,29 +1,29 @@
 #=
     Thermal energy storage modelling
  =#
-"
+"""
     ThermalStorage
 
 A mutable struct representing a thermal energy storage model with various parameters, initial conditions, variables, and an inner constructor.
 
 # Fields
-- α_p_ch::Float64: Maximum charging power factor
-- α_p_dch::Float64: Maximum discharging power factor
-- η_ch::Float64: Charging efficiency
-- η_dch::Float64: Discharging efficiency
-- η_self::Float64: Self-discharge rate
-- α_soc_min::Float64: Minimum state of charge factor
-- α_soc_max::Float64: Maximum state of charge factor
-- lifetime::Int64: Storage lifetime in years
-- bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}: Lower and upper bounds of storage capacity
-- Erated_ini::Float64: Initial rated storage energy capacity
-- soc_ini::Float64: Initial state of charge
-- soh_ini::Float64: Initial state of health
-- Erated::AbstractArray{Float64,2}: Rated storage energy capacity over time and scenarios
-- carrier::Heat: Heat carrier for the thermal storage
-- soc::AbstractArray{Float64,3}: State of charge over time, years, and scenarios
-- cost::AbstractArray{Float64,2}: Cost of the thermal storage over time and scenarios
-"
+- `α_p_ch::Float64`: Maximum charging power factor
+- `α_p_dch::Float64`: Maximum discharging power factor
+- `η_ch::Float64`: Charging efficiency
+- `η_dch::Float64`: Discharging efficiency
+- `η_self::Float64`: Self-discharge rate
+- `α_soc_min::Float64`: Minimum state of charge factor
+- `α_soc_max::Float64`: Maximum state of charge factor
+- `lifetime::Int64`: Storage lifetime in years
+- `bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}`: Lower and upper bounds of storage capacity
+- `Erated_ini::Float64`: Initial rated storage energy capacity
+- `soc_ini::Float64`: Initial state of charge
+- `soh_ini::Float64`: Initial state of health
+- `Erated::AbstractArray{Float64,2}`: Rated storage energy capacity over time and scenarios
+- `carrier::Heat`: Heat carrier for the thermal storage
+- `soc::AbstractArray{Float64,3}`: State of charge over time, years, and scenarios
+- `cost::AbstractArray{Float64,2}`: Cost of the thermal storage over time and scenarios
+"""
 mutable struct ThermalStorage <: AbstractStorage
      # Paramètres
      α_p_ch::Float64

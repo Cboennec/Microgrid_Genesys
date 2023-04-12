@@ -2,29 +2,29 @@
     H2 tank storage modelling
  =#
 
- "
+ """
     H2Tank
  
  A mutable struct representing a hydrogen tank storage model with various parameters, initial conditions, variables, and an inner constructor.
  
  # Fields
- - α_p_ch::Float64: Maximum charging power factor (default: 1.5)
- - α_p_dch::Float64: Maximum discharging power factor (default: 1.5)
- - η_ch::Float64: Charging efficiency (default: 1.0)
- - η_dch::Float64: Discharging efficiency (default: 1.0)
- - η_self::Float64: Self-discharge rate (default: 0.0)
- - α_soc_min::Float64: Minimum state of charge factor (default: 0.0)
- - α_soc_max::Float64: Maximum state of charge factor (default: 1.0)
- - lifetime::Int64: Storage lifetime in years (default: 25)
- - bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}: Lower and upper bounds of storage capacity (default: (lb = 0., ub = 10000.))
- - Erated_ini::Float64: Initial rated storage energy capacity (default: 1e-6)
- - soc_ini::Float64: Initial state of charge (default: 0.5)
- - soh_ini::Float64: Initial state of health (default: 1.0)
- - Erated::AbstractArray{Float64,2}: Rated storage energy capacity over time and scenarios
- - carrier::Hydrogen: Hydrogen carrier for the H2 tank
- - soc::AbstractArray{Float64,3}: State of charge over time, years, and scenarios
- - cost::AbstractArray{Float64,2}: Cost of the hydrogen storage over time and scenarios
- "
+ - `α_p_ch::Float64`: Maximum charging power factor (default: 1.5)
+ - `α_p_dch::Float64`: Maximum discharging power factor (default: 1.5)
+ - `η_ch::Float64`: Charging efficiency (default: 1.0)
+ - `η_dch::Float64`: Discharging efficiency (default: 1.0)
+ - `η_self::Float64`: Self-discharge rate (default: 0.0)
+ - `α_soc_min::Float64`: Minimum state of charge factor (default: 0.0)
+ - `α_soc_max::Float64`: Maximum state of charge factor (default: 1.0)
+ - `lifetime::Int64`: Storage lifetime in years (default: 25)
+ - `bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}`: Lower and upper bounds of storage capacity (default: (lb = 0., ub = 10000.))
+ - `Erated_ini::Float64`: Initial rated storage energy capacity (default: 1e-6)
+ - `soc_ini::Float64`: Initial state of charge (default: 0.5)
+ - `soh_ini::Float64`: Initial state of health (default: 1.0)
+ - `Erated::AbstractArray{Float64,2}`: Rated storage energy capacity over time and scenarios
+ - `carrier::Hydrogen`: Hydrogen carrier for the H2 tank
+ - `soc::AbstractArray{Float64,3}`: State of charge over time, years, and scenarios
+ - `cost::AbstractArray{Float64,2}`: Cost of the hydrogen storage over time and scenarios
+ """
  mutable struct H2Tank  <: AbstractStorage
       # Paramètres
       α_p_ch::Float64
