@@ -3,7 +3,7 @@
  =#
 
 """
-H2Tank
+    H2Tank
 
 A mutable struct representing a hydrogen tank storage model with various parameters, initial conditions, variables, and an inner constructor.
 

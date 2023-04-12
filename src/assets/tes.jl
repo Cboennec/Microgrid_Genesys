@@ -1,8 +1,8 @@
 #=
     Thermal energy storage modelling
  =#
- """
- ThermalStorage
+ "
+    ThermalStorage
 
 A mutable struct representing a thermal energy storage model with various parameters, initial conditions, variables, and an inner constructor.
 
@@ -23,7 +23,7 @@ A mutable struct representing a thermal energy storage model with various parame
 - `carrier`::Heat: Heat carrier for the thermal storage
 - `soc`::AbstractArray{Float64,3}: State of charge over time, years, and scenarios
 - `cost`::AbstractArray{Float64,2}: Cost of the thermal storage over time and scenarios
-"""
+"
 mutable struct ThermalStorage <: AbstractStorage
      # Paramètres
      α_p_ch::Float64
