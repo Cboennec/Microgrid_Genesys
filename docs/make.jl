@@ -34,7 +34,7 @@
 
 ###push!(LOAD_PATH,"../src/")
 
-include("src\\Genesys.jl")
+include("src/Genesys.jl")
 using Documenter, Main.Genesys
 
 makedocs(sitename="My Documentation", format = Documenter.HTML(prettyurls = false))
