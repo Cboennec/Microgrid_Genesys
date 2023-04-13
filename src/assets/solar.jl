@@ -2,14 +2,18 @@
     Sources modelling
  =#
 
- "
+"""
     Solar()
 
 Structure for storing the variables neccessary to operate and track the status of the solar panel.
 
 This structure is also an AbstractGeneration
 
-"
+#Example
+
+`Solar(;lifetime = 20)`
+
+"""
 mutable struct Solar <: AbstractGeneration
      lifetime::Int64
      bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}

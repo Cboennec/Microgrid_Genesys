@@ -21,6 +21,11 @@ Genesys.ThermalStorage
 Genesys.H2Tank
 ```
 
+## Generation
+```@docs
+Genesys.Solar
+```
+
 ## Carrier
 ```@docs
 Genesys.EnergyCarrier
