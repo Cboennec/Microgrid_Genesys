@@ -11,7 +11,7 @@ A mutable struct representing energy demand in the grid. The struct is a subtype
 - `timestamp::Array{DateTime,3}`: A 3-dimensional array of DateTime objects representing timestamps associated with the demand.
 
 # Example
-```julia
+
 demand = Demand(carrier = Electricity())
 """
 mutable struct Demand <: AbstractDemand

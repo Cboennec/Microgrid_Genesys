@@ -27,6 +27,4 @@ To learn more about how to use the Genesys module, please refer to the [API Refe
 
 ## Functions
 
-```@autodocs
-Modules = [Main.Genesys]
-```
+

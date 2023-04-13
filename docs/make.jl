@@ -1,35 +1,40 @@
-import Pkg
-using Pkg
+#import Pkg
+#using Pkg
 
-ENV["PYTHON"] = ""
-Pkg.build("PyCall")
-using Conda
-Conda.add("numpy"; channel="conda-forge")
+#ENV["PYTHON"] = ""
+#Pkg.build("PyCall")
+#using Conda
+#Conda.add("numpy"; channel="conda-forge")
 
-Pkg.activate(".")
-Pkg.add("Documenter")
+#Pkg.activate(".")
+#Pkg.add("Documenter")
 
-Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
+#Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
 
-include("src/Genesys.jl")
+#include("src/Genesys.jl")
 
-using Documenter
-using Main.Genesys
+#using Documenter
+#using Main.Genesys
 
-makedocs(sitename="Microgrid Genesys",
-          modules=[Genesys],
-          format=Documenter.HTML(),
-          pages = Any[
-            "Home" => "index.md",
-            "Page 1" => "page1.md",
-            "Assets" => "assets.md"])
+#makedocs(sitename="Microgrid Genesys",
+#          modules=[Genesys],
+#          format=Documenter.HTML(),
+#          pages = Any[
+#            "Home" => "index.md",
+#            "Page 1" => "page1.md",
+#            "Assets" => "assets.md"])
             
 
 
-deploydocs(
-  repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",
-  branch = "main",
-)
+#deploydocs(
+#  repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",
+#  branch = "main",
+#)
 
 
+###push!(LOAD_PATH,"../src/")
 
+include("src\\Genesys.jl")
+using Documenter, Main.Genesys
+
+makedocs(sitename="My Documentation", format = Documenter.HTML(prettyurls = false))
