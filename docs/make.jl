@@ -33,6 +33,17 @@
 
 
 ###push!(LOAD_PATH,"../src/")
+import Pkg
+using Pkg
+
+ENV["PYTHON"] = ""
+Pkg.build("PyCall")
+using Conda
+Conda.add("numpy"; channel="conda-forge")
+
+#Pkg.activate(".")
+
+Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
 
 include("src/Genesys.jl")
 using Documenter, Main.Genesys
