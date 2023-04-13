@@ -53,4 +53,5 @@ makedocs(sitename="My Documentation", format = Documenter.HTML(prettyurls = fals
 deploydocs(
   repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",
   branch = "gh-pages"
+  target = "build"
 )
