@@ -34,10 +34,21 @@ Genesys.Heat
 Genesys.Hydrogen
 ```
 
+## Converter
+```@docs
+Genesys.Electrolyzer
+Genesys.FuelCell
+Genesys.Heater
+```
 ## Demand
 ```@docs
 Genesys.Demand
 ```
 
+## grid
+```@docs
+Genesys.Grid
+Genesys.Microgrid
+```
 
 

@@ -1,11 +1,11 @@
 """
-    GlobalParameters(nh, ny, ns)
+    mutable struct GlobalParameters
 
 Structure containing global parameter for the simulation and optimization.
 
 This struct is contained inside the Microgrid struct and provide global parameters for
 sizing and simulating.
-Parameters are :
+# Parameters :
 * (in sizing context) the number of operation and investment stages (ny, nh) or 
 (in simulation context) Time horizon and number of operation per year (ny, nh); 
 * the number of scenario (ns);
@@ -29,7 +29,7 @@ mutable struct GlobalParameters
 end
 
 
-"
+"""
     Microgrid()
 
 Structure containing every element of the grid including immaterial ones like electrical
@@ -46,7 +46,7 @@ production/generation assets;
 
 These assets can be later added with the add!(mg::Microgrid, assets...) 
 See also [`Main.Genesys.add!`](@ref) for a step by step declaration
-"
+"""
 mutable struct Microgrid
     parameters::GlobalParameters
     demands::Vector{AbstractDemand}
@@ -59,7 +59,6 @@ mutable struct Microgrid
 end
 
 
-
 """
     add!(mg::Microgrid, assets...)
 
@@ -69,7 +68,7 @@ vector.
 
 Meanwhile data struct are created,
 they are sized according to the number of scenario, years, and hours per year, ns, ny, nh
- resulting in 3D arrays
+ resulting in 3D arrays for usage in contexte see [Example section](Example.md#Constructing the grid)
 """
 function add!(mg::Microgrid, assets...)
     mg.demands = [preallocate!(a, mg.parameters.nh, mg.parameters.ny, mg.parameters.ns) for a in assets if a isa AbstractDemand]

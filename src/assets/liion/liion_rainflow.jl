@@ -3,52 +3,42 @@
  =#
 
 
- soc_model_names = ["tremblay_dessaint", "linear", "vermeer", "artificial", "polynomial"]
+ soc_model_names = ["tremblay_dessaint", "linear", "vermeer", "artificial"]
 
 #rainflow ref : Optimal Battery Control Under Cycle Aging Mechanisms in Pay for Performance Settings
 # Yuanyuan Shi, Bolun Xu, Yushi Tan, Daniel Kirschen, Baosen Zhang
-
 """
     Liion_rainflow
 
 A mutable struct that represents a Li-ion battery model with rainflow counting algorithm for State of Health (SoH) computation.
 
-Parameters:
-  - α_p_ch::Float64: Charging maximum C-rate
-  - α_p_dch::Float64: Discharging  maximum C-rate
-  - η_ch::Float64: Charging yield/efficiency
-  - η_dch::Float64: Discharging yield/efficiency
-  - η_self::Float64: Auto discharge factor
-  - α_soc_min::Float64: Minimum threshold of charge (normalized)
-  - α_soc_max::Float64: Maximum threshold of charge (normalized)
-  - lifetime::Int64: Battery lifetime (in years)
-  - nCycle::Float64: Number of cycles
-  - bounds::NamedTuple: Named tuple containing the lower and upper bounds for the battery
-  - SoH_threshold::Float64: SoH level to replace the battery
-  - couplage::NamedTuple: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
-  - soc_model::String: Model name for State of Charge (SoC) computation
-  - calendar::Bool: Whether to include calendar aging in the SoH computation
-  - Erated_ini::Float64: Initial battery capacity in Wh
-  - soc_ini::Float64: Initial State of Charge (SoC) for the beginning of the simulation
-  - soh_ini::Float64: Initial State of Health (SoH) for the beginning of the simulation
-  - update_by_year::Int64: Rainflow SoH computation by year
-  - fatigue_data::DataFrames.DataFrame: DataFrame containing fatigue data (DoD, ncycle)
-  - artificial_soc_profil::Array{Float64,2}: SoC profile for study purposes
-  - Erated::AbstractArray{Float64,2}: Battery capacity
-  - carrier::Electricity: Type of energy
-  - soc::AbstractArray{Float64,3}: 3D matrix containing the State of Charge (SoC)
-  - soh::AbstractArray{Float64,3}: 3D matrix containing the State of Health (SoH)
-  - voltage::Array{Float64,3}: Voltage evolution
-  - current::Array{Float64,3}: Current evolution
-  - tremblay_dessaint_params::Tremblay_dessaint_params: Parameters specific to the Tremblay-Dessaint model
-  - cost::AbstractArray{Float64,2}: Cost associated with the battery
+The structure have a lot of parameters but most of them are set to default values.
+
+# Parameters:
+  - `α_p_ch::Float64`: Charging maximum C-rate (default : 1.5)
+  - `α_p_dch::Float64`: Discharging  maximum C-rate (default : 1.5)
+  - `α_soc_min::Float64`: Minimum threshold of charge (normalized) (default : 0.2)
+  - `α_soc_max::Float64`: Maximum threshold of charge (normalized) (default : 0.8)
+  - `SoH_threshold::Float64`: SoH level to replace the battery (default : 0.8)
+  - `couplage::NamedTuple`: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
+  - `soc_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
+  - `calendar::Bool`: Whether to include calendar aging in the SoH computation  (default : true)
+  - `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
+  - `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
+  - `update_by_year::Int64`: Rainflow SoH computation by year (default : 12)
+  - `fatigue_data::DataFrames.DataFrame`: DataFrame containing fatigue data (DoD, ncycle) (Default NMC battery data are provided)
+
+## example
+```julia
+Liion_rainflow(update_by_year = 12, calendar = true, soc_model = "linear", couplage = (E=true, R=true))
+```
 """
 mutable struct Liion_rainflow <: AbstractLiion
 	# Parameters
 	α_p_ch::Float64
 	α_p_dch::Float64
-	η_ch::Float64 #Charging yield / efficiency
-	η_dch::Float64 #Discharging yield / efficiency
+	η_ch::Float64 #Charging yield / efficacity
+	η_dch::Float64 #Discharging yield / efficacity
 	η_self::Float64 #Auto discarge factor
 	α_soc_min::Float64 #min threshold of charge (normalized)
 	α_soc_max::Float64 #max threshold of charge (normalized)
@@ -146,10 +136,7 @@ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_
 		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_soc_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
 	elseif liion.soc_model == "artificial"
 
-	elseif liion.soc_model == "polynomial"
-		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_polynomial(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
 	end
-
 
 
 #	if liion.soc[h+1,y,s] > 0.805 || liion.soc[h+1,y,s] < 0.195
@@ -165,7 +152,7 @@ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_
 		interval = (h-h_between_update+1):h
 
 		if isnan(liion.soc[interval[2],y,s])
-			println("y = : ",y, ";     soc = ", liion.soc[interval[2],y,s])
+			println("y = : ",y, ";     soc = ", soc)
 			println("interval = : ", interval)
 		end
 

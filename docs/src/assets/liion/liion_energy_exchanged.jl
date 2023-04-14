@@ -23,7 +23,7 @@ The structure have a lot of parameters but most of them are set to default value
 - `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
 - `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
 
-Example 
+## Example 
 ```julia
 Liion_energy_exchanged(;calendar = true, nCycle = fatigue_data.cycle[findfirst(fatigue_data.DoD .> (0.6))], soc_model = "polynomial", couplage = (E=true, R=true))
 ```

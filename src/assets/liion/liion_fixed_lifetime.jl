@@ -6,6 +6,30 @@
     Li-ion battery modelling
  =#
 
+ """
+ 	Liion_fixed_lifetime
+
+A mutable struct that represents a Li-ion battery model with a linear calendar aging for State of Health (SoH) computation.
+
+The structure have a lot of parameters but most of them are set to default values.
+
+# Parameters:
+- `α_p_ch::Float64`: Charging maximum C-rate (default : 1.5)
+- `α_p_dch::Float64`: Discharging  maximum C-rate (default : 1.5)
+- `α_soc_min::Float64`: Minimum threshold of charge (normalized) (default : 0.2)
+- `α_soc_max::Float64`: Maximum threshold of charge (normalized) (default : 0.8)
+- `SoH_threshold::Float64`: SoH level to replace the battery (default : 0.8)
+- `couplage::NamedTuple`: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
+- `soc_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
+- `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
+- `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
+
+## Example 
+```julia
+Liion_fixed_lifetime(;soc_model = "polynomial", couplage = (E=true, R=true))
+```
+
+"""
  mutable struct Liion_fixed_lifetime <: AbstractLiion
 
 
@@ -87,23 +111,13 @@ end
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_fixed_lifetime, decision::Float64, Δh::Int64)
     #Cycle part
 
-	if liion.soc_model == "tremblay_dessaint"
-		liion.soc[h+1,y,s], liion.voltage[h+1,y,s], liion.carrier.power[h,y,s], liion.current[h,y,s] = compute_operation_soc_tremblay_dessaint(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]),  liion.voltage[h,y,s], decision, Δh)
-	elseif  liion.soc_model == "linear"
-		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_linear(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
-	elseif liion.soc_model == "artificial"
+        liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_linear(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
 
-	elseif liion.soc_model == "polynomial"
-		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_polynomial(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
-	end
+        liion.soh[h+1,y,s] = liion.soh[h,y,s] - ((1 - liion.SoH_threshold) * Δh)/(8760 * liion.lifetime)
 
-
-	#liion.soh[h+1,y,s] = liion.soh[h,y,s] - ((1 - liion.SoH_threshold) * Δh)/(8760 * liion.lifetime)
-
-	liion.soh[h+1,y,s] = liion.soh[h,y,s] - (1 - exp(- 4.14e-10 * 3600 * Δh))
-    # if y >1 && (y-1) % liion.lifetime == 0 && h == 8760
-    #     liion.soh[h+1,y,s] = 0
-    # end
+     if y >1 && (y-1) % liion.lifetime == 0 && h == 8760
+         liion.soh[h+1,y,s] = 0
+     end
 end
 
 # function compute_operation_dynamics(liion::Liion_fixed_lifetime, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)

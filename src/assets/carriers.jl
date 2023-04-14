@@ -1,45 +1,58 @@
-
-
-"
+"""
     EnergyCarrier
 
-Abstract type for energy carrier 
-
-This is the generic container for energy carrier types
-"
+An abstract type representing an energy carrier (e.g., [`Main.Genesys.Electricity`](@ref), [`Main.Genesys.Heat`](@ref), [`Main.Genesys.Hydrogen`](@ref)).
+"""
 abstract type EnergyCarrier end
 
-"
-    Electricity()
+"""
+    Electricity
 
-Structure containing a 3D array of electricity powers (for each scenario for each year for each hour).
+A mutable struct representing electricity as an energy carrier. It is a subtype of `EnergyCarrier`.
 
-Should be incorporated into any structure implying carrying electricity.
-"
+# Fields
+- `power::AbstractArray{Float64,3}`: A 3-dimensional array of power values associated with electricity.
+
+## Example 
+```julia
+Electricity()
+```
+"""
 mutable struct Electricity <: EnergyCarrier
     power::AbstractArray{Float64,3}
     Electricity() = new()
 end
 
-"
-    Heat()
+"""
+    Heat
 
-Structure containing a 3D array of electricity powers (for each scenario for each year for each hour).
+A mutable struct representing heat as an energy carrier. It is a subtype of `EnergyCarrier`.
 
-Should be incorporated into any structure implying carrying heat.
-"
+# Fields
+- `power::AbstractArray{Float64,3}`: A 3-dimensional array of power values associated with heat.
+
+## Example 
+```julia
+Heat()
+```
+"""
 mutable struct Heat <: EnergyCarrier
     power::AbstractArray{Float64,3}
     Heat() = new()
 end
 
-"
-    Hydrogen()
+"""
+    Hydrogen
 
-Structure containing a 3D array of electricity powers (for each scenario for each year for each hour).
+A mutable struct representing hydrogen as an energy carrier. It is a subtype of `EnergyCarrier`.
 
-Should be incorporated into any structure implying carrying hydrogen.
-"
+# Fields
+- `power::AbstractArray{Float64,3}`: A 3-dimensional array of power values associated with hydrogen.
+
+```julia
+Hydrogen()
+```
+"""
 mutable struct Hydrogen <: EnergyCarrier
     power::AbstractArray{Float64,3}
     Hydrogen() = new()

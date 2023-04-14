@@ -1,7 +1,35 @@
+#TODO Le rendement utilisé ne doit pas être défini dans la fonction  compute_operation_soc_linear
+#TODO Ici c'est fait dans compute_operation_dynamics
 #=
     Li-ion battery modelling
  =#
+ """
+	Liion_energy_exchanged
 
+A mutable struct that represents a Li-ion battery model Energy Throughput aging model for State of Health (SoH) computation.
+
+The structure have a lot of parameters but most of them are set to default values.
+
+# Parameters:
+- `α_p_ch::Float64`: Charging maximum C-rate (default : 1.5)
+- `α_p_dch::Float64`: Discharging  maximum C-rate (default : 1.5)
+- `α_soc_min::Float64`: Minimum threshold of charge (normalized) (default : 0.2)
+- `α_soc_max::Float64`: Maximum threshold of charge (normalized) (default : 0.8)
+- `nCycle::Float64`: Number of cycle before reaching EOL (should be found in the cycle to failure curve)
+- `SoH_threshold::Float64`: SoH level to replace the battery (default : 0.8)
+- `couplage::NamedTuple`: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
+- `soc_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
+- `calendar::Bool`: Whether to include calendar aging in the SoH computation  (default : true)
+- `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
+- `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
+
+## Example 
+```julia
+Liion_energy_exchanged(;calendar = true, nCycle = fatigue_data.cycle[findfirst(fatigue_data.DoD .> (0.6))], soc_model = "polynomial", couplage = (E=true, R=true))
+```
+
+Here the `nCycle` is selected from the cycle to failure curve using 60% DoD.
+"""
  mutable struct Liion_energy_exchanged <: AbstractLiion
 
 
@@ -90,53 +118,55 @@ function preallocate!(liion::Liion_energy_exchanged, nh::Int64, ny::Int64, ns::I
 end
 
 
-
-"
-	compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_energy_exchanged, decision::Float64, Δh::Int64)
-
-Compute battery states (of charge and heath) for a given decision from the EMS (controller) and a hour h, year y, and scenario s.
-
-More precisly this function call the right SoC model  and the right SoH model (see [`Main.Genesys.compute_operation_soh_Exchange_Energy`](@ref)) and store the returned value as new states.
-"
+ ### Operation dynamic
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_energy_exchanged, decision::Float64, Δh::Int64)
 
     #Cycle part
     if liion.soc_model == "artificial"
         liion.soh[h+1,y,s] = liion.soh[h,y,s] - (liion.Erated[y,s] * (abs(liion.soc[h+1,y,s] - liion.soc[h,y,s])))  / (2. * liion.nCycle * liion.Erated[y,s] * (liion.α_soc_max - liion.α_soc_min) )
-    elseif liion.soc_model == "tremblay_dessaint"
-		liion.soc[h+1,y,s], liion.voltage[h+1,y,s], liion.carrier.power[h,y,s], liion.current[h,y,s] = compute_operation_soc_tremblay_dessaint(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]),  liion.voltage[h,y,s], decision, Δh)
-	elseif liion.soc_model == "linear"
+    else
         liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_linear(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
-	elseif liion.soc_model == "polynomial"
-		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_polynomial(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
-	end
- 
 
+    	power_dch, power_ch = get_power_flow(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
 
-	liion.soh[h+1,y,s] = compute_operation_soh_Exchange_Energy(liion, h, y, s, Δh)
-	
-end
-
-
-function compute_operation_soh_Exchange_Energy(liion::Liion_energy_exchanged, h::Int64, y::Int64, s::Int64, Δh::Int64)
-	if liion.couplage.E
-		Erated = liion.Erated[y,s] * liion.soh[h,y,s]
-	else
-		Erated = liion.Erated[y,s]
-	end
-
-    #power_dch, power_ch = get_power_flow(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
-	SOH = liion.soh[h,y,s] - (abs(liion.soc[h,y,s] - liion.soc[h+1,y,s]) * Erated) * Δh / (2. * liion.nCycle * (liion.α_soc_max - liion.α_soc_min) * liion.Erated[y,s])
-	
-    #Calendar part
-    if liion.calendar == true
-        SOH = SOH - (1 - exp(- 4.14e-10 * 3600 * Δh))
+        liion.soh[h+1,y,s] = liion.soh[h,y,s] - (power_dch - power_ch) * Δh / (2. * liion.nCycle * (liion.α_soc_max - liion.α_soc_min) * liion.Erated[y,s])
     end
 
-	return SOH
+    #Calendar part
+    if liion.calendar == true
+        liion.soh[h+1,y,s] = liion.soh[h+1,y,s] - (1 - exp(- 4.14e-10 * 3600 * Δh))
+    end
 
 end
+#
+# function compute_operation_dynamics(liion::Liion_energy_exchanged, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)
+#
+#      η_ini = 0.95
+#
+#  	if liion.couplage.E
+#  	 Erated = state.Erated * state.soh
+#  	else
+#  	 Erated = state.Erated
+#  	end
+#
+#  	if liion.couplage.R
+#  		η = η_ini - ((1-state.soh)/12)   #(15) simplifié
+#  	else
+#  		η = η_ini
+#  	end
+#
+#      # Control power constraint and correction
+#      power_dch = max(min(decision, liion.α_p_dch * Erated, state.soh * Erated / Δh, η * (state.soc * (1. - liion.η_self * Δh) - liion.α_soc_min) * Erated / Δh), 0.)
+#      power_ch = min(max(decision, -liion.α_p_ch * Erated, -state.soh * Erated / Δh, (state.soc * (1. - liion.η_self * Δh) - liion.α_soc_max) * Erated / Δh / η), 0.)
+#      # SoC dynamic
+#      # soc_next = state.soc * (1. - liion.η_self * Δh) - (power_ch * η + power_dch / η) * Δh / Erated
+#      soc_next = state.soc - (power_ch * η + power_dch / η) * Δh / Erated
+#      # SoH dynamic
+#      soh_next = state.soh - (power_dch - power_ch) * Δh / (2. * liion.nCycle * (liion.α_soc_max - liion.α_soc_min) * state.Erated)
+#      return soc_next, soh_next, power_dch + power_ch
+# end
 
+ ### Investment dynamic
 
   ### Investment dynamic
   function compute_investment_dynamics!(y::Int64, s::Int64, liion::Liion_energy_exchanged, decision::Union{Float64, Int64})

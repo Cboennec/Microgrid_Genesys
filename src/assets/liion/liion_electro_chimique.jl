@@ -5,27 +5,8 @@
 #[1] Modeling of Lithium-Ion Battery Degradation for Cell Life Assessment
 #Authors : Bolun Xu, Student Member, IEEE, Alexandre Oudalov, Andreas Ulbig, Member, IEEE, Göran Andersson, Fellow, IEEE, and Daniel S. Kirschen, Fellow, IEEE
 
-soc_model_names = ["tremblay_dessaint", "linear", "vermeer", "artificial", "polynomial"]
+soc_model_names = ["tremblay_dessaint", "linear", "vermeer", "artificial"]
 
-"
-	Electro_chimique_params(; alpha_sei = 5.75e-2,
-	beta_sei = 121,
-	k_delta1 = 1.0487e-4,
-	k_delta2 = 2.03,
-	k_sigma = 1.04,
-	sigma_ref = 0.5,
-   	k_T = 6.93e-2,
-   	T_ref = 298,
-   	k_t = 4.14e-10)
-
-Structure for storing the empirical value of the aging model.
-
-The values for parameters are fitted for a given cycle to failure curve displayed in the model reference article.
-
-Model reference :  Modeling of Lithium-Ion Battery Degradation for Cell Life Assessment
-Authors : Bolun Xu, Alexandre Oudalov, Andreas Ulbig, Göran Andersson and Daniel S. Kirschen
-
-"
 mutable struct Electro_chimique_params
    alpha_sei::Float64
    beta_sei::Float64
@@ -42,7 +23,7 @@ mutable struct Electro_chimique_params
    # for NMC parameters #
    #Technoeconomic model of second-life batteries for utility-scale solar
    #considering calendar and cycle aging
-   #Ian Mathews, Bolun Xu, Wei He, Vanessa Barreto, Tonio Buonassisi, Ian Marius Peters
+   #Ian Mathewsa,⁎, Bolun Xub, Wei Hea, Vanessa Barretoc, Tonio Buonassisia, Ian Marius Peters
 
    Electro_chimique_params(; alpha_sei = 5.75e-2,
     beta_sei = 121,
@@ -57,20 +38,35 @@ end
 
 
 
-
-
-"
+#rainflow ref : Optimal Battery Control Under Cycle Aging Mechanisms in Pay for Performance Settings
+# Yuanyuan Shi, Bolun Xu, Yushi Tan, Daniel Kirschen, Baosen Zhang
+"""
 	Liion_electro_chimique
 
-Structure for storing the empirical value of the aging model.
+A mutable struct that represents a Li-ion battery aging model for State of Health (SoH) computation. This model is detailled in B. Xu et al. "Modeling of Lithium-Ion Battery Degradation for Cell Life Assessment,"  doi : 10.1109/TSG.2016.2578950, [link](https://ieeexplore.ieee.org/document/7488267).
 
-Model reference :  Modeling of Lithium-Ion Battery Degradation for Cell Life Assessment
-Authors : Bolun Xu, Alexandre Oudalov, Andreas Ulbig, Göran Andersson and Daniel S. Kirschen
+The structure have a lot of parameters but most of them are set to default values.
 
-This struct conatins a lot of parameters
-	#TODO param list
+# Parameters:
+  - `α_p_ch::Float64`: Charging maximum C-rate (default : 1.5)
+  - `α_p_dch::Float64`: Discharging  maximum C-rate (default : 1.5)
+  - `α_soc_min::Float64`: Minimum threshold of charge (normalized) (default : 0.2)
+  - `α_soc_max::Float64`: Maximum threshold of charge (normalized) (default : 0.8)
+  - `SoH_threshold::Float64`: SoH level to replace the battery (default : 0.8)
+  - `couplage::NamedTuple`: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
+  - `temperature::Float64`: Temperature of the battery (no temprature model is implemented for the battery).
+  - `soc_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
+  - `calendar::Bool`: Whether to include calendar aging in the SoH computation  (default : true)
+  - `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
+  - `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
+  - `update_by_year::Int64`: Rainflow SoH computation by year (default : 12)
+  - `fatigue_data::DataFrames.DataFrame`: DataFrame containing fatigue data (DoD, ncycle) (Default NMC battery data are provided)
 
-"
+## Example 
+```julia
+Liion_electro_chimique(update_by_year = 12, soc_model = "linear", couplage = (E=true, R=true))
+```
+"""
    mutable struct Liion_electro_chimique <: AbstractLiion
 
 	   # Parameters
@@ -87,7 +83,7 @@ This struct conatins a lot of parameters
    	SoH_threshold::Float64 # SoH level to replace battery
    	couplage::NamedTuple{(:E, :R), Tuple{Bool, Bool}}  #a boolean tuple to tell wether or not the soh should influence the other parameters.
 
-	#needed for SoH computation but currently used as a constant (unit : Kelvin)
+	#needed for SoH computation but currently used as a constant
 	temperature::Float64
 
    	#Model dynamics
@@ -144,11 +140,7 @@ This struct conatins a lot of parameters
 
 end
 
-"
-	preallocate!(liion::Liion_electro_chimique, nh::Int64, ny::Int64, ns::Int64)
-
-Create and initialize every data struct nested in the Liion_electro_chimique structure 
-"
+### Preallocation
  function preallocate!(liion::Liion_electro_chimique, nh::Int64, ny::Int64, ns::Int64)
      liion.Erated = convert(SharedArray,zeros(ny+1, ns)) ; liion.Erated[1,:] .= liion.Erated_ini
      liion.carrier = Electricity()
@@ -159,7 +151,7 @@ Create and initialize every data struct nested in the Liion_electro_chimique str
 		 liion.soc = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; liion.soc[1,1,:] .= liion.soc_ini
      end
      liion.soh = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; liion.soh[1,1,:] .= liion.soh_ini
-	 liion.voltage = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; liion.voltage[1,1:2,:] .= 3.7 #ça ne devrait pas être en dur dans le code
+	 liion.voltage = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; liion.voltage[1,1:2,:] .= 3.7
 	 liion.current = convert(SharedArray,zeros(nh+1, ny+1, ns))
      liion.cost = convert(SharedArray,zeros(ny, ns))
 	 liion.tremblay_dessaint_params = Tremblay_dessaint_params()
@@ -168,13 +160,7 @@ Create and initialize every data struct nested in the Liion_electro_chimique str
      return liion
  end
 
- "
- 	compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_electro_chimique, decision::Float64, Δh::Int64)
-
-Compute battery states (of charge and heath) for a given decision from the EMS (controller) and a hour h, year y, and scenario s.
-
-More precisly this function call the right SoC model  and the right SoH model (see [`Main.Genesys.compute_operation_soh_rainflow`](@ref)) and store the returned value as new states.
-"
+ ### Operation dynamic
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_electro_chimique, decision::Float64, Δh::Int64)
 
 	if liion.soc_model == "tremblay_dessaint"
@@ -183,8 +169,6 @@ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_
 		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_linear(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
 	elseif liion.soc_model == "artificial"
 
-	elseif liion.soc_model == "polynomial"
-		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_polynomial(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
 	end
 
 
@@ -194,6 +178,11 @@ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_
 		liion.soh[h+1,y,s] = liion.soh[h,y,s]
     else #rainflow computaion
 		interval = (h-h_between_update+1):h
+
+		if isnan(liion.soc[interval[2],y,s])
+			println("y = : ",y, ";     soc = ", liion.soc[h,y,s])
+			println("interval = : ", interval)
+		end
 
 		liion.soh[h+1,y,s], liion.Sum_fd[s] = compute_operation_soh_rainflow(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh,  liion.soc[interval,y,s], liion.Sum_fd[s])
     end
@@ -206,17 +195,7 @@ end
  ##### SOH models #######
  ########################
 
- "
-	compute_operation_soh_rainflow(liion::Liion_electro_chimique, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64, soc::Vector{Float64}, Sum_fd::Float64)
 
-Compute the current state of health for the battery as a function of the current fatigue and the input soc profil.
-
-The soc profil given by the soc parameter is analyzed and converted to a list of DoD (for each cycles,
-for more detail see 'Optimal Battery Control Under Cycle Aging Mechanisms in Pay for Performance Settings' 
-by Yuanyuan Shi, Bolun Xu, Yushi Tan, Daniel Kirschen, Baosen Zhang) and an associated list of mean SoC during each cycle.
-A fatigue value is then associated to each cycle as a function of it's DoD, mean SoC and the current fatigue (this advancement of the SEI formation)
-#TODO changer le nom du param soc en soc_profil
-"
  function compute_operation_soh_rainflow(liion::Liion_electro_chimique, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64, soc::Vector{Float64}, Sum_fd::Float64)
 
 	soc_peak, soc_peak_id = get_soc_peaks(soc)
@@ -272,74 +251,38 @@ A fatigue value is then associated to each cycle as a function of it's DoD, mean
 
 end
 
-"
-	S_delta(params::Electro_chimique_params, DoD::Float64)
-
-Compute the fatigue factor associated to the DoD
-"
 function S_delta(params::Electro_chimique_params, DoD::Float64)
 	return params.k_delta1 * (DoD ^ params.k_delta2)
 end
 
-"
-	S_T(params::Electro_chimique_params, T::Float64)
-
-Compute the fatigue factor associated to the Temperature
-"
 function S_T(params::Electro_chimique_params, T::Float64)
 	return exp(params.k_T*(T-params.T_ref) * (params.T_ref/T))
 end
 
-"
-	S_sigma(params::Electro_chimique_params, mean_SoC::Float64)
-
-Compute the fatigue factor associated to the mean SoC
-"
 function S_sigma(params::Electro_chimique_params, mean_SoC::Float64)
 	return exp(params.k_sigma * (mean_SoC  - params.sigma_ref))
 end
 
-"
-	S_t(params::Electro_chimique_params, t::Int64)
-
-Compute the fatigue factor associated to the time elapsed
-"
 function S_t(params::Electro_chimique_params, t::Int64)
 	return params.k_t * t * 3600 #hours to second
 end
 
-"
-	compute_fd(params::Electro_chimique_params, DoD::Float64, T::Float64, mean_SoC::Float64, t::Int64)
-
-Compute the combined fatigue factor of all factors (DoD, mean SoC, time, temprature)
-"
 function compute_fd(params::Electro_chimique_params, DoD::Float64, T::Float64, mean_SoC::Float64, t::Int64)
 	return (0.5 * S_delta(params, DoD) + S_t(params, t)) * S_sigma(params, mean_SoC) * S_T(params, T)
 end
 
-
-
-"
-	compute_investment_dynamics!(y::Int64, s::Int64, liion::Liion_electro_chimique, decision::Union{Float64, Int64})
-
-Replace the battery if needed for year y and scenario s. If the battery is replaced a new size is affected and all param are reseted.
-" 
-function compute_investment_dynamics!(y::Int64, s::Int64, liion::Liion_electro_chimique, decision::Union{Float64, Int64})
+ ### Investment dynamic
+ function compute_investment_dynamics!(y::Int64, s::Int64, liion::Liion_electro_chimique, decision::Union{Float64, Int64})
      liion.Erated[y+1,s], liion.soc[1,y+1,s], liion.soh[1,y+1,s], liion.voltage[1,y+1,s], liion.Sum_fd[s] = compute_investment_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[end,y,s], soh = liion.soh[end,y,s], voltage = liion.voltage[end,y,s], Sum_fd = liion.Sum_fd[s]), decision)
  end
 
- "
-	compute_investment_dynamics(liion::Liion_electro_chimique, state::NamedTuple{(:Erated, :soc, :soh, :voltage, :Sum_fd), Tuple{Float64, Float64, Float64, Float64, Float64}}, decision::Union{Float64, Int64})
-
-Replace the battery if needed. If the battery is replaced a new size is affected and all param are reseted.
-" 
  function compute_investment_dynamics(liion::Liion_electro_chimique, state::NamedTuple{(:Erated, :soc, :soh, :voltage, :Sum_fd), Tuple{Float64, Float64, Float64, Float64, Float64}}, decision::Union{Float64, Int64})
-     if decision > 1e-2  #battery replacement
+     if decision > 1e-2
          Erated_next = decision
          soc_next = liion.soc_ini
          soh_next =  1.
 		 Sum_fd_next = 0.
-		
+		 #battery replacement
      else
          Erated_next = state.Erated
          soc_next = state.soc
@@ -350,19 +293,17 @@ Replace the battery if needed. If the battery is replaced a new size is affected
 	 if state.voltage != 0
 	 	voltage_next = state.voltage
 	 else
-		 voltage_next = 3.7 #ça ne devrait pas être en dur dans le code
+		 voltage_next = 3.7
+		#error(state.voltage ," is not a value suited for voltage, look like there is a probleme with the computation of this field ")
 	 end
 
      return Erated_next, soc_next, soh_next, voltage_next, Sum_fd_next
  end
 
-"
 
-" 
-#for rule based π_1 #TODO change computataion for soc and soh
+#for rule based #TODO change computataion for soc and soh
  function compute_operation_dynamics(liion::Liion_electro_chimique, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)
       # Control power constraint and correction
-	  println("mauvaise fucntion")
 	  if liion.couplage.E
      	 Erated = state.Erated * state.soh
       else
@@ -380,16 +321,7 @@ Replace the battery if needed. If the battery is replaced a new size is affected
  end
 
 
- "
- verification_liion_params(α_p_ch::Float64, α_p_dch::Float64, η_ch::Float64, η_dch::Float64, η_self::Float64,
- 	α_soc_min::Float64, α_soc_max::Float64, lifetime::Int64, nCycle::Float64, bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}},
- 	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, soc_model::String, Erated_ini::Float64, soc_ini::Float64,
- 	soh_ini::Float64, update_by_year::Int64, artificial_soc_profil::Array{Float64,2})
 
-
-Parameter validation function. Since the battery got a lot of parameters, it's role is to check if their value is coherent. 
-This doesnt prevent all mistakes but will not authorize declaration with non existing models for exemple.
-It is called each time a liion battery is declared." 
  function verification_liion_params(α_p_ch::Float64, α_p_dch::Float64, η_ch::Float64, η_dch::Float64, η_self::Float64,
  	α_soc_min::Float64, α_soc_max::Float64, lifetime::Int64, nCycle::Float64, bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}},
  	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, soc_model::String, Erated_ini::Float64, soc_ini::Float64,
