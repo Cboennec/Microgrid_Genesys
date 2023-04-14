@@ -14,7 +14,7 @@ A mutable struct that represents a Li-ion battery model with rainflow counting a
 
 The structure have a lot of parameters but most of them are set to default values.
 
-Parameters:
+# Parameters:
   - `α_p_ch::Float64`: Charging maximum C-rate (default : 1.5)
   - `α_p_dch::Float64`: Discharging  maximum C-rate (default : 1.5)
   - `α_soc_min::Float64`: Minimum threshold of charge (normalized) (default : 0.2)
@@ -28,7 +28,10 @@ Parameters:
   - `update_by_year::Int64`: Rainflow SoH computation by year (default : 12)
   - `fatigue_data::DataFrames.DataFrame`: DataFrame containing fatigue data (DoD, ncycle) (Default NMC battery data are provided)
 
-Example of usage : `Liion_rainflow(update_by_year = 12, calendar = true, soc_model = "linear", couplage = (E=true, R=true))`
+## example
+```julia
+Liion_rainflow(update_by_year = 12, calendar = true, soc_model = "linear", couplage = (E=true, R=true))
+```
 """
 mutable struct Liion_rainflow <: AbstractLiion
 	# Parameters

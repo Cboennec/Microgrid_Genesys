@@ -1,7 +1,30 @@
 #=
     Heater modelling
  =#
+"""
+    mutable struct Heater <: AbstractConverter
 
+A mutable struct representing a Heater, which is a subtype of `AbstractConverter`.
+
+# Parameters
+- `η_E_H::Float64`: The conversion efficiency of the heater.
+- `lifetime::Int64`: The expected lifetime of the heater (in years).
+- `bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}`: The lower and upper bounds of the heater's power.
+- `powerMax_ini::Float64`: The initial maximum power output of the heater.
+- `soh_ini::Float64`: The initial state of health of the heater.
+
+# Variables
+- `powerMax::AbstractArray{Float64,2}`: The maximum power output of the heater.
+- `carrier::Vector{Any}`: The carrier vector.
+- `cost::AbstractArray{Float64,2}`: The cost associated with the heater.
+
+
+## Example
+
+```julia
+heater = Heater(η_E_H=1.0, lifetime=25, bounds=(lb=30.0, ub=30.0), powerMax_ini=30.0, soh_ini=1.0)
+```
+"""
 mutable struct Heater <: AbstractConverter
      # Parameters
      η_E_H::Float64

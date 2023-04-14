@@ -2,11 +2,11 @@
     Sources modelling
  =#
 """
-    Solar <: AbstractGeneration
+    mutable struct Solar <: AbstractGeneration
 
 A mutable struct representing a solar power generation source. It contains information about the lifetime, bounds, initial conditions, variables, and costs related to the solar generation.
 
-Parameters
+# Parameters
 -`lifetime::Int64 (default: 25)`: The lifetime of the solar power generation system.
 -`bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}} (default: (lb = 0., ub = 1000.))`: The lower and upper bounds of the solar power generation system.
 -`powerMax_ini::Float64 (default: 0.)`: The initial maximum power output of the solar power generation system.

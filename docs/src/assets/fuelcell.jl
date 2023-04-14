@@ -1,7 +1,38 @@
 #=
     Fuel cell modelling
  =#
+"""
+    mutable struct FuelCell <: AbstractConverter
 
+A mutable struct representing a FuelCell, which is a subtype of `AbstractConverter`.
+
+# Parameters
+- `α_p::Float64`: The performance degradation factor.
+- `η_H2_E::Float64`: The conversion efficiency of hydrogen to electricity.
+- `η_H2_H::Float64`: The conversion efficiency of hydrogen to heat.
+- `lifetime::Int64`: The expected lifetime of the fuel cell (in years).
+- `nHoursMax::Float64`: The maximum number of operational hours for the fuel cell.
+- `bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}`: The lower and upper bounds of the fuel cell's power.
+
+# Initial conditions
+- `powerMax_ini::Float64`: The initial maximum power output of the fuel cell.
+- `soh_ini::Float64`: The initial state of health of the fuel cell.
+
+# Variables
+- `powerMax::AbstractArray{Float64,2}`: The maximum power output of the fuel cell.
+- `carrier::Vector{EnergyCarrier}`: The vector of energy carriers associated with the fuel cell.
+- `soh::AbstractArray{Float64,3}`: The state of health of the fuel cell.
+
+# Eco
+- `cost::AbstractArray{Float64,2}`: The cost associated with the fuel cell.
+
+
+## Example
+
+```julia
+fuel_cell = FuelCell(α_p=0.08, η_H2_E=0.4, η_H2_H=0.4, lifetime=14, nHoursMax=10000.0, bounds=(lb=0.0, ub=50.0), powerMax_ini=0.0, soh_ini=1.0)
+```
+"""
 mutable struct FuelCell <: AbstractConverter
      # Paramètres
      α_p::Float64

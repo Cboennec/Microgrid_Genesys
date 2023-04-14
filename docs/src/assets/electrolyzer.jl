@@ -1,7 +1,38 @@
 #=
     Electrolyzer modelling
  =#
+"""
+    mutable struct Electrolyzer <: AbstractConverter
 
+A mutable struct representing an Electrolyzer, which is a subtype of `AbstractConverter`.
+
+# Parameters
+- `α_p::Float64`: The performance degradation factor.
+- `η_E_H2::Float64`: The conversion efficiency of electricity to hydrogen.
+- `η_E_H::Float64`: The conversion efficiency of electricity to heat.
+- `lifetime::Int64`: The expected lifetime of the electrolyzer (in years).
+- `nHoursMax::Float64`: The maximum number of operational hours for the electrolyzer.
+- `bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}`: The lower and upper bounds of the electrolyzer's power.
+
+# Initial conditions
+- `powerMax_ini::Float64`: The initial maximum power output of the electrolyzer.
+- `soh_ini::Float64`: The initial state of health of the electrolyzer.
+
+# Variables
+- `powerMax::AbstractArray{Float64,2}`: The maximum power output of the electrolyzer.
+- `carrier::Vector{EnergyCarrier}`: The vector of energy carriers associated with the electrolyzer.
+- `soh::AbstractArray{Float64,3}`: The state of health of the electrolyzer.
+
+# Eco
+- `cost::AbstractArray{Float64,2}`: The cost associated with the electrolyzer.
+
+
+## Example
+
+```julia
+electrolyzer = Electrolyzer(α_p=0.05, η_E_H2=0.5, η_E_H=0.3, lifetime=15, nHoursMax=26000.0, bounds=(lb=0.0, ub=50.0), powerMax_ini=0.0, soh_ini=1.0)
+```
+"""
 mutable struct Electrolyzer <: AbstractConverter
      # Paramètres
      α_p::Float64
