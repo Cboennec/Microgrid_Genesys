@@ -2,12 +2,12 @@
     H2 tank storage modelling
  =#
 
- """
-    H2Tank
+"""
+    mutable struct H2Tank  <: AbstractStorage
  
  A mutable struct representing a hydrogen tank storage model with various parameters, initial conditions, variables, and an inner constructor.
  
- # Fields
+ # Parameters
  - `α_p_ch::Float64`: Maximum charging power factor (default: 1.5)
  - `α_p_dch::Float64`: Maximum discharging power factor (default: 1.5)
  - `η_ch::Float64`: Charging efficiency (default: 1.0)

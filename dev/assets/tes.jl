@@ -2,11 +2,11 @@
     Thermal energy storage modelling
  =#
 """
-    ThermalStorage
+    mutable struct ThermalStorage <: AbstractStorage
 
 A mutable struct representing a thermal energy storage model with various parameters, initial conditions, variables, and an inner constructor.
 
-# Fields
+# Parameters
 - `α_p_ch::Float64`: Maximum charging power factor
 - `α_p_dch::Float64`: Maximum discharging power factor
 - `η_ch::Float64`: Charging efficiency

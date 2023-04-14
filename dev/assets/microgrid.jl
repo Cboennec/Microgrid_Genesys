@@ -1,11 +1,11 @@
 """
-    GlobalParameters(nh, ny, ns)
+    mutable struct GlobalParameters
 
 Structure containing global parameter for the simulation and optimization.
 
 This struct is contained inside the Microgrid struct and provide global parameters for
 sizing and simulating.
-Parameters are :
+# Parameters :
 * (in sizing context) the number of operation and investment stages (ny, nh) or 
 (in simulation context) Time horizon and number of operation per year (ny, nh); 
 * the number of scenario (ns);
