@@ -69,7 +69,7 @@ vector.
 
 Meanwhile data struct are created,
 they are sized according to the number of scenario, years, and hours per year, ns, ny, nh
- resulting in 3D arrays
+ resulting in 3D arrays for usage in contexte see [Example section](Example.md#Constructing the grid)
 """
 function add!(mg::Microgrid, assets...)
     mg.demands = [preallocate!(a, mg.parameters.nh, mg.parameters.ny, mg.parameters.ns) for a in assets if a isa AbstractDemand]

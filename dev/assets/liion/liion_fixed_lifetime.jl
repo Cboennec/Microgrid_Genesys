@@ -13,7 +13,7 @@ A mutable struct that represents a Li-ion battery model with a linear calendar a
 
 The structure have a lot of parameters but most of them are set to default values.
 
-Parameters:
+# Parameters:
 - `α_p_ch::Float64`: Charging maximum C-rate (default : 1.5)
 - `α_p_dch::Float64`: Discharging  maximum C-rate (default : 1.5)
 - `α_soc_min::Float64`: Minimum threshold of charge (normalized) (default : 0.2)
@@ -24,7 +24,10 @@ Parameters:
 - `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
 - `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
 
-Example of usage : `Liion_fixed_lifetime(;soc_model = "polynomial", couplage = (E=true, R=true))`
+## Example 
+```julia
+Liion_fixed_lifetime(;soc_model = "polynomial", couplage = (E=true, R=true))
+```
 
 """
  mutable struct Liion_fixed_lifetime <: AbstractLiion
