@@ -3,7 +3,7 @@
  =#
 
 """
-    mutable struct H2Tank  <: AbstractStorage
+    mutable struct H2Tank <: AbstractStorage
  
  A mutable struct representing a hydrogen tank storage model with various parameters, initial conditions, variables, and an inner constructor.
  

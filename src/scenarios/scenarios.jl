@@ -3,6 +3,20 @@
 =#
 abstract type AbstractScenarios end
 
+"""
+    mutable struct Scenarios{T, O, I} <: AbstractScenarios
+
+A mutable struct representing Scenarios, which is a subtype of `AbstractScenarios`.
+
+# Fields
+- `demands::Vector{NamedTuple{(:t, :power), Tuple{T, O}}}`: A vector of named tuples representing the time and power demand.
+- `generations::Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}`: A vector of named tuples representing the time, power generation, and cost.
+- `storages::Vector{NamedTuple{(:cost,), Tuple{I}}}`: A vector of named tuples representing the cost of storage.
+- `converters::Vector{NamedTuple{(:cost,), Tuple{I}}}`: A vector of named tuples representing the cost of converters.
+- `grids::Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}`: A vector of named tuples representing the input cost, output cost, and exceeding cost of the grid.
+
+
+"""
 mutable struct Scenarios{T, O, I} <: AbstractScenarios
     demands::Vector{NamedTuple{(:t, :power),Tuple{T,O}}}
     generations::Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}
@@ -11,7 +25,28 @@ mutable struct Scenarios{T, O, I} <: AbstractScenarios
     grids::Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}
 end
 
-# Constructor
+
+"""
+    function Scenarios(mg::Microgrid, d::Dict{})
+
+Constructor function for creating a new `Scenarios` instance based on a given `Microgrid` and a `Dict` containing scenario data.
+
+# Arguments
+- `mg::Microgrid`: A Microgrid instance.
+- `d::Dict{}`: A dictionary containing scenario data.
+
+# Returns
+- `Scenarios`: A Scenarios instance with the specified data.
+
+## Example
+
+```julia
+microgrid = ...
+scenario_data = ...
+
+scenarios = Scenarios(microgrid, scenario_data)
+```
+"""
 function Scenarios(mg::Microgrid, d::Dict{})
     # Utils to simplify the writting
     h, y, s = 1:mg.parameters.nh, 1:mg.parameters.ny, 1:mg.parameters.ns
@@ -68,8 +103,31 @@ function Scenarios(mg::Microgrid, d::Dict{})
     return Scenarios(demands, generations, storages, converters, grids)
 end
 
+"""
+    function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = [])
 
-# repetitive year for longer scenarios
+Constructor function for creating a new `Scenarios` instance based on a given `Microgrid` and a `Dict` containing scenario data. It allows for repetitive years for longer scenarios.
+
+# Arguments
+- `mg::Microgrid`: A Microgrid instance.
+- `d::Dict{}`: A dictionary containing scenario data.
+
+# Keyword Arguments
+- `same_year::Bool=false`: If `true`, the function repeats the same year for all years in the microgrid.
+- `seed::Array=[]`: An array specifying the seed for selecting the scenario number and offer reproductivity.
+
+# Returns
+- `Scenarios`: A Scenarios instance with the specified data.
+
+## Example
+
+```julia
+microgrid = ...
+scenario_data = ...
+
+scenarios = Scenarios(microgrid, scenario_data; same_year = true, seed = [1, 2, 3])
+```
+"""
 function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # repeat make every year the same, seed decide with year to use.
     # Utils to simplify the writting
 
