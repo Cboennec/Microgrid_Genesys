@@ -34,7 +34,7 @@ Genesys.KmedoidsClustering
 ## Generator
 ```@docs
 Genesys.MarkovGenerator
-Genesus.AnticipativeGenerator
+Genesys.AnticipativeGenerator
 ```
 
 
