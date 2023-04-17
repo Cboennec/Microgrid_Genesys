@@ -204,6 +204,23 @@ function clustering_month(data, t; flag::String="")
     return data_cluster
 end
 
+
+"""
+    mutable struct MarkovGenerator <: AbstractScenariosGenerator
+
+A structure representing a Markov chain-based scenario generator.
+
+# Fields
+- `nstate::Int64`: Number of states, which corresponds to the number of clusters per hour per month.
+- `algo::String`: Algorithm used for clustering the states.
+- `markovchains::NamedTuple{(:wk, :wkd), Tuple{MarkovChain, MarkovChain}}`: A named tuple containing the Markov chains for weekdays and weekends.
+
+# Example
+
+```julia
+markov_generator = MarkovGenerator(nstate=10, algo="kmeans")
+```
+"""
 mutable struct MarkovGenerator <: AbstractScenariosGenerator
     nstate::Int64 # Nombre d'états et par conséquent nombre de cluster par heure par mois.
     algo::String # Algorithme utilisé pour le clustering des états.
@@ -268,7 +285,21 @@ end
 # Celle-ci est sensé associé à chaque scénario généré une probabilité d'existence relatve vis a vis des autres scénario
 # Cette dernière probabilité est utilisé principalement pour une méthode de gestion (OLFC) se basant des scénarios à court terme pour optimiser ses opérations.
 ######################################################################################################################################################################################
+"""
+Generate scenarios using a Markov chain.
 
+Parameters:
+generator: a MarkovGenerator object
+s0: a ny x generator.nstate matrix representing the initial state
+t0: a DateTime object representing the initial timestamp
+nstep: an integer representing the number of steps to generate
+ny: an integer representing the number of scenarios to generate
+ns: an integer representing the number of seeds for the generator
+
+Returns:
+- a list of ny ny x ns x nstep matrix representing the generated scenarios
+- a ny x ns matrix representing the probability associated with each generated scenario
+"""
 function generate(generator::MarkovGenerator, s0, t0::DateTime, nstep::Int64; ny::Int64=1, ns::Int64=1)
     # Initialize state with the closest value
     mc = chose(generator, t0)
@@ -309,7 +340,20 @@ function generate(generator::MarkovGenerator, s0, t0::DateTime, nstep::Int64; ny
     return ω_generated,   (prod(probabilities, dims=1)[1,:,:] / sum(prod(probabilities, dims=1)[1,:,:]))
 end
 
-# Perfect foresight generator
+"""
+    mutable struct AnticipativeGenerator <: AbstractScenariosGenerator
+
+A structure representing an anticipative scenario generator (perfect foresight).
+
+# Fields
+- `forecast`: The field to store perfect foresight information.
+
+# Example
+
+```julia
+anticipative_generator = AnticipativeGenerator()
+```
+"""
 mutable struct AnticipativeGenerator <: AbstractScenariosGenerator
     forecast
     AnticipativeGenerator() = new()
@@ -321,7 +365,24 @@ function initialize_generator!(generator::AnticipativeGenerator, data...)
     return generator
 end
 
-# Generate perfect forecast
+"""
+generate(generator::AnticipativeGenerator, s0, t0::DateTime, nstep::Int64; ny::Int64=1, ns::Int64=1, h::Int64=1)
+
+Generate perfect forecast.
+
+# Arguments
+- `generator::AnticipativeGenerator`: Anticipative generator struct.
+- `s0`: Vector of initial state(s).
+- `t0::DateTime`: Initial time.
+- `nstep::Int64`: Number of steps to simulate.
+- `ny::Int64=1`: Number of outputs.
+- `ns::Int64=1`: Number of scenarios.
+- `h::Int64=1`: Initial time step.
+
+# Returns
+- `forecast`: Matrix of shape (nstep, ny, ns) with the forecasted values.
+- `probs`: Array of shape (ny, ns) with the probability distribution of each scenario.
+"""
 function generate(generator::AnticipativeGenerator, s0, t0::DateTime, nstep::Int64; ny::Int64=1, ns::Int64=1, h::Int64=1)
     # Current index
     if length(generator.forecast[1].t[h:end]) < nstep
