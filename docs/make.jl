@@ -14,7 +14,7 @@ Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
 include("src/Genesys.jl")
 using Documenter, Main.Genesys
 
-makedocs(sitename="My Documentation", format = Documenter.HTML(prettyurls = false))
+makedocs(sitename="Microgrid_Genesys.jl", format = Documenter.HTML(prettyurls = false))
 
 deploydocs(
   repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",

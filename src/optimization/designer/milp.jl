@@ -66,44 +66,6 @@ function build_model(mg::Microgrid, designer::MILP, ω::Scenarios, probabilities
 end
 
 
-function build_model_multi_years(mg::Microgrid, designer::MILP, ω::Scenarios, probabilities::Vector{Float64})
-    # Sets
-    nh, ny, ns = size(ω.demands[1].power, 1), size(ω.demands[1].power, 2), size(ω.demands[1].power, 3)
-    # Initialize
-    m = Model(designer.options.solver.Optimizer)
-    # Add desgin decision variables
-    add_investment_decisions!(m, mg.generations, ny)
-    add_investment_decisions!(m, mg.storages, ny)
-    #add_investment_decisions!(m, mg.converters, ny)
-    # Add operation decision variables
-    add_operation_decisions!(m, mg.storages, nh, ns, ny)
-    #add_operation_decisions!(m, mg.converters, nh, ns, ny)
-    add_operation_decisions!(m, mg.grids, nh, ns, ny)
-    #variable for dynamic investment
-    add_state_variables!(m, ny)
-    add_invest_variables!(m, ny)
-    # Add design constraints
-    add_investment_constraints!(m, mg.generations, ny)
-    add_investment_constraints!(m, mg.storages, ny)
-    #add_investment_constraints!(m, mg.converters, ny)
-    # Add technical constraints
-    add_technical_constraints!(m, mg.storages, mg.parameters.Δh, nh, ny, ns)
-    #add_technical_constraints!(m, mg.converters, nh, ny, ns)
-    add_technical_constraints!(m, mg.grids, nh, ny, ns)
-    # Add periodicity constraint
-    #add_periodicity_constraints!(m, mg.storages, ns)
-    # Add power balance constraints
-    add_power_balance!(m, mg, ω, Electricity, nh, ny, ns)
-    #add_power_balance!(m, mg, ω, Heat, nh, ny, ns)
-    #add_power_balance!(m, mg, ω, EnergyCarrier, nh, ny, ns)
-    # Renewable share constraint
-    add_renewable_share!(m, mg, ω, probabilities, designer.options.share_risk, nh, ny, ns)
-    # Objective
-    add_design_objective!(m, mg, ω, probabilities, designer.options.objective_risk, nh, ns)
-    return m
-end
-
-
 ### Offline
 function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; multiyear::Bool=false)
     # Preallocate
@@ -115,7 +77,7 @@ function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; mult
         ω_reduced, probabilities = reduce(designer.options.reducer, ω)
         # Saving
         if !isa(designer.options.write_reduction, Nothing)
-            save(designer.options.write_reduction, "scenarios", ω_reduced, "probabilities", probabilities)
+            JLD.save(designer.options.write_reduction, "scenarios", ω_reduced, "probabilities", probabilities)
         end
     else
         println("Reading scenario reduction from file...")

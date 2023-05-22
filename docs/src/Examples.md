@@ -3,10 +3,10 @@
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Generating Data Scenarios](#generating-data-scenarios)
-3. [Optimizing and Simulating the Microgrid](#optimizing-and-simulating-the-microgrid)
-4. [Extracting Metrics and Figures](#extracting-metrics-and-figures)
+1. [Introduction](Examples.md#introduction)
+2. [Generating Data Scenarios](Examples.md#generating-data-scenarios)
+3. [Optimizing and Simulating the Microgrid](Examples.md#optimizing-and-simulating-the-microgrid)
+4. [Extracting Metrics and Figures](Examples.md#extracting-metrics-and-figures)
 
 ## Introduction
 

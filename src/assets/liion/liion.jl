@@ -156,6 +156,28 @@ function compute_operation_soc_linear(liion::AbstractLiion, state::NamedTuple{(:
 
 
 
+ function get_power_flow(liion::AbstractLiion, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)
+	if liion.couplage.E
+	 Erated = state.Erated * state.soh
+	else
+	 Erated = state.Erated
+	end
+
+   η_ini = 0.95   #Fixed (dis)charging efficiency for both BES and EV (0.98)     dans la nomenclature
+
+   if liion.couplage.R
+	   η = η_ini - ((1-state.soh)/12)   #(15) simplifié
+   else
+	   η = η_ini
+   end
+
+   power_dch = max(min(decision, liion.α_p_dch * Erated, state.soh * state.Erated / Δh, η * (state.soc - liion.α_soc_min) * Erated / Δh), 0.)
+	power_ch = min(max(decision, -liion.α_p_ch * Erated, -state.soh * state.Erated / Δh, (state.soc - liion.α_soc_max) * Erated / Δh / η), 0.)
+
+   return power_dch, power_ch
+end
+
+
 #Optimal Sizing and Control of a PV-EV-BES Charging System Including Primary Frequency Control and Component Degradation
 #Wiljan Vermeer et al.
 #With this soc the efficiency is based on battery state of health

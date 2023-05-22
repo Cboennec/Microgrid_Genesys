@@ -16,6 +16,26 @@ mutable struct COST{T <: Array{Float64}}
     salvage::T
 end
 
+mutable struct TCO{T <: Array{Float64}}
+    capex::T
+    opex::T
+    salvage::T
+    total::T
+end
+
+TCO(mg::Microgrid, designer::AbstractDesigner) = TCO(1:mg.parameters.ns, mg, designer)
+function TCO(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
+
+    capexx = capex(s, mg, designer)
+
+    opex = dropdims(grid_cost(s, mg, designer),dims=1)
+
+    salvage = salvage_value(s, mg)
+
+    return TCO(capexx, opex, salvage, capexx .+ opex .- salvage)
+end
+
+
 # Compute costs
 COST(mg::Microgrid, designer::AbstractDesigner) = COST(1:mg.parameters.ns, mg, designer)
 # Compute costs for a given scenario s
@@ -86,7 +106,7 @@ function baseline_cost(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, UnitRa
                 #
                 total = total .+ sum(a.carrier.power[:,y,s] .* mg.grids[1].cost_in[:,y,s] * mg.parameters.Δh, dims = 1)
 
-                #Hupothese l'abonnement était designé parfaitement pour l'utilisation
+                #Hypothese l'abonnement était designé parfaitement pour l'utilisation
                 # Entrainant 0 coût de depassement
                 P_max = maximum(a.carrier.power[:,y,s], dims = 1)
                 subscribtion = zeros(1,length(y), length(s))
@@ -328,6 +348,7 @@ mutable struct Metrics{T}
     renewable_share::T
     lpsp::LPSP{T}
     cost::COST{T}
+    tco::TCO{T}
 end
 
 # Compute indicators
@@ -347,9 +368,11 @@ function Metrics(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abs
     
     #
     cost = COST(s, mg, designer)
+
+    tco = TCO(s, mg, designer)
     
 
-    return Metrics(baseline, npv, eac, share, lpsp, cost)
+    return Metrics(baseline, npv, eac, share, lpsp, cost, tco)
 end
 
 
