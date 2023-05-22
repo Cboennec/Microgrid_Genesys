@@ -53,9 +53,6 @@ function build_model(mg::Microgrid, controller::Anticipative, ω::Scenarios)
     return m
 end
 
-
-
-
 ### Offline
 function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::Scenarios)
     # Preallocate
@@ -85,8 +82,6 @@ function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::Sce
 
      return controller
 end
-
-
 
 ### Online
 function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::Anticipative)
