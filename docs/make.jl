@@ -6,6 +6,8 @@ ENV["PYTHON"] = ""
 Pkg.build("PyCall")
 using Conda
 Conda.add("numpy"; channel="conda-forge")
+Conda.add("matplotlib", env=Conda.PYTHONDIR)
+
 
 #Pkg.activate(".")
 

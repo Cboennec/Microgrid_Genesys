@@ -30,4 +30,4 @@ In order to use the package, follow the [managing package guideline](https://jul
 
 
 # Documentation 
-Full documentation are available [here](https://cboennec.github.io/Microgrid_Genesys/)
+Full documentation (under construction) is available [here](https://cboennec.github.io/Microgrid_Genesys/)

@@ -80,7 +80,7 @@ function initialize_controller!(mg::Microgrid, controller::Multi_Year_Anticipati
     SoH_ini = mg.storages[1].soh_ini 
 
     #Each starting level and each possible range from these levels
-    range_from_state = [x for x in (SoH_ini):(-interval_Δ):(replacement_threshold+(min_Δ))] 
+    range_from_state = [x for x in (SoH_ini):(-interval_Δ):(replacement_threshold + min_Δ)] 
     ΔSoH_range = min_Δ:interval_Δ:max_Δ
 
     #Initialize cost and decision data 
@@ -103,53 +103,53 @@ function initialize_controller!(mg::Microgrid, controller::Multi_Year_Anticipati
 
 
    
-        #Compute each transition
-        for (SoH_ID, SoH_i) in enumerate(range_from_state)
-            for (ΔSoH_ID, ΔSoH) in enumerate(ΔSoH_range)
-                print((SoH_ID-1)*length(ΔSoH_range)+ΔSoH_ID,"/", length(range_from_state)*length(ΔSoH_range))
-                #Without getting over the replacement threshold
-                if SoH_i - ΔSoH >= replacement_threshold
+    #Compute each transition
+    for (SoH_ID, SoH_i) in enumerate(range_from_state)
+        for (ΔSoH_ID, ΔSoH) in enumerate(ΔSoH_range)
+            print((SoH_ID-1)*length(ΔSoH_range)+ΔSoH_ID,"/", length(range_from_state)*length(ΔSoH_range))
+            #Without getting over the replacement threshold
+            if SoH_i - ΔSoH >= replacement_threshold
 
-                    #Initialize start state at SoH_i %
-                    controller.storages = designer.storages * SoH_i
+                #Initialize start state at SoH_i %
+                controller.storages = designer.storages * SoH_i
 
-                    Cost = zeros(mg.parameters.ns)
+                Cost = zeros(mg.parameters.ns)
 
-                    for s in 1:mg.parameters.ns
-                        ω_reduced, _ = reduce(ManualReducer(h = 1:mg.parameters.nh, y = 2:2, s = s:s), ω)
-                        #Contruct model for optimal control over 1 year with a maximum usage of the battery inducing ΔSoH degradation
-                        model = build_model_lim_SoH(mg, controller, designer, ω_reduced; lim = ΔSoH)
-                        optimize!(model)
-                        
-                        #Get the cost and include some salvage if a part of the battery have been artificially dropped by the discretization of states
-                        opex = objective_value(model)
-                        effective_ΔSoH = value.(model[:ΔSoH])
-                        salvage = (ΔSoH.-effective_ΔSoH) .* (designer.storages[1] .* ω_reduced.storages[1].cost[1,1])
-                        
-                        Cost[s] = opex[1] - salvage[1]
+                for s in 1:mg.parameters.ns
+                    ω_reduced, _ = reduce(ManualReducer(h = 1:mg.parameters.nh, y = 2:2, s = s:s), ω)
+                    #Contruct model for optimal control over 1 year with a maximum usage of the battery inducing ΔSoH degradation
+                    model = build_model_lim_SoH(mg, controller, designer, ω_reduced; lim = ΔSoH)
+                    optimize!(model)
+                    
+                    #Get the cost and include some salvage if a part of the battery have been artificially dropped by the discretization of states
+                    opex = objective_value(model)
+                    effective_ΔSoH = value.(model[:ΔSoH])
+                    salvage = (ΔSoH.-effective_ΔSoH) .* (designer.storages[1] .* ω_reduced.storages[1].cost[1,1])
+                    
+                    Cost[s] = opex[1] - salvage[1]
 
-                        #Store decisions of the optimal control for this transition.
-                        for k in 1:length(mg.storages)
-                            transition_decisions_storages[k][SoH_ID,ΔSoH_ID,:,1,s] .= value.(model[:p_dch][:,1,k] .- model[:p_ch][:,1,k])
+                    #Store decisions of the optimal control for this transition.
+                    for k in 1:length(mg.storages)
+                        transition_decisions_storages[k][SoH_ID,ΔSoH_ID,:,1,s] .= value.(model[:p_dch][:,1,k] .- model[:p_ch][:,1,k])
+                    end
+                    for (k,a) in enumerate(mg.converters)
+                        if a isa Heater
+                            transition_decisions_converters[k][SoH_ID,ΔSoH_ID,:,1,s] .= .- value.(model[:p_c][:,1,k])
+                        elseif a isa Electrolyzer
+                            transition_decisions_converters[k][SoH_ID,ΔSoH_ID,:,1,s] .= .- value.(model[:p_c][:,1,k])
+                        elseif a isa FuelCell
+                            transition_decisions_converters[k][SoH_ID,ΔSoH_ID,:,1,s] .= value.(model[:p_c][:,1,k])
                         end
-                        for (k,a) in enumerate(mg.converters)
-                            if a isa Heater
-                                transition_decisions_converters[k][SoH_ID,ΔSoH_ID,:,1,s] .= .- value.(model[:p_c][:,1,k])
-                            elseif a isa Electrolyzer
-                                transition_decisions_converters[k][SoH_ID,ΔSoH_ID,:,1,s] .= .- value.(model[:p_c][:,1,k])
-                            elseif a isa FuelCell
-                                transition_decisions_converters[k][SoH_ID,ΔSoH_ID,:,1,s] .= value.(model[:p_c][:,1,k])
-                            end
-                        end
+                    end
 
-                    end 
+                end 
 
-                    #Store the final mean cost for the edge
-                    transition_costs[SoH_ID,ΔSoH_ID] = mean(Cost)
+                #Store the final mean cost for the edge
+                transition_costs[SoH_ID,ΔSoH_ID] = mean(Cost)
 
-                end
             end
         end
+    end
 
     
 
