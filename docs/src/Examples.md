@@ -238,18 +238,22 @@ const nh, ny, ns = 8760, 21, 1 #nh = number of timestep per year, ny = time hori
 
 data = load(joinpath("example","data","ausgrid_5_twostage.jld")) #Get the data for scenarios 
 
-mg = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = 1.)) # Instantiate a Microgrid 
+microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = 1.)) # Instantiate a Microgrid 
 
 
-add!(mg, Demand(carrier = Electricity()),
+add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),
                 Liion_electro_chimique(),
                 Grid(carrier = Electricity())) # Add assets to it
 
-ω_d = Scenarios(mg, data["ω_optim"]) # Build the right number of scenarios with the right length for the microgrid
+ω_d = Scenarios(microgrid, data["ω_optim"]) # Build the right number of scenarios with the right length for the microgrid
 
 ```
 
+It is also possible to get 2 set of scenarios as explained in section [Stochastic generation](#stochastic-generation) of this page. One for design and one for assessment.
+```julia
+ω_d, ω_a = Scenarios(microgrid, data["ω_optim"]), Scenarios(microgrid, data["ω_simu"])
+```
 
 ### Sizing the grid
 
@@ -266,25 +270,38 @@ designer = initialize_designer!(mg, Manual(generations = [PV_size], storages = [
 ```
 `Manual` design require a vector of values for the size of the generation assets, storage assets and grid assets.
 
-Other design methods can be used with the following code.
+Other design methods can be used with the following code. Here an example for the MILP designer
 
 ```julia
-#Code for using a opt desginer
+initialize_designer!(microgrid, MILP(options = MILPOptions(reducer = ManualReducer(y=1:1, s=1:1))), ω_d)
 ```
-
+Please note that the models used in the MILP formulation are linear models. Even if you added a more fine battery model.
 
 ### Operating the grid
 To make the decisions during the simulation the grid need to be controlled. This role is taken by the `Controller`. A controller is going to operate the grid during the simulation, their is several type of controller implemented (Need to add reference or details) here. The simplest ones are Rule Based Controller `RBC`.  
 
 ```julia
-controller = initialize_controller!(mg,  RBC(options = RBCOptions(policy_selection = 2 )), ω_d)
+controller = initialize_controller!(microgrid,  RBC(options = RBCOptions(policy_selection = 2 )), ω_d)
 ```
 
 More complexe controller using optimisation with varying range of sight can also be used.
 
 ```julia
-controller = initialize_controller!(mg, Anticipative(generations = [10.], storages = [20.], converters = []), designer, ω_d)
+controller = initialize_controller!(microgrid, Anticipative(generations = [10.], storages = [20.], converters = []), designer, ω_d)
 ```
+
+Please note that the models used in the MILP formulation are linear models. Even if you added a more fine battery model.
+
+## Simulating 
+
+Now that everything is declared the microgrid can be simulated to assess techno-economic indicators.
+
+```julia
+@time simulate!(microgrid, controller, designer, ω_a, options = Genesys.Options(mode = "serial", firstyear = false))
+```
+Here the microgrid will be simulated using the sizing stored in `desginer`, the operation stored in `controller` under the conditions of `ω_a`.
+The first year option can be use to compare a first year without any asset installed (as some kind of reference) to another year. 
+
 
 
 ## Extracting Metrics and Figures
