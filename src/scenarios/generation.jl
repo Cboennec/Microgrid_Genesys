@@ -235,7 +235,33 @@ end
 # Ici generator à un attribut markovchains qui lui même est un tuple contenant 2 structures markovchain labelisées (:wk et :wkd)
 # Voir la fonction markovchain qui construit et renvoi une structure de type markovchain avec en entrée les série de donnée par heure par mois par jour de semaine/weekend, un nombre de cluster par étape, un algorithme de clusterisation.
 ########################################################################################################################################################################################
+"""
+    initialize_generator!(generator::MarkovGenerator, data...)
 
+Initializes a MarkovGenerator object with data series. This function performs clustering for weekdays and weekends 
+for each month for every data series provided. The resulting clusters are used to compute the Markov chains.
+
+# Arguments
+- `generator::MarkovGenerator`: An instance of the MarkovGenerator type. This object contains information 
+    about the number of states for the Markov chain (nstate) and the algorithm for the clustering (algo).
+- `data...`: Variadic argument representing one or more data series. Each data series should be a structured object 
+    containing power (.power) and time (.t) fields.
+
+# Description
+This function operates by:
+
+1. Clustering each data series into weekdays and weekends for each month.
+2. Checking that the number of states (generator.nstate) is greater than 2 and less than the minimum number of weekdays and weekends.
+3. Constructing Markov chains using the clustered data. This is stored as a tuple in the generator's markovchains field.
+
+# Returns
+- The function returns the updated MarkovGenerator instance with the computed markov chains.
+
+# Note
+The MarkovGenerator's nstate attribute should be carefully chosen. It represents the number of clusters to be created and 
+cannot be larger than the number of data points available. The function sets nstate to the minimum of weekdays and weekends 
+minus 1 if it exceeds this value.
+"""
 function initialize_generator!(generator::MarkovGenerator, data...)
     # TODO: generic function without .power and .t or specify the input type
 

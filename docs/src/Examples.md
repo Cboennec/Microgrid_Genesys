@@ -21,7 +21,7 @@ This page provides example code snippets on how to use the main functionalities 
 In this section, we provide examples of how to generate data scenarios for the simulation of your microgrid system. These data scenarios will be used as input for the optimization and simulation processes.
 
 We here present two ways of generating scenarios : 
-A first way is to take directly the data from the Ausgrid dataset and for each client, each year create a scenario.  A second way is to build profils using a stochastic process detailed in [this article](https://hal.science/hal-03796717/document)
+A first way is to take directly the data from the Ausgrid dataset and for each client, each year create a scenario.  A second way is to build profils using a stochastic process detailed in [this article](https://hal.science/hal-03796717/document).
 
 ### Deterministic generation
 
@@ -98,7 +98,6 @@ include("..\\src\\Genesys.jl")
 
 using Main.Genesys
 using Distributions, CSV, JLD, Dates, Seaborn, Statistics, ProgressMeter
-pygui(true)
 
 # Global constants
 const nh, ny, ns = 8760, 1, 2000
