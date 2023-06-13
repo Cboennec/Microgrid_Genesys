@@ -96,7 +96,7 @@ function Scenarios(mg::Microgrid, d::Dict{})
     # Grids
     for (k, a) in enumerate(mg.grids)
         if a.carrier isa Electricity
-            grids[k] = (cost_in = d["grid"].cost_in[h, y, s], cost_out = d["grid"].cost_out[h, y, s], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
+            grids[k] = (cost_in = d["grid_Elec"].cost_in[h, y, s], cost_out = d["grid_Elec"].cost_out[h, y, s], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
         end
     end
 
@@ -175,21 +175,25 @@ function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # rep
     for (k, a) in enumerate(mg.converters)
         if a isa Electrolyzer
             #converters[k] = (cost = d["elyz"].cost[y, s],)
-            converters[k] = (cost = compose(d["elyz"].cost, rep_time, mg, 2; rep = same_year, s_num = seed))
+            converters[k] = (cost = compose(d["elyz"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
         elseif a isa FuelCell
             #converters[k] = (cost = d["fc"].cost[y, s],)
-            converters[k] = (cost = compose(d["fc"].cost, rep_time, mg, 2; rep = same_year, s_num = seed))
+            converters[k] = (cost = compose(d["fc"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
 
         elseif a isa Heater
             #converters[k] = (cost = d["heater"].cost[y, s],)
-            converters[k] = (cost = compose(d["heater"].cost, rep_time, mg, 2; rep = same_year, s_num = seed))
+            converters[k] = (cost = compose(d["heater"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
         end
     end
     # Grids
     for (k, a) in enumerate(mg.grids)
         if a.carrier isa Electricity
             #grids[k] = (cost_in = d["grid"].cost_in[h, y, s], cost_out = d["grid"].cost_out[h, y, s])
-            grids[k] = (cost_in = compose(d["grid"].cost_in, rep_time, mg, 3; rep = same_year, s_num = seed), cost_out = compose(d["grid"].cost_out, rep_time, mg, 3; rep = same_year, s_num = seed), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) .+ 10)#TODO this price should come from the scenarios
+            grids[k] = (cost_in = compose(d["grid_Elec"].cost_in, rep_time, mg, 3; rep = same_year, s_num = seed), cost_out = compose(d["grid_Elec"].cost_out, rep_time, mg, 3; rep = same_year, s_num = seed), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) .+ 10.2)#TODO this price should come from the scenarios
+        elseif a.carrier isa Hydrogen
+            grids[k] = (cost_in = compose(d["grid_Hydrogen"].cost_in, rep_time, mg, 3; rep = same_year, s_num = seed), cost_out = compose(d["grid_Hydrogen"].cost_out, rep_time, mg, 3; rep = same_year, s_num = seed), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) )
+        elseif a.carrier isa Heat
+            print("ERROR Heat grid not coded yet")
         end
     end
 

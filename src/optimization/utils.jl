@@ -408,7 +408,7 @@ end
 function compute_opex(m::Model, mg::Microgrid, ω::Scenarios, nh::Int64, ns::Int64)
     cost = AffExpr.(zeros(ns))
     for (k,a) in enumerate(mg.grids)
-        add_to_expression!.(cost, sum((m[:p_in][h,:,k] .* ω.grids[k].cost_in[h,1,:] .- m[:p_out][h,:] .* ω.grids[k].cost_out[h,1,:]) .* mg.parameters.Δh  for h in 1:nh))
+        add_to_expression!.(cost, sum((m[:p_in][h,:,k] .* ω.grids[k].cost_in[h,1,:] .- m[:p_out][h,:,k] .* ω.grids[k].cost_out[h,1,:]) .* mg.parameters.Δh  for h in 1:nh))
     end
     return cost
 end

@@ -216,7 +216,7 @@ function reduce(reducer::MeanValueReducer, ω::Scenarios; y::Int64 = 1, s::Int64
     end
     # Grids
     for (k, a) in enumerate(ω.grids)
-        grids[k] = (cost_in = mean(a.cost_in, dims=[2,3]), cost_out =  mean(a.cost_out, dims=[2,3]))
+        grids[k] = (cost_in = mean(a.cost_in, dims=[2,3]), cost_out =  mean(a.cost_out, dims=[2,3]), cost_exceed = mean(a.cost_exceed, dims=[2,3]))
     end
 
     return Scenarios(demands, generations, storages, converters, grids), [1.]

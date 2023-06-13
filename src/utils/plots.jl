@@ -16,7 +16,7 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
 
     #If there is no converter let's say we have only one type of energy carrier (can theoriticaly be false)
     if length(mg.converters) == 0
-        energy_carriers = enumerate([typeof(mg.generations[1].carrier)])
+        energy_carriers = typeof(mg.generations[1].carrier)
     else #Else we enumerate what type of carrier we have in the converters
         energy_carriers_list = []
         for conv in mg.converters
@@ -25,14 +25,14 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
             end
         end
 
-        energy_carriers = enumerate([unique((typeof(a) for a in energy_carriers_list))])
+        energy_carriers = unique((typeof(a) for a in energy_carriers_list))
     end
 
     # Plots
     # Powers
     f = figure("Powers")
     f.subplotpars.hspace = 0.32
-    for (i, type) in energy_carriers
+    for (i, type) in enumerate(energy_carriers)
         i == 1 ? subplot(3, 1, i, title = string(type)) : subplot(3, 1, i, sharex = f.axes[1], title = string(type))
         # Demands
         for (k, a) in enumerate(mg.demands)
