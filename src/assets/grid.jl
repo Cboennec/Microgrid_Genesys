@@ -22,7 +22,6 @@ A mutable struct representing a Grid, which is a subtype of `AbstractGrid`.
 grid = Grid(powerMax=36.0, carrier=Electricity())
 ```
 """
-
 mutable struct Grid <: AbstractGrid
  # Parameters
  powerMax::Float64

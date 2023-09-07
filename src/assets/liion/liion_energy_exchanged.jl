@@ -138,33 +138,12 @@ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_
     end
 
 end
-#
-# function compute_operation_dynamics(liion::Liion_energy_exchanged, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)
-#
-#      η_ini = 0.95
-#
-#  	if liion.couplage.E
-#  	 Erated = state.Erated * state.soh
-#  	else
-#  	 Erated = state.Erated
-#  	end
-#
-#  	if liion.couplage.R
-#  		η = η_ini - ((1-state.soh)/12)   #(15) simplifié
-#  	else
-#  		η = η_ini
-#  	end
-#
-#      # Control power constraint and correction
-#      power_dch = max(min(decision, liion.α_p_dch * Erated, state.soh * Erated / Δh, η * (state.soc * (1. - liion.η_self * Δh) - liion.α_soc_min) * Erated / Δh), 0.)
-#      power_ch = min(max(decision, -liion.α_p_ch * Erated, -state.soh * Erated / Δh, (state.soc * (1. - liion.η_self * Δh) - liion.α_soc_max) * Erated / Δh / η), 0.)
-#      # SoC dynamic
-#      # soc_next = state.soc * (1. - liion.η_self * Δh) - (power_ch * η + power_dch / η) * Δh / Erated
-#      soc_next = state.soc - (power_ch * η + power_dch / η) * Δh / Erated
-#      # SoH dynamic
-#      soh_next = state.soh - (power_dch - power_ch) * Δh / (2. * liion.nCycle * (liion.α_soc_max - liion.α_soc_min) * state.Erated)
-#      return soc_next, soh_next, power_dch + power_ch
-# end
+
+function compute_operation_dynamics(liion::Liion_energy_exchanged, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)
+
+	power_dch, power_ch = get_power_flow(liion, (Erated = state.Erated, soc = state.soc, soh = state.soh), decision, Δh)
+	return power_dch + power_ch
+end
 
  ### Investment dynamic
 

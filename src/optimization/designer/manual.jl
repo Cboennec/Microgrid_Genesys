@@ -38,8 +38,22 @@ end
 ### Online
 function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, designer::Manual)
 
-    if mg.storages[1].soh[end,y,s] <= mg.storages[1].SoH_threshold
-        designer.decisions.storages[1][y,s] = designer.storages[1]
+    for k in 1:length(mg.storages)
+        if mg.storages[k] isa AbstractLiion
+            if mg.storages[1].soh[end,y,s] <= mg.storages[1].SoH_threshold
+                designer.decisions.storages[1][y,s] = designer.storages[1]
+            end
+        end
     end
+   
+
+    for k in 1:length(mg.converters)
+        if mg.converters[k] isa AbstractFuelCell
+            if mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold
+                designer.decisions.converters[k][y,s] = designer.converters[k]
+            end
+        end
+    end
+
     return nothing
 end

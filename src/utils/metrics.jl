@@ -143,8 +143,9 @@ complex_grid_cost(mg::Microgrid, designer::AbstractDesigner) = complex_grid_cost
 complex_grid_cost(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner) = complex_grid_cost(1:mg.parameters.ny, s, mg, designer)
 function complex_grid_cost(years::Union{Int64, UnitRange{Int64}}, s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
 
+    nh = mg.parameters.nh
     hour_factor = ones(size(mg.grids[1].cost_in))
-    creuse = (1:8760)[((1:8760).%24 .- 6 .< 0) .| ((1:8760).%24 .- 22 .>= 0)]
+    creuse = (1:nh)[((1:nh).%24 .- 6 .< 0) .| ((1:nh).%24 .- 22 .>= 0)]
     hour_factor[creuse,:,:] = hour_factor[creuse,:,:] .* 0.75   #heure pleine . #Informations comes from https://www.kelwatt.fr/guide/heures-creuses#:~:text=La%20p%C3%A9riode%20des%20heures%20creuses,et%20entre%2020h%20et%208h.
 
     #Energy buying cost

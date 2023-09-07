@@ -69,12 +69,21 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
         legend()
     end
     # State of charge
-    figure("State-of-charge")
+    f = figure("State-of-charge")
     for (k, a) in enumerate(mg.storages)
         k == 1 ? subplot(length(mg.storages), 1, k) : subplot(length(mg.storages), 1, k, sharex = f.axes[1])
         Seaborn.plot(hours, vec(a.soc[1:end-1, y, s]), label = string("Storage : ", typeof(a)))
         legend()
     end
+
+    #State of health hydrogen
+    f = figure("State-of-health hydrogen")
+    
+    subplot(length(mg.storages), 1, 1) 
+    Seaborn.plot(hours, vec(mg.converters[2].soh[1:end-1, y, s]), label = string("Converter : ", typeof(mg.converters[2])))
+    legend()
+  
+
 
 
     #State of health

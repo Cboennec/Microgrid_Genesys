@@ -83,6 +83,46 @@ function π_3(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
     controller.decisions.storages[1][h,y,s] = mg.demands[1].carrier.power[h,y,s] - mg.generations[1].carrier.power[h,y,s] - controller.decisions.converters[1][h,y,s]
 end
 
+#Hydrogen batterie + Liion 
+function π_4(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
+    Δh = mg.parameters.Δh
+    liion, h2tank = mg.storages[1], mg.storages[2]
+    elyz, fc = mg.converters[1], mg.converters[2]
+
+    # Net power elec
+    p_net_E = mg.demands[1].carrier.power[h,y,s] - mg.generations[1].carrier.power[h,y,s]
+
+    #On charge ou décharge la batterie autant que possible
+
+    u_liion = compute_operation_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), p_net_E, Δh)
+
+    if p_net_E < 0.
+        # Elyz
+        _, u_elyz_E, elyz_H, elyz_H2 = compute_operation_dynamics(elyz, (powerMax = elyz.powerMax[y,s], soh = elyz.soh[h,y,s]), p_net_E - u_liion, Δh)
+        # H2 tank
+        _, u_h2tank = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), -elyz_H2, Δh)
+        # Test H2
+        elyz_H2 == - u_h2tank ? nothing : u_elyz_E = elyz_H = elyz_H2 = u_h2tank = 0.
+        # FC
+        u_fc_E, fc_H, fc_H2 = 0., 0., 0.
+    else
+        # FC
+        _, u_fc_E, fc_H, fc_H2 = compute_operation_dynamics(fc, (powerMax = fc.powerMax[y,s], soh = fc.soh[h,y,s]), p_net_E - u_liion, Δh)
+        # H2 tank
+        _, u_h2tank = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), -fc_H2, Δh)
+        # Test H2
+        fc_H2 == - u_h2tank ? nothing : u_fc_E = fc_H = fc_H2 = u_h2tank = 0.
+        # Elyz
+        u_elyz_E, elyz_H, elyz_H2 = 0., 0., 0.
+    end
+
+
+    controller.decisions.storages[1][h,y,s] = u_liion
+    controller.decisions.storages[2][h,y,s] = u_h2tank
+    controller.decisions.converters[1][h,y,s] = u_elyz_E
+    controller.decisions.converters[2][h,y,s] = u_fc_E
+
+end
 
 
 
@@ -104,6 +144,8 @@ function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgri
         return π_2(h, y, s, mg, controller)
     elseif controller.options.policy_selection == 3
         return π_3(h, y, s, mg, controller)
+    elseif controller.options.policy_selection == 4
+        return π_4(h, y, s, mg, controller)
     else
         println("Policy not defined !")
     end

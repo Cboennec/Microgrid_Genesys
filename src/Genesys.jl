@@ -21,12 +21,13 @@ abstract type AbstractDesigner end
 abstract type AbstractController end
 
 
+
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP
+using JuMP, Cbc, Metaheuristics, SDDP, Gurobi, Juniper, Alpine, Ipopt, HiGHS
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
-using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD, Pandas
+using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD, Pandas, Random
 # Assets
 include(joinpath("assets","microgrid.jl"))
 include(joinpath("assets","carriers.jl"))
@@ -39,13 +40,17 @@ include(joinpath("assets","liion","liion_fixed_lifetime.jl"))
 include(joinpath("assets","tes.jl"))
 include(joinpath("assets","h2tank.jl"))
 include(joinpath("assets","electrolyzer.jl"))
-include(joinpath("assets","fuelcell.jl"))
+include(joinpath("assets","fuelcell","fuelcell.jl"))
+include(joinpath("assets","fuelcell","fuelcell_hoursmax.jl"))
+include(joinpath("assets","fuelcell","fuelcell_on_off.jl"))
+include(joinpath("assets","fuelcell","fuelCell_power.jl"))
 include(joinpath("assets","heater.jl"))
 include(joinpath("assets","grid.jl"))
 include(joinpath("assets","solar.jl"))
 include(joinpath("assets","demand.jl"))
-export AbstractController, AbstractLiion, AbstractDesigner
-export Microgrid, Demand, Solar, Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params, ThermalStorage, H2Tank, FuelCell, Electrolyzer, Heater, Grid, GlobalParameters
+export AbstractController,  AbstractDesigner
+export AbstractLiion, AbstractFuelCell
+export Microgrid, Demand, Solar, Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params, ThermalStorage, H2Tank, FuelCell_OnOFF, FuelCell_HoursMax, FuelCell_Power, Electrolyzer, Heater, Grid, GlobalParameters
 export Electricity, Heat, Hydrogen
 export add!
 # Scenarios
@@ -53,7 +58,7 @@ include(joinpath("scenarios","scenarios.jl"))
 include(joinpath("scenarios","reduction.jl"))
 include(joinpath("scenarios","generation.jl"))
 include(joinpath("scenarios","utils.jl"))
-export Scenarios
+export Scenarios, Scenarios_repr
 export ManualReducer, SAAReducer, MeanValueReducer, FeatureBasedReducer
 export UnitRangeTransform, ZScoreTransform
 export PCAReduction, StatsReduction
@@ -78,7 +83,7 @@ include(joinpath("optimization","designer","milp.jl"))
 include(joinpath("optimization","designer","metaheuristic.jl"))
 export Manual, Metaheuristic, MILP
 export MetaheuristicOptions, MILPOptions, ManualOptions
-export initialize_designer!
+export initialize_designer!, initialize_designer_my!
 # Simulation
 include(joinpath("simulation","informations.jl"))
 include(joinpath("simulation","dynamics.jl"))
