@@ -53,6 +53,10 @@ function compute_investment_dynamics!(y::Int64, s::Int64, pv::Solar, decision::U
 end
 
 
+function initialize_investments!(s::Int64, pv::Solar, decision::Union{Float64, Int64})
+    pv.powerMax[1,s] = decision
+end
+
 """
 compute_investment_dynamics(pv::Solar, state::NamedTuple{(:powerMax,), Tuple{Float64}}, decision::Union{Float64, Int64})
 
