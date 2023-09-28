@@ -23,9 +23,9 @@ Le terme dimensionnement fait référence à un *problème* (au sens de l'optimi
   
 Le terme gestion lui fait référence à un autre *problème* (toujours au sens de l'optimisation) dans lequel il s'agit de décider du pilotage des composants du réseaux, notamment à travers les flux d'énergie. Il s'agit là aussi de prendre des décisions quand au pilotage du réseau. 
 
-![Multi-scale time model](src/img/time_model_month.png)
+![Multi-scale time model](./img/time_model_month.png)
  Ces décisions doivent être prises à interval réguliers. Pour cela 2 pas de temps sont considéré. Un pas de temps annuel $\Delta_y$ qui marquent les prises de décisions concernant le dimentionnement du réseau (au début de la simulation mais aussi pour les remplacements d'équipement ayant vieillis). Un pas de temps horaire $\Delta_h$ pour les décisions de gestions. ($\Delta_y = 8760 \cdot \Delta_h$).
-![Exemple d'un système simple ses équipements et ses flux](src/img/flux_grid.png)
+![Exemple d'un système simple ses équipements et ses flux](./img/flux_grid.png)
  Dans ce réseau simple, les décisions d'investissement concernent la taille des panneaux solaires ainsi que de la batterie. Les décisions de gestion vont dicter pour chaque heure quelle puissance doit être dirigée vers/hors de la batterie, la puissance tirée du réseau. On remarquera que la puissance générée par le panneau solaire dépend de l'ensoleillement et de la taille de celui ci mais nullement des décisions de gestion. De même que la demande ne dépend nullement de ces décisions mais doit être assurée.
 
 Il est alors possible de remarquer que ces deux problèmes sont  imbriqués (comme un problème bi-niveau).  En effet la meilleur façon de piloter les flux dépend de la taille des composants, voir même du choix des composants installés (un composant peut être dimensionné à 0). Par conséquent, le problème de gestion dépend de la solution proposée pour le problème de dimensionnement. De plus le problème de dimensionnement, pour évaluer la qualité de ses solutions doit proposer une solution au problème de gestion. Ainsi on remarque que ces 2 problèmes n'en sont en réalité qu'un seul.
