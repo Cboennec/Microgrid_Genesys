@@ -50,7 +50,9 @@ include(joinpath("assets","solar.jl"))
 include(joinpath("assets","demand.jl"))
 export AbstractController,  AbstractDesigner
 export AbstractLiion, AbstractFuelCell
-export Microgrid, Demand, Solar, Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params, ThermalStorage, H2Tank, FuelCell_OnOFF, FuelCell_HoursMax, FuelCell_Power, Electrolyzer, Heater, Grid, GlobalParameters
+export Microgrid, Demand, Solar
+export Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params
+export ThermalStorage, H2Tank, FuelCell_OnOFF, FuelCell_HoursMax, FuelCell_Power, Electrolyzer, Heater, Grid, GlobalParameters
 export Electricity, Heat, Hydrogen
 export add!
 # Scenarios
@@ -99,3 +101,5 @@ export plot_operation, plot_metrics
 export COST
 
 end
+
+

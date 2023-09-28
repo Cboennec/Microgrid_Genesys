@@ -45,7 +45,7 @@ production/generation assets;
 (usually an external grid from which can be bought and sold energy);
 
 These assets can be later added with the add!(mg::Microgrid, assets...) 
-See also [`Main.Genesys.add!`](@ref) for a step by step declaration
+See also `Main.Genesys.add!` for a step by step declaration
 """
 mutable struct Microgrid
     parameters::GlobalParameters

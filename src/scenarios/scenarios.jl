@@ -51,6 +51,7 @@ mutable struct MiniScenarios{T, O, I} <: AbstractScenarios
     sequence::Array{Int64, 3}
 end
 
+
 """
     function Scenarios(mg::Microgrid, d::Dict{})
 

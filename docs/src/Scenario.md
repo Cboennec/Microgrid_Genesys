@@ -43,10 +43,6 @@ Genesys.AnticipativeGenerator
 
 ## Base generic function
 
-### Initialize
-```@docs
-Genesys.initialize_generator!
-```
 
 ### Generate
 ```@docs
