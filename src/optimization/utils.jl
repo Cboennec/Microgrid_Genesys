@@ -224,7 +224,7 @@ function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage},
             i=0
             for sto in storages
                 i = i+1
-                if sto <: AbstractFuelCell
+                if typeof(sto) <: AbstractFuelCell
                     @constraints(m, begin
                         #[h in 1:nh, s in 1:ns], m[:soc][h+1,s,i] == m[:soc][h,s,i] * (1. - sto.η_self * Δh) - ( factor[h] * (m[:p_dch][h,s,i] / sto.η_dch - m[:p_ch][h,s,i] * sto.η_ch) * Δh )
                         [h in 1:nh, s in 1:ns], m[:soc][h+1,s,i] == m[:soc][h,s,i] * (1. - sto.η_self * Δh) - ((m[:p_dch][h,s,i] / sto.η_dch - m[:p_ch][h,s,i] * sto.η_ch) * Δh )
@@ -319,12 +319,25 @@ function add_periodicity_constraints!(m::Model, storages::Vector{AbstractStorage
     end
 end
 
+# Periodicity constraint
+function add_periodicity_constraints_mini!(m::Model, storages::Vector{AbstractStorage}, ns::Int64)
+    # Storages
+    if !isempty(storages)
+        na = length(storages)
+        @constraints(m, begin
+        # Final states
+        [s in 1:ns, a in 1:na], m[:soc][end,s,a]  >= m[:soc][1,s,a]
+        [s in 1:ns, a in 1:na], m[:SoC_base][end,s,a] + m[:relativ_diff][end,s,a] >= m[:SoC_base][1,s,a]
+        end)
+    end
+end
+
 
 
 
 
 # Power balance
-function add_power_balance!(m::Model, mg::Microgrid, ω::Scenarios, type::DataType, nh::Int64, ns::Int64; ispnet::Bool=false)
+function add_power_balance!(m::Model, mg::Microgrid, ω::AbstractScenarios, type::DataType, nh::Int64, ns::Int64; ispnet::Bool=false)
     # !!! All the decision variables are defined positive !!!
     balance = AffExpr.(zeros(nh,ns))
     # Demands and generation
@@ -403,7 +416,7 @@ end
 
 
 # Renewable share
-function add_renewable_share!(m::Model, mg::Microgrid, ω::Scenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ns::Int64)
+function add_renewable_share!(m::Model, mg::Microgrid, ω::AbstractScenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ns::Int64)
     total = zeros(ns)
     for (k,a) in enumerate(mg.demands)
         if a.carrier isa Electricity
@@ -431,7 +444,7 @@ end
 
 
 # Renewable share
-function add_renewable_share_robust!(m::Model, mg::Microgrid, ω::Scenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ny::Int64, ns::Int64)
+function add_renewable_share_robust!(m::Model, mg::Microgrid, ω::AbstractScenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ny::Int64, ns::Int64)
     total_conso_elec = zeros(ns)
     for (k,a) in enumerate(mg.demands)
         if a.carrier isa Electricity
@@ -457,7 +470,7 @@ end
 
 
 # Renewable share
-function add_renewable_share_robust!(m::Model, mg::Microgrid, ω::Scenarios, nh::Int64, ns::Int64)
+function add_renewable_share_robust!(m::Model, mg::Microgrid, ω::AbstractScenarios, nh::Int64, ns::Int64)
     total_conso_elec = zeros(ns)
     for (k,a) in enumerate(mg.demands)
         if a.carrier isa Electricity
@@ -483,7 +496,7 @@ end
 
 
 # Objective
-function add_design_objective!(m::Model, mg::Microgrid, ω::Scenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ns::Int64)
+function add_design_objective!(m::Model, mg::Microgrid, ω::AbstractScenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ns::Int64)
     # CAPEX
     capex = compute_capex(m, mg, ω)
     # OPEX
@@ -499,7 +512,7 @@ end
 
 
 # Capex
-function compute_capex(m::Model, mg::Microgrid, ω::Scenarios)
+function compute_capex(m::Model, mg::Microgrid, ω::AbstractScenarios)
     cost = AffExpr(0.)
     # Generations
     for (k,a) in enumerate(mg.generations)
@@ -517,7 +530,7 @@ function compute_capex(m::Model, mg::Microgrid, ω::Scenarios)
 end
 
 # Grids
-function compute_opex(m::Model, mg::Microgrid, ω::Scenarios, nh::Int64, ns::Int64)
+function compute_opex(m::Model, mg::Microgrid, ω::AbstractScenarios, nh::Int64, ns::Int64)
     cost = AffExpr.(zeros(ns))
     for (k,a) in enumerate(mg.grids)
         add_to_expression!.(cost, sum((m[:p_in][h,:,k] .* ω.grids[k].cost_in[h,1,:] .- m[:p_out][h,:,k] .* ω.grids[k].cost_out[h,1,:]) .* mg.parameters.Δh  for h in 1:nh))
@@ -527,7 +540,7 @@ end
 
 
 
-function compute_salvage(m::Model, mg::Microgrid, ω::Scenarios, ny::Int64, ns::Int64)
+function compute_salvage(m::Model, mg::Microgrid, ω::AbstractScenarios, ny::Int64, ns::Int64)
     salvage =  AffExpr.(zeros(ns))
     K = ω.storages[1].cost[ny] * m[:E_state][end]
     add_to_expression!.(salvage, K * m[:soh][end,end,:])
@@ -729,7 +742,7 @@ end
 
 
 # Power balance
-function add_power_balance_my!(m::Model, mg::Microgrid, ω::Scenarios, type::DataType, nh::Int64, ny::Int64, ns::Int64; ispnet::Bool=false)
+function add_power_balance_my!(m::Model, mg::Microgrid, ω::AbstractScenarios, type::DataType, nh::Int64, ny::Int64, ns::Int64; ispnet::Bool=false)
     # !!! All the decision variables are defined positive !!!
     balance = AffExpr.(zeros(nh,ny,ns))
     # Demands and generation
@@ -807,7 +820,7 @@ function add_power_balance_my!(m::Model, mg::Microgrid, ω::Scenarios, type::Dat
 end
 
 # Renewable share
-function add_renewable_share_my!(m::Model, mg::Microgrid, ω::Scenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ny,::Int64, ns::Int64)
+function add_renewable_share_my!(m::Model, mg::Microgrid, ω::AbstractScenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ny,::Int64, ns::Int64)
     total = zeros(ns)
     for (k,a) in enumerate(mg.demands)
         if a.carrier isa Electricity
@@ -834,7 +847,7 @@ end
 
 
 # Objective
-function add_design_objective!(m::Model, mg::Microgrid, ω::Scenarios, nh::Int64, ns::Int64)
+function add_design_objective!(m::Model, mg::Microgrid, ω::AbstractScenarios, nh::Int64, ns::Int64)
     # CAPEX
     capex = compute_capex(m, mg, ω)
     # OPEX
@@ -846,7 +859,7 @@ function add_design_objective!(m::Model, mg::Microgrid, ω::Scenarios, nh::Int64
 end
 
 # Objective
-function add_design_objective_my!(m::Model, mg::Microgrid, ω::Scenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ny::Int64, ns::Int64)
+function add_design_objective_my!(m::Model, mg::Microgrid, ω::AbstractScenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ny::Int64, ns::Int64)
     # CAPEX
     capex = compute_capex_my(m, mg, ω, ny)
     # OPEX
@@ -860,7 +873,7 @@ end
 
 
 # Capex
-function compute_capex_my(m::Model, mg::Microgrid, ω::Scenarios, ny::Int64)
+function compute_capex_my(m::Model, mg::Microgrid, ω::AbstractScenarios, ny::Int64)
     cost = 0
     salvage = 0
     γ = repeat(1. ./ (1. + mg.parameters.τ) .^ range(0, length = mg.parameters.ny, step = mg.parameters.Δy), 1,1)
@@ -890,7 +903,7 @@ end
 
 
 # Grids
-function compute_opex_my(m::Model, mg::Microgrid, ω::Scenarios, nh::Int64, ny::Int64, ns::Int64)
+function compute_opex_my(m::Model, mg::Microgrid, ω::AbstractScenarios, nh::Int64, ny::Int64, ns::Int64)
     cost = AffExpr.(zeros(ns))
     for (k,a) in enumerate(mg.grids)
         add_to_expression!.(cost, sum((m[:p_in][h,y,:,k] .* ω.grids[k].cost_in[h,y,:] .- m[:p_out][h,y,:,k] .* ω.grids[k].cost_out[h,y,:]) .* mg.parameters.Δh  for h in 1:nh for y in 1:ny))

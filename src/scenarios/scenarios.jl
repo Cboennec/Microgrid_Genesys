@@ -27,6 +27,31 @@ end
 
 
 """
+    mutable struct MiniScenarios{T, O, I} <: AbstractScenarios
+
+A mutable struct representing shortened Scenarios, which is a subtype of `AbstractScenarios`.
+Only some days will be selected. This method implement the work of Van Der Heijde (DOI: 10.1016/j.apenergy.2019.04.030)
+
+# Fields
+- `demands::Vector{NamedTuple{(:t, :power), Tuple{T, O}}}`: A vector of named tuples representing the time and power demand.
+- `generations::Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}`: A vector of named tuples representing the time, power generation, and cost.
+- `storages::Vector{NamedTuple{(:cost,), Tuple{I}}}`: A vector of named tuples representing the cost of storage.
+- `converters::Vector{NamedTuple{(:cost,), Tuple{I}}}`: A vector of named tuples representing the cost of converters.
+- `grids::Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}`: A vector of named tuples representing the input cost, output cost, and exceeding cost of the grid.
+- `days::Array{Int64,3}`: The matrix of the days used as representative indexed for each year and scenario  [day,year,sscenario]
+- `sequence::Array{Int64,3}`: The matrix of the representative day used  to represent each day of the year indexed for each year and scenario  [day,year,scenario]
+"""
+mutable struct MiniScenarios{T, O, I} <: AbstractScenarios
+    demands::Vector{NamedTuple{(:t, :power),Tuple{T,O}}}
+    generations::Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}
+    storages::Vector{NamedTuple{(:cost,), Tuple{I}}}
+    converters::Vector{NamedTuple{(:cost,), Tuple{I}}}
+    grids::Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}} 
+    days::Array{Int64, 3}
+    sequence::Array{Int64, 3}
+end
+
+"""
     function Scenarios(mg::Microgrid, d::Dict{})
 
 Constructor function for creating a new `Scenarios` instance based on a given `Microgrid` and a `Dict` containing scenario data.
@@ -102,6 +127,166 @@ function Scenarios(mg::Microgrid, d::Dict{})
 
     return Scenarios(demands, generations, storages, converters, grids)
 end
+
+
+
+
+
+"""
+    function Scenarios(mg::Microgrid, d::Dict{})
+
+Constructor function for creating a new `Scenarios` instance based on a given `Microgrid` and a `Dict` containing scenario data.
+
+# Arguments
+- `mg::Microgrid`: A Microgrid instance.
+- `d::Dict{}`: A dictionary containing scenario data.
+
+# Returns
+- `Scenarios`: A Scenarios instance with the specified data.
+
+## Example
+
+```julia
+microgrid = ...
+scenario_data = ...
+
+scenarios = Scenarios(microgrid, scenario_data)
+```
+"""
+function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20, time_limit = [100,200], display_res = true)
+    h, y, s = 1:mg.parameters.nh, 1:mg.parameters.ny, 1:mg.parameters.ns
+    T, O, I = Array{DateTime,3}, Array{Float64, 3}, Array{Float64, 2}, Array{Int64, 3}
+
+
+    demands = Vector{NamedTuple{(:t, :power),Tuple{T,O}}}(undef, length(mg.demands))
+    generations = Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}(undef, length(mg.generations))
+    storages = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.storages))
+    converters = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.converters))
+    grids = Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}(undef, length(mg.grids))
+
+    days = Int.(zeros(N_days, mg.parameters.ny, mg.parameters.ns))
+    sequence = Int.(zeros(365, mg.parameters.ny, mg.parameters.ns))
+
+    index_hour = Int.(zeros(24*N_days, mg.parameters.ny, mg.parameters.ns))
+
+
+    for s_id in s
+        for y_id in y
+        # Van det heijde
+        # 1 : Selecting days by fitting the duration curve    
+        # From Selecting Representative Days for Capturing the Implications of Integrating Intermittent Renewables in Generation Expansion Planning Problems by Kris poncelet et al.
+
+            days_selected, weights = get_days(N_days, N_bins, ω, y_id, s_id; time_limit = time_limit[1])
+
+            days[:, y_id, s_id] = days_selected
+        #######################
+        ### Recompose data to plot and compare the load curves ######
+        #####################
+
+                if display_res
+                    fig, axs = PyPlot.subplots(3,1, figsize=(9, 3), sharey=false, constrained_layout = true)
+                    data_reshape = []
+
+                    push!(data_reshape, reshape(ω.demands[1].power[:, y_id, s_id], (24,365)))
+                    push!(data_reshape, reshape(ω.generations[1].power[:, y_id, s_id], (24,365)))
+
+                    data = []
+
+                    push!(data, ω.demands[1].power[:, y_id, s_id])
+                    push!(data, ω.generations[1].power[:, y_id, s_id])
+
+
+                    for j in 1:2
+
+                        val = []
+                        for i in 1:length(days_selected)
+                            val = vcat(val, repeat(data_reshape[j][:,days_selected[i]], outer = weights[i]))
+                        end
+                    
+                        RP_DC = reverse(sort(val))
+                    
+                        OG_DC = reverse(sort(data[j]))
+                        
+                                
+                        axs[j].plot(RP_DC, label="Bins = $N_bins, Days = $N_days")
+                        axs[j].plot(OG_DC, label = "OG")
+                        axs[j].set_title(j==1 ? "Duration curve : Load" : "Duration curve : Generation" )
+                        axs[j].set_xlabel("Hours",fontsize = 14)
+                        axs[j].set_ylabel(j==1 ? "Power [kW]" : "Power [p.u]",fontsize = 16)
+                        
+                        
+                    end
+
+                    color_names = collect(keys(matplotlib.colors.XKCD_COLORS))[6:2:end]
+                    count_start = 1
+                    id_x = []
+                    for i in 1:length(weights)
+                        push!(id_x, (count_start,weights[i]))
+                        axs[3].annotate(days_selected[i], (count_start-3 + weights[i]/2, 0.5))
+                        count_start += weights[i]
+                    end
+                    axs[3].broken_barh(id_x , (0, 1),
+                            facecolors=color_names[days_selected])
+
+                    
+                            
+                    legend()
+                end
+                
+
+        # 2 : Assign real days to representative days to reconstruct the temporality    
+        # From Representative days selection for district energy system optimisation: a solar district heating system with seasonal storage
+        # Contruct a MIQP model to fit the original data curves by constructing a new one with representative days
+
+                load, gen, sequence_repr = get_profil_and_sequence(days_selected, weights, ω, y_id, s_id; display_res = display_res, time_limit = time_limit[2])
+                    
+                sequence[:, y_id, s_id] = sequence_repr
+
+                
+                for i in 1:N_days
+                    for j in 1:24
+                        index_hour[(i-1)*24+j, y_id, s_id] = (days_selected[i]-1) * 24 + j
+                    end
+                end
+
+            end
+        end
+
+        
+        for (k, a) in enumerate(mg.demands)
+            if a.carrier isa Electricity
+                demands[k] = (t = ω.demands[1].t[index_hour], power = ω.demands[1].power[index_hour])
+            elseif a.carrier isa Heat
+                demands[k] = (t = ω.demands[2].t[index_hour], power = ω.demands[2].power[index_hour])
+            end
+        end    
+
+        for (k, a) in enumerate(mg.generations)
+            if a isa Solar
+                generations[k] = (t = ω.generations[1].t[index_hour], power = ω.generations[1].power[index_hour], cost = ω.generations[1].cost[y, s])
+            end
+        end
+
+    
+        # Grids
+        for (k, a) in enumerate(mg.grids)
+            if a.carrier isa Electricity
+                grids[k] = (cost_in = ω.grids[1].cost_in[index_hour], cost_out = ω.grids[1].cost_out[index_hour], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
+            end
+        end
+
+
+        storages = ω.storages
+        converters = ω.converters
+   
+
+    return MiniScenarios(demands, generations, storages, converters, grids, days, sequence)
+
+end
+
+
+
+
 
 function mean_over_days(nweeks::Int, ns::Int, data)
     power = zeros(24*7*nweeks, ns)
@@ -496,340 +681,10 @@ end
 
 
 
-function Scenarios_repr(mg::Microgrid, d::Dict, N_days::Int64; N_bins = 20, time_limit = [100,200], display_res = true)
-    h, y, s = 1:mg.parameters.nh, 1:mg.parameters.ny, 1:1
-    T, O, I = Array{DateTime,3}, Array{Float64, 3}, Array{Float64, 2}
 
 
-    demands = Vector{NamedTuple{(:t, :power),Tuple{T,O}}}(undef, length(mg.demands))
-    generations = Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}(undef, length(mg.generations))
-    storages = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.storages))
-    converters = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.converters))
-    grids = Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}(undef, length(mg.grids))
 
 
-# Van det heijde
-# 1 : Selecting days by fitting the duration curve    
-# From Selecting Representative Days for Capturing the Implications of Integrating Intermittent Renewables in Generation Expansion Planning Problems by Kris poncelet et al.
 
-    days, weights = get_days(N_days, N_bins, d; time_limit = time_limit[1])
-
-#######################
-### Recompose data to plot and compare the load curves ######
-#####################
-
-        if display_res
-            fig, axs = PyPlot.subplots(3,1, figsize=(9, 3), sharey=false)
-            data_reshape = []
-
-            push!(data_reshape, reshape(d["ld_E"].power[:, 2, 1], (24,365)))
-            push!(data_reshape, reshape(d["pv"].power[:, 2, 1], (24,365)))
-
-            data = []
-
-            push!(data, d["ld_E"].power[:, 2, 1])
-            push!(data, d["pv"].power[:, 2, 1])
-
-
-            for j in 1:2
-
-                val = []
-                for i in 1:length(days)
-                    val = vcat(val, repeat(data_reshape[j][:,days[i]], outer = weights[i]))
-                end
-            
-                RP_DC = reverse(sort(val))
-            
-                OG_DC = reverse(sort(data[j]))
-                
-                           
-                axs[j].plot(RP_DC, label="Bins = $N_bins, Days = $N_days")
-                axs[j].plot(OG_DC, label = "OG")
-                axs[j].set_title(j==1 ? "Duration curve : Load" : "Duration curve : Generation" )
-                axs[j].set_xlabel("Hours",fontsize = 14)
-                axs[j].set_ylabel(j==1 ? "Power [kW]" : "Power [p.u]",fontsize = 16)
-                
-                
-            end
-
-            color_names = collect(keys(matplotlib.colors.XKCD_COLORS))[6:2:end]
-            count_start = 1
-            id_x = []
-            for i in 1:length(weights)
-                push!(id_x, (count_start,weights[i]))
-                axs[3].annotate(days[i], (count_start-3 + weights[i]/2, 0.5))
-                count_start += weights[i]
-            end
-            axs[3].broken_barh(id_x , (0, 1),
-                       facecolors=color_names[days])
-
-            
-                       
-            legend()
-        end
-        
-
-# 2 : Assign real days to representative days to reconstruct the temporality    
-# From Representative days selection for district energy system optimisation: a solar district heating system with seasonal storage
-# Contruct a MIQP model to fit the original data curves by constructing a new one with representative days
-
-        load, gen, sequence = get_profil_and_sequence(days, weights, d; display_res = display_res, time_limit = time_limit[2])
-
-
-       
-
-     
-            
-
-        index_hour = Int.(zeros(24*N_days))
-        
-        for i in 1:N_days
-            for j in 1:24
-                index_hour[(i-1)*24+j] = (days[i]-1) * 24 + j
-            end
-        end
-
-
-        for (k, a) in enumerate(mg.demands)
-            if a.carrier isa Electricity
-                demands[k] = (t = d["ld_E"].t[index_hour, y, s], power =  d["ld_E"].power[index_hour, y, s])
-            elseif a.carrier isa Heat
-                demands[k] = (t = d["ld_H"].t[index_hour, y, s], power = d["ld_H"].power[index_hour, y, s])
-            end
-        end    
-
-        for (k, a) in enumerate(mg.generations)
-            if a isa Solar
-                generations[k] = (t = d["pv"].t[index_hour, y, s], power = d["pv"].power[index_hour, y, s], cost = d["pv"].cost[y, s])
-            end
-        end
-
-       
-        # Grids
-        for (k, a) in enumerate(mg.grids)
-            if a.carrier isa Electricity
-                grids[k] = (cost_in = d["grid_Elec"].cost_in[index_hour, y, s], cost_out = d["grid_Elec"].cost_out[index_hour, y, s], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
-            end
-        end
-
-
-
-    for (k, a) in enumerate(mg.storages)
-
-        if typeof(a) <: AbstractLiion
-            storages[k] = (cost = d["liion"].cost[y, s],)
-        elseif a isa ThermalStorage
-            storages[k] = (cost = d["tes"].cost[y, s],)
-        elseif a isa H2Tank
-            storages[k] = (cost = d["h2tank"].cost[y, s],)
-        end
-    end
-    # Converters
-    for (k, a) in enumerate(mg.converters)
-        if a isa Electrolyzer
-            converters[k] = (cost = d["elyz"].cost[y, s],)
-        elseif typeof(a) <: AbstractFuelCell
-            converters[k] = (cost = d["fc"].cost[y, s],)
-        elseif a isa Heater
-            converters[k] = (cost = d["heater"].cost[y, s],)
-        end
-    end
-
-    return Scenarios(demands, generations, storages, converters, grids), days, sequence
-
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-function get_profil_and_sequence(days, weights, data_raw; display_res = false, time_limit = 300)
-    
-    data_reshape = []
-
-    max_ld_E = maximum(data_raw["ld_E"].power[:, 2, 1])
-    max_ld_PV = maximum(data_raw["pv"].power[:, 2, 1])
-    
-    push!(data_reshape, reshape(data_raw["ld_E"].power[:, 2, 1], (24,365)) ./ max_ld_E)
-    push!(data_reshape, reshape(data_raw["pv"].power[:, 2, 1], (24,365)) ./ max_ld_PV)
-    
-
-
-    m2 = Model(Gurobi.Optimizer)
-    set_optimizer_attribute(m2, "TimeLimit", time_limit)
-    
-    #Which day is assigned to which representative
-    @variable(m2, assignments[1:365, 1:length(days)], Bin)
-
-    #Each representative represent itself
-    for (i,r) in enumerate(days)
-        fix(m2[:assignments][r,i], 1)
-    end
-
-    #Each day is represented by one day
-    @constraint(m2, [d in 1:365], sum(assignments[d,r] for r in 1:length(days)) == 1)
-    # Each representative represents a number of day equal to its weight
-    @constraint(m2, [r in 1:length(days)], sum(assignments[d,r] for d in 1:365) == weights[r])
-
-    #The constructed profil
-    @variable(m2, constructed_data[1:length(data_reshape), 1:365, 1:24])
-    #Assign values to the constructed profil
-    @constraint(m2, [data_id in 1:length(data_reshape), d in 1:365, h in 1:24], constructed_data[data_id,d,h] == sum(assignments[d,r] * data_reshape[data_id][h,days[r]] for r in 1:length(days)))
-
-    @variable(m2, error[1:length(data_reshape), 1:365, 1:24])
-    @constraint(m2, [data_id in 1:length(data_reshape), d in 1:365, h in 1:24], error[data_id, d, h] == (constructed_data[data_id,d,h] - data_reshape[data_id][h,d]))
-
-    #Minimize the squared error
-    @objective(m2, Min, sum(error[data_id, d, h]^2 for data_id in 1:length(data_reshape) for d in 1:365 for  h in 1:24))
-
-
-    optimize!(m2)
-
-    
-    sequence = [findfirst( x -> x > 0, Int64.(round.(value.(m2[:assignments])[i,:]))) for i in 1:365]
-    load_result = vec(transpose(value.(m2[:constructed_data][1,:,:]))) .*max_ld_E
-    gen_result = vec(transpose(value.(m2[:constructed_data][2,:,:]))) .*max_ld_PV
-
-    if display_res 
-    
-        fig, axs = PyPlot.subplots(1,2, figsize=(9, 3), sharey=true)
-
-        axs[1].plot(vec(transpose(value.(m2[:error])[1,:,:])).^2)
-        axs[1].set_title("Load")
-        axs[1].set_xlabel("Days",fontsize = 16)
-        axs[1].set_ylabel("Squared Error",fontsize = 16)
-
-
-        axs[2].plot(vec(transpose(value.(m2[:error])[2,:,:])).^2)
-        axs[2].set_title("Generation")
-        axs[2].set_xlabel("Days",fontsize = 16)
-        axs[2].set_ylabel("Squared Error",fontsize = 16)
-
-
-        fig, axs = PyPlot.subplots(3,1, figsize=(9, 3), sharey=false)
-
-        axs[1].plot(vec(data_reshape[1]).* max_ld_E, label = "OG")
-        axs[1].plot(vec(transpose(value.(m2[:constructed_data][1,:,:]))) .* max_ld_E)
-        axs[1].set_title("Load Profil")
-        axs[1].set_xlabel("Hours",fontsize = 16)
-        axs[1].set_ylabel("Power [kW]",fontsize = 16)
-
-        axs[2].plot(vec(data_reshape[2]).* max_ld_PV)
-        axs[2].plot(vec(transpose(value.(m2[:constructed_data][2,:,:]))) .* max_ld_PV)
-        axs[2].set_title("Generation Profil")
-        axs[2].set_xlabel("Hours",fontsize = 16)
-        axs[2].set_ylabel("Power [p.u]",fontsize = 16)
-
-
-        x_id = []
-        color_id = []
-        color_names = collect(keys(matplotlib.colors.XKCD_COLORS))[6:2:end]
-        color_id = color_names[days]
-    
-        for day in 1:365
-            push!(x_id, (((day-1)*1), 1))
-            push!(color_id, color_names[sequence[day]])
-        end
-        axs[3].broken_barh(x_id, (0, 1),
-                    facecolors=color_id)
-
-        legend()
-    end
-
-
-
-    
-    return  load_result, gen_result, sequence
-
-
-end
-
-
-
-function get_days(N_days, N_bins, data_raw; time_limit = 0)
-
-
-    data = []
-
-    push!(data, data_raw["ld_E"].power[:, 2, 1])
-    push!(data, data_raw["pv"].power[:, 2, 1])
-
-    N_metric = length(data) # Elec curve, Solar curve
-
-    
-    # #######################
-    ### Define values of L and A (see Poncelet et al. P.5 second column) ######
-    #####################
-    L = zeros(N_metric, N_bins)
-    A = zeros(N_metric, N_bins, 365)
-
-    for i in 1:N_metric
-        min_data = minimum(data[i])
-        max_data = maximum(data[i])
-
-        bin_step = (max_data-min_data)/N_bins
-
-        OG_DC = reverse(sort(data[i]))
-
-
-
-        for j in 1:N_bins
-            #PyPlot.scatter(findfirst(OG_DC .<  ((j-1)*bin_step)+min_data),((j-1)*bin_step)+min_data)
-
-            L[i,j] = sum(OG_DC .>= ((j-1)*bin_step)+min_data) / 8760
-
-            for k in 1:365
-                A[i,j,k] = sum(data[i][((k-1)*24+1):(k*24)] .>= ((j-1)*bin_step)+min_data) / 24
-            end
-        end
-    end
-
-    
-
-
-#######################
-### Optimize to find the best set of days and their weights ######
-#####################
-
-    m = Model(Gurobi.Optimizer)
-
-    if time_limit > 0
-        set_optimizer_attribute(m, "TimeLimit", time_limit)
-    end
-
-
-    @variable(m, weight_day[1:365] >= 0, Int)
-    @variable(m, day[1:365], Bin)
-
-
-    @constraint(m, sum(m[:weight_day][d] for d in 1:365) == 365)
-    @constraint(m, [d in 1:365], weight_day[d] <= 365 * day[d])
-    @constraint(m, [d in 1:365], weight_day[d] >= day[d])
-
-
-    @constraint(m, sum(day[d] for d in 1:365) == N_days)
-
-    @variable(m, errors[1:N_metric, 1:N_bins])
-
-
-    @constraint(m, [metric in 1:N_metric, b in 1:N_bins], errors[metric,b] >= sum(weight_day[d] * 1/365 * A[metric,b,d] for d in 1:365) - L[metric,b])
-    @constraint(m, [metric in 1:N_metric, b in 1:N_bins], errors[metric,b] >= -(sum(weight_day[d] * 1/365 * A[metric,b,d] for d in 1:365) - L[metric,b]))
-
-    @objective(m, Min, sum(errors[metric, b] for metric in 1:N_metric for b in 1:N_bins))
-
-    optimize!(m)
-
-    days_id = findall( x -> x > 0, Int64.(value.(m[:day])))
-    return days_id, Int64.(value.(m[:weight_day]))[days_id]
-            
-end
 
 

@@ -12,7 +12,7 @@
 function simulate!(mg::Microgrid,
                    controller::AbstractController,
                    designer::AbstractDesigner,
-                   ω_simu::Scenarios;
+                   ω_simu::AbstractScenarios;
                    options::Options = Options())
 
 
@@ -64,7 +64,7 @@ function simulate!(s::Int64,
                    mg::Microgrid,
                    controller::AbstractController,
                    designer::AbstractDesigner,
-                   ω_simu::Scenarios,
+                   ω_simu::AbstractScenarios,
                    options::Options)
 
     # Parameters
@@ -83,15 +83,18 @@ function simulate!(y::Int64,
                    mg::Microgrid,
                    controller::AbstractController,
                    designer::AbstractDesigner,
-                   ω_simu::Scenarios,
+                   ω_simu::AbstractScenarios,
                    options::Options)
 
     # Parameters
     nh = mg.parameters.nh
 
-    if y == 1 && !options.firstyear
+    if y == 1 #&& !options.firstyear
         # Update investment informations
         update_investment_informations!(y, s, mg, ω_simu)
+
+        #
+        initialize_investments!(s, mg, designer)
 
         # Compute investment decision variables
         compute_investment_decisions!(y, s, mg, designer)
@@ -101,7 +104,7 @@ function simulate!(y::Int64,
 
         #update grid prices
         update_grid_cost_informations!(y, s, mg, ω_simu)
-    else
+    end
         for h in 1:nh
             simulate!(h, y, s, mg, controller, designer, ω_simu, options)
         end
@@ -119,7 +122,7 @@ function simulate!(y::Int64,
         update_grid_cost_informations!(y, s, mg, ω_simu)
 
 
-    end
+    
 end
 function simulate!(h::Int64,
                    y::Int64,
@@ -127,7 +130,7 @@ function simulate!(h::Int64,
                    mg::Microgrid,
                    controller::AbstractController,
                    designer::AbstractDesigner,
-                   ω_simu::Scenarios,
+                   ω_simu::AbstractScenarios,
                    options::Options)
 
     # Update operation informations

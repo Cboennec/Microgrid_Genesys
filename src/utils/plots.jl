@@ -78,10 +78,13 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
 
     #State of health hydrogen
     f = figure("State-of-health hydrogen")
-    
-    subplot(length(mg.storages), 1, 1) 
-    Seaborn.plot(hours, vec(mg.converters[2].soh[1:end-1, y, s]), label = string("Converter : ", typeof(mg.converters[2])))
-    legend()
+    for (k, a) in enumerate(mg.converters)
+        if !(a isa Heater) 
+            subplot(length(mg.converters), 1, k) 
+            Seaborn.plot(hours, vec(a.soh[1:end-1, y, s]), label = string("Converter : ", typeof(a)))
+            legend()
+        end
+    end
   
 
 
@@ -162,10 +165,9 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
     end
 
 
-
-
-
 end
+
+
 function plot_operation(mg::Microgrid, controller::AbstractController; y=2, s=1)
     # Seaborn configuration
     Seaborn.set_theme(context="notebook", style="ticks", palette="muted", font="serif", font_scale=1.5)

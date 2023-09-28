@@ -276,6 +276,15 @@ end
      liion.Erated[y+1,s], liion.soc[1,y+1,s], liion.soh[1,y+1,s], liion.voltage[1,y+1,s], liion.Sum_fd[s] = compute_investment_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[end,y,s], soh = liion.soh[end,y,s], voltage = liion.voltage[end,y,s], Sum_fd = liion.Sum_fd[s]), decision)
  end
 
+
+ 
+
+ function initialize_investments!(s::Int64, liion::Liion_electro_chimique, decision::Union{Float64, Int64})
+	liion.Erated[1,s] = decision
+	liion.soc[1,1,s] = liion.soc_ini
+	liion.soh[1,1,s] = liion.soh_ini
+end
+
  function compute_investment_dynamics(liion::Liion_electro_chimique, state::NamedTuple{(:Erated, :soc, :soh, :voltage, :Sum_fd), Tuple{Float64, Float64, Float64, Float64, Float64}}, decision::Union{Float64, Int64})
      if decision > 1e-2
          Erated_next = decision

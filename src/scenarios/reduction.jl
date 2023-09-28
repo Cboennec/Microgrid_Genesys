@@ -496,3 +496,128 @@ function clustering(method::KmedoidsClustering, embedding::AbstractArray{Float64
 
     return results.medoids, results.counts, results.assignments
 end
+
+
+
+
+function Scenarios_repr(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20, time_limit = [100,200], display_res = true)
+    h, y, s = 1:mg.parameters.nh, 1:mg.parameters.ny, 1:1
+    T, O, I = Array{DateTime,3}, Array{Float64, 3}, Array{Float64, 2}
+
+
+    demands = Vector{NamedTuple{(:t, :power),Tuple{T,O}}}(undef, length(mg.demands))
+    generations = Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}(undef, length(mg.generations))
+    storages = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.storages))
+    converters = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.converters))
+    grids = Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}(undef, length(mg.grids))
+
+
+# Van det heijde
+# 1 : Selecting days by fitting the duration curve    
+# From Selecting Representative Days for Capturing the Implications of Integrating Intermittent Renewables in Generation Expansion Planning Problems by Kris poncelet et al.
+
+    days, weights = get_days(N_days, N_bins, ω; time_limit = time_limit[1])
+
+#######################
+### Recompose data to plot and compare the load curves ######
+#####################
+
+        if display_res
+            fig, axs = PyPlot.subplots(3,1, figsize=(9, 3), sharey=false, constrained_layout = true)
+            data_reshape = []
+
+            push!(data_reshape, reshape(ω.demands[1].power[:, 2, 1], (24,365)))
+            push!(data_reshape, reshape(ω.generations[1].power[:, 2, 1], (24,365)))
+
+            data = []
+
+            push!(data, ω.demands[1].power[:, 2, 1])
+            push!(data, ω.generations[1].power[:, 2, 1])
+
+
+            for j in 1:2
+
+                val = []
+                for i in 1:length(days)
+                    val = vcat(val, repeat(data_reshape[j][:,days[i]], outer = weights[i]))
+                end
+            
+                RP_DC = reverse(sort(val))
+            
+                OG_DC = reverse(sort(data[j]))
+                
+                           
+                axs[j].plot(RP_DC, label="Bins = $N_bins, Days = $N_days")
+                axs[j].plot(OG_DC, label = "OG")
+                axs[j].set_title(j==1 ? "Duration curve : Load" : "Duration curve : Generation" )
+                axs[j].set_xlabel("Hours",fontsize = 14)
+                axs[j].set_ylabel(j==1 ? "Power [kW]" : "Power [p.u]",fontsize = 16)
+                
+                
+            end
+
+            color_names = collect(keys(matplotlib.colors.XKCD_COLORS))[6:2:end]
+            count_start = 1
+            id_x = []
+            for i in 1:length(weights)
+                push!(id_x, (count_start,weights[i]))
+                axs[3].annotate(days[i], (count_start-3 + weights[i]/2, 0.5))
+                count_start += weights[i]
+            end
+            axs[3].broken_barh(id_x , (0, 1),
+                       facecolors=color_names[days])
+
+            
+                       
+            legend()
+        end
+        
+
+# 2 : Assign real days to representative days to reconstruct the temporality    
+# From Representative days selection for district energy system optimisation: a solar district heating system with seasonal storage
+# Contruct a MIQP model to fit the original data curves by constructing a new one with representative days
+
+        load, gen, sequence = get_profil_and_sequence(days, weights, ω; display_res = display_res, time_limit = time_limit[2])
+            
+
+        index_hour = Int.(zeros(24*N_days))
+        
+        for i in 1:N_days
+            for j in 1:24
+                index_hour[(i-1)*24+j] = (days[i]-1) * 24 + j
+            end
+        end
+
+
+        for (k, a) in enumerate(mg.demands)
+            if a.carrier isa Electricity
+                demands[k] = (t = ω.demands[1].t[index_hour, y, s], power = ω.demands[1].power[index_hour, y, s])
+            elseif a.carrier isa Heat
+                demands[k] = (t = ω.demands[2].t[index_hour, y, s], power = ω.demands[2].power[index_hour, y, s])
+            end
+        end    
+
+        for (k, a) in enumerate(mg.generations)
+            if a isa Solar
+                generations[k] = (t = ω.generations[1].t[index_hour, y, s], power = ω.generations[1].power[index_hour, y, s], cost = ω.generations[1].cost[y, s])
+            end
+        end
+
+       
+        # Grids
+        for (k, a) in enumerate(mg.grids)
+            if a.carrier isa Electricity
+                grids[k] = (cost_in = ω.grids[1].cost_in[index_hour, y, s], cost_out = ω.grids[1].cost_out[index_hour, y, s], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
+            end
+        end
+
+
+        storages = ω.storages
+        converters = ω.converters
+   
+
+    return Scenarios(demands, generations, storages, converters, grids), days, sequence
+
+end
+
+

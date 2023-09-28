@@ -58,7 +58,7 @@ include(joinpath("scenarios","scenarios.jl"))
 include(joinpath("scenarios","reduction.jl"))
 include(joinpath("scenarios","generation.jl"))
 include(joinpath("scenarios","utils.jl"))
-export Scenarios, Scenarios_repr
+export Scenarios, MiniScenarios
 export ManualReducer, SAAReducer, MeanValueReducer, FeatureBasedReducer
 export UnitRangeTransform, ZScoreTransform
 export PCAReduction, StatsReduction

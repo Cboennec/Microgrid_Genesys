@@ -104,6 +104,13 @@ function compute_investment_dynamics!(y::Int64, s::Int64, tes::ThermalStorage, d
 end
 
 
+
+
+function initialize_investments!(s::Int64, liion::ThermalStorage, decision::Union{Float64, Int64})
+	tes.Erated[1,s] = decision
+	tes.soc[1,1,s] = tes.soc_ini
+end
+
 """
     compute_operation_dynamics(tes::ThermalStorage, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
 

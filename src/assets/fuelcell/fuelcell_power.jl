@@ -75,7 +75,10 @@ end
       return soh_next, power_E, power_H, power_H2
   end
   
-  
+  function initialize_investments!(s::Int64, fc::FuelCell_Power, decision::Union{Float64, Int64})
+	fc.powerMax[1,s] = decision
+	fc.soh[1,1,s] = fc.soh_ini
+end
   
   ### Investment dynamic
   function compute_investment_dynamics!(y::Int64, s::Int64, fc::FuelCell_Power, decision::Union{Float64, Int64})

@@ -75,6 +75,11 @@ function compute_investment_dynamics!(y::Int64, s::Int64, heater::Heater, decisi
     heater.powerMax[y+1,s] = compute_investment_dynamics(heater, (powerMax = heater.powerMax[y,s],), decision)
 end
 
+
+function initialize_investments!(s::Int64, heater::Heater, decision::Union{Float64, Int64})
+    heater.powerMax[1,s] = decision
+end
+
 function compute_investment_dynamics(heater::Heater, state::NamedTuple{(:powerMax,), Tuple{Float64}}, decision::Union{Float64, Int64})
     if decision > 1e-2
         powerMax_next = decision

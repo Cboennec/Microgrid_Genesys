@@ -27,3 +27,20 @@ function compute_investment_dynamics!(y::Int64, s::Int64, mg::Microgrid, designe
          compute_investment_dynamics!(y, s, a, designer.decisions.converters[k][y,s])
      end
 end
+
+
+function initialize_investments!(s::Int64, mg::Microgrid, designer::AbstractDesigner)
+    # Generations
+    for (k, a) in enumerate(mg.generations)
+        initialize_investments!(s, a, designer.decisions.generations[k][1,s])
+    end
+    # Storages
+    for (k, a) in enumerate(mg.storages)
+        initialize_investments!(s, a, designer.decisions.storages[k][1,s])
+    end
+    # Converters
+    for (k, a) in enumerate(mg.converters)
+        initialize_investments!(s, a, designer.decisions.converters[k][1,s])
+    end
+end
+

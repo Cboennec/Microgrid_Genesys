@@ -105,6 +105,12 @@ end
 function compute_investment_dynamics!(y::Int64, s::Int64, fc::FuelCell_HoursMax, decision::Union{Float64, Int64})
     fc.powerMax[y+1,s], fc.soh[1,y+1,s] = compute_investment_dynamics(fc, (powerMax = fc.powerMax[y,s], soh = fc.soh[end,y,s]), decision)
 end
+
+function initialize_investments!(s::Int64, fc::FuelCell_HoursMax, decision::Union{Float64, Int64})
+	fc.powerMax[1,s] = decision
+	fc.soh[1,1,s] = fc.soh_ini
+end
+
    
 function compute_investment_dynamics(fc::FuelCell_HoursMax, state::NamedTuple{(:powerMax, :soh), Tuple{Float64, Float64}}, decision::Union{Float64, Int64})
     if decision > 1e-2

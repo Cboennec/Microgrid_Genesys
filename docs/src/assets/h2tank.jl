@@ -108,6 +108,12 @@
      h2tank.Erated[y+1,s], h2tank.soc[1,y+1,s] = compute_investment_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[end,y,s]), decision)
  end
  
+
+ function initialize_investments!(s::Int64, h2tank::H2Tank, decision::Union{Float64, Int64})
+	h2tank.Erated[1,s] = decision
+	h2tank.soc[1,1,s] = h2tank.soc_ini
+end
+
  """
  compute_investment_dynamics(h2tank::H2Tank, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Union{Float64, Int64})
  

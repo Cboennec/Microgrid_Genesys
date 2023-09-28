@@ -90,10 +90,18 @@ function compute_operation_dynamics(elyz::Electrolyzer, state::NamedTuple{(:powe
  soh_next = state.soh - (power_E > 0.) * Δh / elyz.nHoursMax
  return soh_next, power_E, power_H, power_H2
 end
+
 ### Investment dynamic
 function compute_investment_dynamics!(y::Int64, s::Int64, elyz::Electrolyzer, decision::Union{Float64, Int64})
  elyz.powerMax[y+1,s], elyz.soh[1,y+1,s] = compute_investment_dynamics(elyz, (powerMax = elyz.powerMax[y,s], soh = elyz.soh[end,y,s]), decision)
 end
+
+
+function initialize_investments!(s::Int64, elyz::Electrolyzer, decision::Union{Float64, Int64})
+	elyz.powerMax[1,s] = decision
+	elyz.soh[1,1,s] = elyz.soh_ini
+end
+
 
 function compute_investment_dynamics(elyz::Electrolyzer, state::NamedTuple{(:powerMax, :soh), Tuple{Float64, Float64}}, decision::Union{Float64, Int64})
  if decision > 1e-2
