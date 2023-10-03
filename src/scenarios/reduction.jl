@@ -319,6 +319,45 @@ function reduce(reducer::FeatureBasedReducer, ω::Scenarios; y::Int64 = 1, s::In
     return Scenarios(demands, generations, storages, converters, grids), counts / sum(counts), assignments
 end
 
+function reduce(reducer::FeatureBasedReducer, ω::MiniScenarios; y::Int64 = 1, s::Int64 = 1)
+    # Parameters
+    nh, ny, ns = size(ω.demands[1].power)
+    # Initialize
+    demands, generations, storages, converters, grids = similar(ω.demands), similar(ω.generations), similar(ω.storages), similar(ω.converters), similar(ω.grids)
+    # Formatting
+    t_d, t_g = [reshape(a.t[:,2:end,:], nh, :) for a in ω.demands], [reshape(a.t[:,2:end,:], nh, :) for a in ω.generations]
+    data_d, data_g, data_gd = [reshape(a.power[:,2:end,:], nh, :) for a in ω.demands], [reshape(a.power[:,2:end,:], nh, :) for a in ω.generations], [reshape(a.cost_in[:,2:end,:], nh, :) for a in ω.grids]
+    # Transformation
+    norm = replace!.([Genesys.StatsBase.standardize(reducer.transformation, d, dims = 1) for d in vcat(data_d, data_g, data_gd)], NaN => 0.)
+    # Dimension reduction
+    embedding = replace!(dimension_reduction(reducer.reduction, norm), NaN => 0.)
+    # Clustering
+    medoids, counts, assignments = clustering(reducer.clustering, embedding)
+    # Building reduced scenario
+    for (k, a) in enumerate(ω.demands)
+        demands[k] = (t = reshape(t_d[k][:,medoids], nh, 1, :), power = reshape(data_d[k][:,medoids], nh, 1, :))
+    end
+    # Generations
+    for (k, a) in enumerate(ω.generations)
+        generations[k] = (t = reshape(t_g[k][:,medoids], nh, 1, :), power = reshape(data_g[k][:,medoids], nh, 1, :), cost =  repeat(a.cost[y:y, s:s], 1, length(medoids)))
+    end
+    # Storages
+    for (k, a) in enumerate(ω.storages)
+        storages[k] = (cost =  repeat(a.cost[y:y, s:s], 1, length(medoids)),)
+    end
+    # Converters
+    for (k, a) in enumerate(ω.converters)
+        converters[k] = (cost =  repeat(a.cost[y:y, s:s], 1, length(medoids)),)
+    end
+    # Grids
+    for (k, a) in enumerate(ω.grids)
+        grids[k] = (cost_in = reshape(data_gd[k][:,medoids], nh, 1, :), cost_out = reshape(reshape(a.cost_out[:,2:end,:], nh, :)[:,1], nh, 1, :), cost_exceed = reshape(reshape(a.cost_exceed[2:end,:], 1, :)[:,1], 1, : ))
+    end
+
+    return MiniScenarios(demands, generations, storages, converters, grids), counts / sum(counts), assignments
+end
+
+
 # Transformation
 StatsBase.standardize(DT::Nothing, X; dims=nothing, kwargs...) = X
 

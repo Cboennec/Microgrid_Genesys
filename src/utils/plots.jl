@@ -32,25 +32,29 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
     # Powers
     f = figure("Powers")
     f.subplotpars.hspace = 0.32
+    sum = zeros(length(energy_carriers), nh , length(y), length(s))
+
     for (i, type) in enumerate(energy_carriers)
         i == 1 ? subplot(3, 1, i, title = string(type)) : subplot(3, 1, i, sharex = f.axes[1], title = string(type))
         # Demands
         for (k, a) in enumerate(mg.demands)
             if a.carrier isa type
-
-                Seaborn.plot(hours, vec(a.carrier.power[:,y,s]), label = string("Demand : ",  typeof(a.carrier)))
+                Seaborn.plot(hours, -vec(a.carrier.power[:,y,s]), label = string("Demand : ",  typeof(a.carrier)))
+                sum[i,:,:,:] .+= -vec(a.carrier.power[:,y,s])
             end
         end
         # Generations
         for (k, a) in enumerate(mg.generations)
             if a.carrier isa type
                 Seaborn.plot(hours, vec(a.carrier.power[:,y,s]), label = string("Generation : ", typeof(a)))
+                sum[i,:,:,:] .+= vec(a.carrier.power[:,y,s])
             end
         end
         # Storages
         for (k, a) in enumerate(mg.storages)
             if a.carrier isa type
                 Seaborn.plot(hours, vec(a.carrier.power[:,y,s]), label = string("Storage : ", typeof(a)))
+                sum[i,:,:,:] .+= vec(a.carrier.power[:,y,s])
             end
         end
         # Converters
@@ -58,14 +62,17 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
             for c in a.carrier
                 if c isa type
                     Seaborn.plot(hours, vec(c.power[:,y,s]), label = string("Converter : ", typeof(a)))
+                    sum[i,:,:,:] .+= vec(c.power[:,y,s])
                 end
             end
         end
         for (k, a) in enumerate(mg.grids)
             if a.carrier isa type
                 Seaborn.plot(hours,  vec(a.carrier.power[:,y,s]), label = string("Grids : ", typeof(a)))
+                sum[i,:,:,:] .+= vec(a.carrier.power[:,y,s])
             end
         end
+        Seaborn.plot(hours,  sum[i,:,y,s], label = string("Net sum"))
         legend()
     end
     # State of charge

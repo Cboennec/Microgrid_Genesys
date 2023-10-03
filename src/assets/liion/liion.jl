@@ -30,7 +30,12 @@ end
 function compute_operation_soc_linear(liion::AbstractLiion, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)
 
 	#A coulombic efficiency-based model for prognostics and health estimation of lithium-ion batteries
-	η_ini = 0.98   
+	
+	if decision >= 0 
+		η_ini = liion.η_dch #0.98   
+	else
+		η_ini = liion.η_ch #0.98   
+	end
 
 	if liion.couplage.E
 	 Erated = state.Erated * state.soh
@@ -49,7 +54,7 @@ function compute_operation_soc_linear(liion::AbstractLiion, state::NamedTuple{(:
 
 
 	#return state.soc * (1. - liion.η_self * Δh) - (power_ch * η + power_dch / η) * Δh / Erated, power_ch + power_dch
-	return state.soc - (power_ch * η + power_dch / η) * Δh / Erated, power_ch + power_dch
+	return (1-liion.η_self) * state.soc - (power_ch * η + power_dch / η) * Δh / Erated, power_ch + power_dch
  end
 
 #Energy efficiency of lithium-ion battery used as energy storage devices in micro-grid,   Kaiyuan Li
@@ -88,7 +93,7 @@ function compute_operation_soc_linear(liion::AbstractLiion, state::NamedTuple{(:
 	power_dch = max(min(decision, liion.α_p_dch * Erated, state.soh * state.Erated / Δh, η * (state.soc - liion.α_soc_min) * Erated / Δh), 0.)
  	power_ch = min(max(decision, -liion.α_p_ch * Erated, -state.soh * state.Erated / Δh, (state.soc - liion.α_soc_max) * Erated / Δh / η), 0.)
 
-	return state.soc - (power_ch * η + power_dch / η) * Δh / Erated, power_ch + power_dch
+	return (1-liion.η_self) * state.soc - (power_ch * η + power_dch / η) * Δh / Erated, power_ch + power_dch
  end
 
 

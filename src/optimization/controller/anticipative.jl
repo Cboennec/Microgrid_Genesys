@@ -45,11 +45,9 @@ function build_model(mg::Microgrid, controller::Anticipative, ω::Scenarios; rep
     add_operation_decisions!(m, mg.converters, nh, ns)
     add_operation_decisions!(m, mg.grids, nh, ns)
     # Add technical constraints
-    if representative
-        add_technical_constraints!(m, mg.storages, mg.parameters.Δh, nh, ns, representative, factor)
-    else
-        add_technical_constraints!(m, mg.storages, mg.parameters.Δh, nh, ns, false)
-    end
+
+    add_technical_constraints!(m, mg.storages, mg.parameters.Δh, nh, ns)
+
     add_technical_constraints!(m, mg.converters, nh, ns)
     add_technical_constraints!(m, mg.grids, nh, ns)
     # Add periodicity constraint
@@ -61,6 +59,7 @@ function build_model(mg::Microgrid, controller::Anticipative, ω::Scenarios; rep
     # Objective
     opex = compute_opex(m, mg, ω, nh, ns)
     @objective(m, Min, opex[1])
+
     return m
 end
 
@@ -71,6 +70,7 @@ function build_model(mg::Microgrid, controller::Anticipative, ω::MiniScenarios,
    
     nh, ns = size(ω.demands[1].power, 1), size(ω.demands[1].power, 3)
 
+    # Initialize
     m = Model(controller.options.solver.Optimizer)
     #set_optimizer_attribute(m,"CPX_PARAM_SCRIND", 0)
     # Add investment variables
@@ -83,25 +83,25 @@ function build_model(mg::Microgrid, controller::Anticipative, ω::MiniScenarios,
     add_operation_decisions!(m, mg.storages, nh, ns)
     add_operation_decisions!(m, mg.converters, nh, ns)
     add_operation_decisions!(m, mg.grids, nh, ns)
-
-    add_SoC_base!(m, mg.storages, ns)
     # Add technical constraints
-    add_technical_constraints!(m, mg.storages, mg.parameters.Δh, nh, ns, true)
+    add_SoC_base!(m, mg.storages, ns)
+
+
+    add_technical_constraints_mini!(m, mg.storages, mg.parameters.Δh, nh, ns)
     add_technical_constraints!(m, mg.converters, nh, ns)
     add_technical_constraints!(m, mg.grids, nh, ns)
-   
+    # Add periodicity constraint
+    #add_periodicity_constraints!(m, mg.storages, ns)
     # Add power balance constraints
     add_power_balance!(m, mg, ω, Electricity, nh, ns)
     add_power_balance!(m, mg, ω, Heat, nh, ns)
     add_power_balance!(m, mg, ω, Hydrogen, nh, ns)
 
-    #SoC Constraints
-    add_Continuity_SoC_constraints(m, mg.storages, nh, ns, ω.sequence[:,y,s])
-    # Add periodicity constraint
-    add_periodicity_constraints_mini!(m, mg.storages, ns)
+    add_Continuity_SoC_constraints_mini!(m, mg.storages, nh, ns, ω.sequence[:,y,s])
+    add_periodicity_constraints_mini!(m, mg.storages, ns, ω.sequence[:,y,s])
 
     # Objective
-    opex = compute_opex(m, mg, ω, nh, ns)
+    opex = compute_opex_mini(m, mg, ω, nh, ns, ω.sequence[:,y,s])
     @objective(m, Min, opex[1])
 
     return m
@@ -114,6 +114,8 @@ function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::Min
 
     preallocate!(mg, controller)
 
+    model_return = []
+
     for y in 1:mg.parameters.ny, s in 1:mg.parameters.ns
         # Scenario reduction
        
@@ -124,19 +126,9 @@ function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::Min
         # Optimize
         optimize!(model)
 
-        fig, axs = PyPlot.subplots(1,2, figsize=(9, 3), sharey=true)
-
-        axs[1].plot(vec(transpose(value.(model[:soc])[:,y,1])))
-        axs[1].set_title("SoC_base battery")
-        axs[1].set_xlabel("Days",fontsize = 16)
-        axs[1].set_ylabel("SoC",fontsize = 16)
-
-
-        axs[2].plot(vec(transpose(value.(model[:soc])[:,y,2])))
-        axs[2].set_title("SoC_base H2")
-        axs[2].set_xlabel("Days",fontsize = 16)
-        axs[2].set_ylabel("SoC",fontsize = 16)
-
+        push!(model_return, model)
+        #println(objective_value(model))
+        
         legend()
 
         h_seq = []
@@ -163,7 +155,7 @@ function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::Min
        
     end
 
-    return controller
+    return controller, model_return
 end
 
 

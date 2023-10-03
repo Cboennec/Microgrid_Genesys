@@ -47,8 +47,8 @@ mutable struct H2Tank  <: AbstractStorage
    # Eco
    cost::AbstractArray{Float64,2}
    # Inner constructor
-   H2Tank(; α_p_ch = 1.5,
-      α_p_dch = 1.5,
+   H2Tank(; α_p_ch = 0.5,
+      α_p_dch = 0.5,
       η_ch = 1.,
       η_dch = 1.,
       η_self = 0.,

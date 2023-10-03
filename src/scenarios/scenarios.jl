@@ -49,6 +49,7 @@ mutable struct MiniScenarios{T, O, I} <: AbstractScenarios
     grids::Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}} 
     days::Array{Int64, 3}
     sequence::Array{Int64, 3}
+    scenarios_reconstructed::Scenarios
 end
 
 
@@ -165,11 +166,20 @@ function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20,
     converters = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.converters))
     grids = Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}(undef, length(mg.grids))
 
+    demands_reconstructed = Vector{NamedTuple{(:t, :power),Tuple{T,O}}}(undef, length(mg.demands))
+    generations_reconstructed = Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}(undef, length(mg.generations))
+    storages_reconstructed = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.storages))
+    converters_reconstructed = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.converters))
+    grids_reconstructed = Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}(undef, length(mg.grids))
+
     days = Int.(zeros(N_days, mg.parameters.ny, mg.parameters.ns))
     sequence = Int.(zeros(365, mg.parameters.ny, mg.parameters.ns))
 
     index_hour = Int.(zeros(24*N_days, mg.parameters.ny, mg.parameters.ns))
 
+    loads_E = zeros(length(h), length(y), length(s))
+    loads_H = zeros(length(h), length(y), length(s))
+    PVs = zeros(length(h), length(y), length(s))
 
     for s_id in s
         for y_id in y
@@ -185,19 +195,23 @@ function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20,
         #####################
 
                 if display_res
-                    fig, axs = PyPlot.subplots(3,1, figsize=(9, 3), sharey=false, constrained_layout = true)
+                    fig, axs = PyPlot.subplots(4,1, figsize=(9, 3), sharey=false, constrained_layout = true)
                     data_reshape = []
 
                     push!(data_reshape, reshape(ω.demands[1].power[:, y_id, s_id], (24,365)))
+                    push!(data_reshape, reshape(ω.demands[2].power[:, y_id, s_id], (24,365)))
                     push!(data_reshape, reshape(ω.generations[1].power[:, y_id, s_id], (24,365)))
 
                     data = []
 
                     push!(data, ω.demands[1].power[:, y_id, s_id])
+                    push!(data, ω.demands[2].power[:, y_id, s_id])
                     push!(data, ω.generations[1].power[:, y_id, s_id])
 
+                    labels = ["Load E", "Load H", "Generation"]
 
-                    for j in 1:2
+
+                    for j in 1:3
 
                         val = []
                         for i in 1:length(days_selected)
@@ -211,9 +225,10 @@ function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20,
                                 
                         axs[j].plot(RP_DC, label="Bins = $N_bins, Days = $N_days")
                         axs[j].plot(OG_DC, label = "OG")
-                        axs[j].set_title(j==1 ? "Duration curve : Load" : "Duration curve : Generation" )
+
+                        axs[j].set_title(string("Duration curve : ", labels[j]))
                         axs[j].set_xlabel("Hours",fontsize = 14)
-                        axs[j].set_ylabel(j==1 ? "Power [kW]" : "Power [p.u]",fontsize = 16)
+                        axs[j].set_ylabel(j!=3 ? "Power [kW]" : "Power [p.u]",fontsize = 16)
                         
                         
                     end
@@ -223,10 +238,10 @@ function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20,
                     id_x = []
                     for i in 1:length(weights)
                         push!(id_x, (count_start,weights[i]))
-                        axs[3].annotate(days_selected[i], (count_start-3 + weights[i]/2, 0.5))
+                        axs[4].annotate(days_selected[i], (count_start-3 + weights[i]/2, 0.5))
                         count_start += weights[i]
                     end
-                    axs[3].broken_barh(id_x , (0, 1),
+                    axs[4].broken_barh(id_x , (0, 1),
                             facecolors=color_names[days_selected])
 
                     
@@ -239,8 +254,15 @@ function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20,
         # From Representative days selection for district energy system optimisation: a solar district heating system with seasonal storage
         # Contruct a MIQP model to fit the original data curves by constructing a new one with representative days
 
-                load, gen, sequence_repr = get_profil_and_sequence(days_selected, weights, ω, y_id, s_id; display_res = display_res, time_limit = time_limit[2])
+                load_E, load_H, gen, sequence_repr = get_profil_and_sequence(days_selected, weights, ω, y_id, s_id; display_res = display_res, time_limit = time_limit[2])
                     
+
+                loads_E[:,y_id,s_id] = load_E
+                loads_H[:,y_id,s_id] = load_H
+
+                PVs[:,y_id,s_id] = gen
+
+
                 sequence[:, y_id, s_id] = sequence_repr
 
                 
@@ -256,15 +278,18 @@ function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20,
         
         for (k, a) in enumerate(mg.demands)
             if a.carrier isa Electricity
-                demands[k] = (t = ω.demands[1].t[index_hour], power = ω.demands[1].power[index_hour])
+                demands[k] = (t = ω.demands[k].t[index_hour], power = ω.demands[k].power[index_hour])
+                demands_reconstructed[k] = (t = ω.demands[k].t, power = loads_E)
             elseif a.carrier isa Heat
-                demands[k] = (t = ω.demands[2].t[index_hour], power = ω.demands[2].power[index_hour])
+                demands[k] = (t = ω.demands[k].t[index_hour], power = ω.demands[k].power[index_hour])
+                demands_reconstructed[k] = (t = ω.demands[k].t, power = loads_H)
             end
         end    
 
         for (k, a) in enumerate(mg.generations)
             if a isa Solar
-                generations[k] = (t = ω.generations[1].t[index_hour], power = ω.generations[1].power[index_hour], cost = ω.generations[1].cost[y, s])
+                generations[k] = (t = ω.generations[k].t[index_hour], power = ω.generations[k].power[index_hour], cost = ω.generations[k].cost[y, s])
+                generations_reconstructed[k] = (t = ω.generations[k].t, power = PVs, cost = ω.generations[k].cost[y, s])       
             end
         end
 
@@ -272,16 +297,14 @@ function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20,
         # Grids
         for (k, a) in enumerate(mg.grids)
             if a.carrier isa Electricity
-                grids[k] = (cost_in = ω.grids[1].cost_in[index_hour], cost_out = ω.grids[1].cost_out[index_hour], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
+                grids[k] = (cost_in = ω.grids[k].cost_in[index_hour], cost_out = ω.grids[k].cost_out[index_hour], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
             end
         end
 
-
-        storages = ω.storages
-        converters = ω.converters
+        Scenarios_reconstructed = Scenarios(demands_reconstructed, generations_reconstructed,  ω.storages, ω.converters, ω.grids)
    
 
-    return MiniScenarios(demands, generations, storages, converters, grids, days, sequence)
+    return MiniScenarios(demands, generations,  ω.storages, ω.converters, grids, days, sequence, Scenarios_reconstructed)
 
 end
 

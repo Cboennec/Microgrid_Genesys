@@ -143,6 +143,25 @@ function add_operation_decisions!(m::Model, storages::Vector{AbstractStorage}, n
     end
 end
 
+function add_operation_decisions_mini!(m::Model, storages::Vector{AbstractStorage}, nh::Int64, ns::Int64)
+    if !isempty(storages)
+        na = length(storages)
+        @variables(m, begin
+        p_ch[1:nh, 1:ns, 1:na]   >= 0.
+        p_dch[1:nh, 1:ns, 1:na]  >= 0.
+        end)
+
+        for (k,a) in enumerate(storages)       
+            if typeof(a) <: AbstractLiion
+                @variables(m, begin
+                    soc[1:nh+1, 1:ns, 1:na]
+                end)
+            end
+        end
+    end
+end
+
+
 function add_operation_decisions!(m::Model, converters::Vector{AbstractConverter}, nh::Int64, ns::Int64)
     if !isempty(converters)
         na = length(converters)
@@ -164,7 +183,7 @@ function add_SoC_base!(m::Model, storages::Vector{AbstractStorage}, ns::Int64)
         na = length(storages)
 
         @variables(m, begin
-            SoC_base[1:365, 1:ns, 1:na]   >= 0.
+            SoC_base[1:366, 1:ns, 1:na]  >= 0.
         end)
     end
 end
@@ -201,43 +220,58 @@ end
 
 
 # Technical constraint
-function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage}, Δh::Int64, nh::Int64, ns::Int64, representative::Bool)
+function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage}, Δh::Int64, nh::Int64, ns::Int64)
+    if !isempty(storages)
+        na = length(storages)
+        @constraints(m, begin
+            # Power bounds
+            [h in 1:nh, s in 1:ns, a in 1:na], m[:p_dch][h,s,a] <= storages[a].α_p_dch * m[:r_sto][a]
+            [h in 1:nh, s in 1:ns, a in 1:na], m[:p_ch][h,s,a]  <= storages[a].α_p_ch * m[:r_sto][a]
+            # SoC bounds
+            [h in 1:nh+1, s in 1:ns, a in 1:na], m[:soc][h,s,a] <= storages[a].α_soc_max * m[:r_sto][a]
+            [h in 1:nh+1, s in 1:ns, a in 1:na], m[:soc][h,s,a] >= storages[a].α_soc_min * m[:r_sto][a]
+            # State dynamics
+            # Initial and final states
+            soc_ini[s in 1:ns, a in 1:na], m[:soc][1,s,a] == storages[a].soc_ini * m[:r_sto][a]
+        end)
+
+        @constraints(m, begin
+            [h in 1:nh, s in 1:ns, a in 1:na], m[:soc][h+1,s,a] == m[:soc][h,s,a] * (1. - storages[a].η_self * Δh) - (m[:p_dch][h,s,a] / storages[a].η_dch - m[:p_ch][h,s,a] * storages[a].η_ch) * Δh
+        end)
+       
+        
+    end
+end
+
+
+# Technical constraint
+function add_technical_constraints_mini!(m::Model, storages::Vector{AbstractStorage}, Δh::Int64, nh::Int64, ns::Int64)
     if !isempty(storages)
         na = length(storages)
         @constraints(m, begin
         # Power bounds
         [h in 1:nh, s in 1:ns, a in 1:na], m[:p_dch][h,s,a] <= storages[a].α_p_dch * m[:r_sto][a]
         [h in 1:nh, s in 1:ns, a in 1:na], m[:p_ch][h,s,a]  <= storages[a].α_p_ch * m[:r_sto][a]
-        # SoC bounds
+        
         [h in 1:nh+1, s in 1:ns, a in 1:na], m[:soc][h,s,a] <= storages[a].α_soc_max * m[:r_sto][a]
         [h in 1:nh+1, s in 1:ns, a in 1:na], m[:soc][h,s,a] >= storages[a].α_soc_min * m[:r_sto][a]
         # State dynamics
         # Initial and final states
-        soc_ini[s in 1:ns, a in 1:na], m[:soc][1,s,a] == storages[a].soc_ini * m[:r_sto][a]
         end)
 
-        if !representative
-            @constraints(m, begin
-                [h in 1:nh, s in 1:ns, a in 1:na], m[:soc][h+1,s,a] == m[:soc][h,s,a] * (1. - storages[a].η_self * Δh) - (m[:p_dch][h,s,a] / storages[a].η_dch - m[:p_ch][h,s,a] * storages[a].η_ch) * Δh
-            end)
-        else
-            i=0
-            for sto in storages
-                i = i+1
-                if typeof(sto) <: AbstractFuelCell
-                    @constraints(m, begin
-                        #[h in 1:nh, s in 1:ns], m[:soc][h+1,s,i] == m[:soc][h,s,i] * (1. - sto.η_self * Δh) - ( factor[h] * (m[:p_dch][h,s,i] / sto.η_dch - m[:p_ch][h,s,i] * sto.η_ch) * Δh )
-                        [h in 1:nh, s in 1:ns], m[:soc][h+1,s,i] == m[:soc][h,s,i] * (1. - sto.η_self * Δh) - ((m[:p_dch][h,s,i] / sto.η_dch - m[:p_ch][h,s,i] * sto.η_ch) * Δh )
-                    end)
-                else
-                    @constraints(m, begin
-                        [h in 1:nh, s in 1:ns], m[:soc][h+1,s,i] == m[:soc][h,s,i] * (1. - sto.η_self * Δh) - (m[:p_dch][h,s,i] / sto.η_dch - m[:p_ch][h,s,i] * sto.η_ch) * Δh
-                    end)
-                end
+        for (k,a) in enumerate(storages)
+            if typeof(a) <: AbstractLiion
+                @constraints(m, begin
+                    soc_ini[s in 1:ns, a in 1:na], m[:soc][1,s,a] == storages[a].soc_ini * m[:r_sto][a]
+                    [h in 1:nh, s in 1:ns, a in 1:na], m[:soc][h+1,s,a] == m[:soc][h,s,a] * (1. - storages[a].η_self * Δh) - (m[:p_dch][h,s,a] / storages[a].η_dch - m[:p_ch][h,s,a] * storages[a].η_ch) * Δh
+                end)
             end
         end
     end
 end
+
+
+
 
 function add_SoH_lim_variables_constraint!(m, k, nh, ns, E_ex_tot, lim)
     #Si le stocker est une batterie liion 
@@ -252,7 +286,7 @@ function add_SoH_lim_variables_constraint!(m, k, nh, ns, E_ex_tot, lim)
     end)
 end
 
-function add_Continuity_SoC_constraints(m::Model, storages::Vector{AbstractStorage}, nh::Int64, ns::Int64, sequence::Vector{Int64})
+function add_Continuity_SoC_constraints!(m::Model, storages::Vector{AbstractStorage}, nh::Int64, ns::Int64, sequence::Vector{Int64})
     ndays = Int(nh/24)
     
     if !isempty(storages)
@@ -268,16 +302,59 @@ function add_Continuity_SoC_constraints(m::Model, storages::Vector{AbstractStora
 
     @constraints(m, begin
     # Constraint the Base soc to be a sequence of sum of relative difference
-    [d in 1:ndays, s in 1:ns, a in 1:na], m[:relativ_diff][d,s,a] == (m[:soc][d * 24, s, a] - m[:soc][d * 24 - 23, s, a])
-    [d in 2:365, s in 1:ns, a in 1:na], m[:SoC_base][d,s,a] == m[:SoC_base][d-1,s,a] + m[:relativ_diff][sequence[d],s,a]
+    [d in 1:ndays, s in 1:ns, a in 1:na], m[:relativ_diff][d,s,a] == sum( (m[:p_dch][((d-1)*24)+i,s,a] / storages[a].η_dch) - (m[:p_ch][((d-1)*24)+i,s,a] * storages[a].η_ch) for i in 1:24)
+    
+    [s in 1:ns, a in 1:na], m[:SoC_base][1,s,a] == storages[a].soc_ini * m[:r_sto][a]
+
+    [d in 1:365, s in 1:ns, a in 1:na], m[:SoC_base][d+1,s,a] == (1-storages[a].η_self) * m[:SoC_base][d,s,a] + m[:relativ_diff][sequence[d],s,a]
     
     #Constraint extrem values for each days to be greater than the max and min soc diff
-    [d in 1:365, h in 1:24, s in 1:ns, a in 1:na], m[:Extrem_high][sequence[d],s,a] >= m[:soc][(sequence[d]-1)*24+h, s, a] - m[:SoC_base][d, s, a] 
-    [d in 1:365, h in 1:24, s in 1:ns, a in 1:na], m[:Extrem_low][sequence[d],s,a] <= m[:soc][(sequence[d]-1)*24+h, s, a] - m[:SoC_base][d, s, a] 
+    [d in 1:ndays, h in 1:24, s in 1:ns, a in 1:na], m[:Extrem_high][d,s,a] >= sum( (m[:p_dch][((d-1)*24)+i,s,a] / storages[a].η_dch) - (m[:p_ch][((d-1)*24)+i,s,a] * storages[a].η_ch) for i in 1:h)
+    [d in 1:ndays, h in 1:24, s in 1:ns, a in 1:na], m[:Extrem_low][d,s,a] <= sum( (m[:p_dch][((d-1)*24)+i,s,a] / storages[a].η_dch) - (m[:p_ch][((d-1)*24)+i,s,a] * storages[a].η_ch) for i in 1:h)
 
-    #Constrant Extrem value to be inside to soc  bounds
+    #Constraint Extrem value to be inside to soc  bounds
     [d in 1:365, s in 1:ns, a in 1:na], m[:SoC_base][d,s,a] + m[:Extrem_high][sequence[d],s,a] <= storages[a].α_soc_max * m[:r_sto][a]
-    [d in 1:365, s in 1:ns, a in 1:na], m[:SoC_base][d,s,a] + m[:Extrem_low][sequence[d],s,a] <= storages[a].α_soc_min * m[:r_sto][a]
+    [d in 1:365, s in 1:ns, a in 1:na], m[:SoC_base][d,s,a] + m[:Extrem_low][sequence[d],s,a] >= storages[a].α_soc_min * m[:r_sto][a]
+
+    end)
+end
+
+
+
+function add_Continuity_SoC_constraints_mini!(m::Model, storages::Vector{AbstractStorage}, nh::Int64, ns::Int64, sequence::Vector{Int64})
+    ndays = Int(nh/24)
+    
+    
+    if !isempty(storages)
+        na = length(storages)
+    end
+
+
+
+    @variables(m, begin
+    Extrem_high[1:ndays, 1:ns, 1:na] 
+    Extrem_low[1:ndays, 1:ns, 1:na] 
+    relativ_diff[1:ndays, 1:ns, 1:na]
+    end)
+
+
+    @constraints(m, begin
+    # Constraint the Base soc to be a sequence of sum of relative differences
+    [d in 1:ndays, s in 1:ns, a in 1:na], m[:relativ_diff][d,s,a] == sum( (m[:p_dch][((d-1)*24)+i,s,a] / storages[a].η_dch) - (m[:p_ch][((d-1)*24)+i,s,a] * storages[a].η_ch) for i in 1:24)
+
+    [s in 1:ns, a in 1:na], m[:SoC_base][1,s,a] == storages[a].soc_ini * m[:r_sto][a]
+    [d in 1:365, s in 1:ns, a in 1:na], m[:SoC_base][d+1,s,a] == (1-storages[a].η_self) * m[:SoC_base][d,s,a] + m[:relativ_diff][sequence[d],s,a]
+
+    #Constraint extrem values for each days to be greater than the max and min soc diff
+    # extrem have to be superior resp inferior to the sum of power flow at any moment of the day.
+    [d in 1:ndays, h in 1:24, s in 1:ns, a in 1:na], m[:Extrem_high][sequence[d],s,a] >= sum( (m[:p_dch][((d-1)*24)+i,s,a] / storages[a].η_dch) - (m[:p_ch][((d-1)*24)+i,s,a] * storages[a].η_ch) for i in 1:h)
+
+    [d in 1:ndays, h in 1:24, s in 1:ns, a in 1:na], m[:Extrem_low][sequence[d],s,a] <= sum( (m[:p_dch][((d-1)*24)+i,s,a] / storages[a].η_dch) - (m[:p_ch][((d-1)*24)+i,s,a] * storages[a].η_ch) for i in 1:h)
+
+
+    #Constraint Extrem value to be inside to soc  bounds
+    [d in 1:365, s in 1:ns, a in 1:na], m[:SoC_base][d,s,a] + m[:Extrem_high][sequence[d],s,a] <= storages[a].α_soc_max * m[:r_sto][a]
+    [d in 1:365, s in 1:ns, a in 1:na], m[:SoC_base][d,s,a] + m[:Extrem_low][sequence[d],s,a] >= storages[a].α_soc_min * m[:r_sto][a]
 
     end)
 end
@@ -320,14 +397,15 @@ function add_periodicity_constraints!(m::Model, storages::Vector{AbstractStorage
 end
 
 # Periodicity constraint
-function add_periodicity_constraints_mini!(m::Model, storages::Vector{AbstractStorage}, ns::Int64)
+function add_periodicity_constraints_mini!(m::Model, storages::Vector{AbstractStorage}, ns::Int64, sequence::Vector{Int64})
     # Storages
     if !isempty(storages)
         na = length(storages)
         @constraints(m, begin
         # Final states
-        [s in 1:ns, a in 1:na], m[:soc][end,s,a]  >= m[:soc][1,s,a]
-        [s in 1:ns, a in 1:na], m[:SoC_base][end,s,a] + m[:relativ_diff][end,s,a] >= m[:SoC_base][1,s,a]
+        [s in 1:ns, a in 1:na], m[:SoC_base][end,s,a] >= m[:SoC_base][1,s,a]# storages[a].soc_ini * m[:r_sto][a]
+        [s in 1:ns, a in 1:na], m[:SoC_base][end,s,a] <= 1.1 * m[:SoC_base][1,s,a]# storages[a].soc_ini * m[:r_sto][a]
+
         end)
     end
 end
@@ -344,13 +422,13 @@ function add_power_balance!(m::Model, mg::Microgrid, ω::AbstractScenarios, type
     if !ispnet
         for (k,a) in enumerate(mg.demands)
             if a.carrier isa type
-                add_to_expression!.(balance, ω.demands[k].power[:,1,:])
+                add_to_expression!.(balance, ω.demands[k].power[:,1,1:ns])
             end
         end
         # Generation
         for (k,a) in enumerate(mg.generations)
             if a.carrier isa type
-                add_to_expression!.(balance, .- m[:r_g][k] .* ω.generations[k].power[:,1,:])
+                add_to_expression!.(balance, .- m[:r_g][k] .* ω.generations[k].power[:,1,1:ns])
             end
         end
     else
@@ -379,7 +457,7 @@ function add_power_balance!(m::Model, mg::Microgrid, ω::AbstractScenarios, type
                 add_to_expression!.(balance, m[:p_c][:,:,k])
             elseif a isa Electrolyzer
                 add_to_expression!.(balance, m[:p_c][:,:,k])
-            elseif a isa AbstractFuelCell
+            elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, .- m[:p_c][:,:,k])
             end
         elseif type == Heat
@@ -387,13 +465,13 @@ function add_power_balance!(m::Model, mg::Microgrid, ω::AbstractScenarios, type
                 add_to_expression!.(balance, .- m[:p_c][:,:,k] * a.η_E_H)
             elseif a isa Electrolyzer
                 add_to_expression!.(balance, .- m[:p_c][:,:,k] * a.η_E_H)
-            elseif a isa AbstractFuelCell
-                add_to_expression!.(balance, .- m[:p_c][:,:,k] * a.η_H2_H / a.η_H2_E)
+            elseif typeof(a) <: AbstractFuelCell
+                add_to_expression!.(balance, .- m[:p_c][:,:,k] / a.η_H2_H * a.η_H2_E) #p_c is the electrical power, so the first step compute the H2 power then the efficiency to heat is applied
             end
         elseif type == Hydrogen
             if a isa Electrolyzer
                 add_to_expression!.(balance, .- m[:p_c][:,:,k] * a.η_E_H2)
-            elseif a isa AbstractFuelCell
+            elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, m[:p_c][:,:,k] / a.η_H2_E)
             end
         end
@@ -537,6 +615,19 @@ function compute_opex(m::Model, mg::Microgrid, ω::AbstractScenarios, nh::Int64,
     end
     return cost
 end
+
+function compute_opex_mini(m::Model, mg::Microgrid, ω::AbstractScenarios, nh::Int64, ns::Int64, sequence::Vector{Int64})
+    cost = AffExpr.(zeros(ns))
+    
+    for (k,a) in enumerate(mg.grids)
+        add_to_expression!.(cost, sum(sum((m[:p_in][i,:,k] .* ω.grids[k].cost_in[i,1,:] .- m[:p_out][i,:,k] .* ω.grids[k].cost_out[i,1,:]) .* mg.parameters.Δh for i in ((sequence[d]-1)*24+1):(24*sequence[d])) for d in 1:365) )
+    #add_to_expression!.(cost, m[:p_in][h,:,k] .* ω.grids[k].cost_in[h,1,:] for h in 1:nh)
+    end
+
+
+    return cost
+end
+
 
 
 
@@ -784,7 +875,7 @@ function add_power_balance_my!(m::Model, mg::Microgrid, ω::AbstractScenarios, t
                 add_to_expression!.(balance, m[:p_c][:,:,:,k])
             elseif a isa Electrolyzer
                 add_to_expression!.(balance, m[:p_c][:,:,:,k])
-            elseif a isa AbstractFuelCell
+            elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k])
             end
         elseif type == Heat
@@ -792,14 +883,14 @@ function add_power_balance_my!(m::Model, mg::Microgrid, ω::AbstractScenarios, t
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_E_H)
             elseif a isa Electrolyzer
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_E_H)
-            elseif a isa AbstractFuelCell
-                add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_H2_H / a.η_H2_E)
+            elseif typeof(a) <: AbstractFuelCell
+                add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_H2_H)
             end
         elseif type == Hydrogen
             if a isa Electrolyzer
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_E_H2)
-            elseif a isa AbstractFuelCell
-                add_to_expression!.(balance, m[:p_c][:,:,:,k] / a.η_H2_E)
+            elseif typeof(a) <: AbstractFuelCell
+                add_to_expression!.(balance, m[:p_c][:,:,:,k] * a.η_H2_E)
             end
         end
     end

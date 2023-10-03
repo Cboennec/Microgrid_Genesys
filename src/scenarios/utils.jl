@@ -101,12 +101,15 @@ function get_profil_and_sequence(days::Vector{Int64}, weights::Vector{Int64}, ω
     data_reshape = []
 
     max_ld_E = maximum(ω.demands[1].power[:, y, s])
+    max_ld_H = maximum(ω.demands[2].power[:, y, s])
     max_ld_PV = maximum(ω.generations[1].power[:, y, s])
     
     push!(data_reshape, reshape(ω.demands[1].power[:, y, s], (24,365)) ./ max_ld_E)
+    push!(data_reshape, reshape(ω.demands[2].power[:, y, s], (24,365)) ./ max_ld_H)
     push!(data_reshape, reshape(ω.generations[1].power[:, y, s], (24,365)) ./ max_ld_PV)
     
-
+    total_energy = sum(ω.demands[1].power[:, y, s]) + sum(ω.demands[2].power[:, y, s]) + sum(ω.generations[1].power[:, y, s])
+    weight_energy = [sum(ω.demands[1].power[:, y, s]), sum(ω.demands[2].power[:, y, s]), sum(ω.generations[1].power[:, y, s])] / total_energy
 
     m2 = Model(Gurobi.Optimizer)
     set_optimizer_attribute(m2, "TimeLimit", time_limit)
@@ -133,45 +136,56 @@ function get_profil_and_sequence(days::Vector{Int64}, weights::Vector{Int64}, ω
     @constraint(m2, [data_id in 1:length(data_reshape), d in 1:365, h in 1:24], error[data_id, d, h] == (constructed_data[data_id,d,h] - data_reshape[data_id][h,d]))
 
     #Minimize the squared error
-    @objective(m2, Min, sum(error[data_id, d, h]^2 for data_id in 1:length(data_reshape) for d in 1:365 for  h in 1:24))
+    @objective(m2, Min, sum((error[data_id, d, h]^2) .* weight_energy for data_id in 1:length(data_reshape) for d in 1:365 for  h in 1:24))
 
 
     optimize!(m2)
 
     
     sequence = [findfirst( x -> x > 0, Int64.(round.(value.(m2[:assignments])[i,:]))) for i in 1:365]
-    load_result = vec(transpose(value.(m2[:constructed_data][1,:,:]))) .*max_ld_E
-    gen_result = vec(transpose(value.(m2[:constructed_data][2,:,:]))) .*max_ld_PV
+    load_result_E = vec(transpose(value.(m2[:constructed_data][1,:,:]))) .*max_ld_E
+    load_result_H = vec(transpose(value.(m2[:constructed_data][2,:,:]))) .*max_ld_H
+    gen_result = vec(transpose(value.(m2[:constructed_data][3,:,:]))) .*max_ld_PV
 
     if display_res 
     
-        fig, axs = PyPlot.subplots(1,2, figsize=(9, 3), sharey=true)
+        fig, axs = PyPlot.subplots(3,1, figsize=(9, 3), sharey=true)
 
         axs[1].plot(vec(transpose(value.(m2[:error])[1,:,:])).^2)
-        axs[1].set_title("Load")
+        axs[1].set_title("Load_E")
+        axs[1].set_xlabel("Days",fontsize = 16)
+        axs[1].set_ylabel("Squared Error",fontsize = 16)
+
+        axs[1].plot(vec(transpose(value.(m2[:error])[2,:,:])).^2)
+        axs[1].set_title("Load_H")
         axs[1].set_xlabel("Days",fontsize = 16)
         axs[1].set_ylabel("Squared Error",fontsize = 16)
 
 
-        axs[2].plot(vec(transpose(value.(m2[:error])[2,:,:])).^2)
+        axs[2].plot(vec(transpose(value.(m2[:error])[3,:,:])).^2)
         axs[2].set_title("Generation")
         axs[2].set_xlabel("Days",fontsize = 16)
         axs[2].set_ylabel("Squared Error",fontsize = 16)
 
 
-        fig, axs = PyPlot.subplots(3,1, figsize=(9, 3), sharey=false)
+        fig, axs = PyPlot.subplots(4,1, figsize=(9, 3), sharey=false)
 
         axs[1].plot(vec(data_reshape[1]).* max_ld_E, label = "OG")
         axs[1].plot(vec(transpose(value.(m2[:constructed_data][1,:,:]))) .* max_ld_E)
-        axs[1].set_title("Load Profil")
-        axs[1].set_xlabel("Hours",fontsize = 16)
+        axs[1].set_title("Load Profil Elec")
         axs[1].set_ylabel("Power [kW]",fontsize = 16)
 
-        axs[2].plot(vec(data_reshape[2]).* max_ld_PV)
-        axs[2].plot(vec(transpose(value.(m2[:constructed_data][2,:,:]))) .* max_ld_PV)
-        axs[2].set_title("Generation Profil")
-        axs[2].set_xlabel("Hours",fontsize = 16)
-        axs[2].set_ylabel("Power [p.u]",fontsize = 16)
+        axs[2].plot(vec(data_reshape[2]).* max_ld_H, label = "OG")
+        axs[2].plot(vec(transpose(value.(m2[:constructed_data][2,:,:]))) .* max_ld_H)
+        axs[2].set_title("Load Profil Heat")
+        axs[2].set_ylabel("Power [kW]",fontsize = 16)
+
+
+        axs[3].plot(vec(data_reshape[3]).* max_ld_PV)
+        axs[3].plot(vec(transpose(value.(m2[:constructed_data][3,:,:]))) .* max_ld_PV)
+        axs[3].set_title("Generation Profil")
+        axs[3].set_xlabel("Hours",fontsize = 16)
+        axs[3].set_ylabel("Power [p.u]",fontsize = 16)
 
 
         x_id = []
@@ -182,7 +196,7 @@ function get_profil_and_sequence(days::Vector{Int64}, weights::Vector{Int64}, ω
             push!(x_id, (((day-1)*1), 1))
             push!(color_id, color_names[sequence[day]])
         end
-        axs[3].broken_barh(x_id, (0, 1),
+        axs[4].broken_barh(x_id, (0, 1),
                     facecolors=color_id)
 
         legend()
@@ -191,7 +205,7 @@ function get_profil_and_sequence(days::Vector{Int64}, weights::Vector{Int64}, ω
 
 
     
-    return  load_result, gen_result, sequence
+    return  load_result_E, load_result_H, gen_result, sequence
 
 
 end
@@ -204,6 +218,7 @@ function get_days(N_days, N_bins, ω, y ,s; time_limit = 0)
     data = []
 
     push!(data, ω.demands[1].power[:, y, s])
+    push!(data, ω.demands[2].power[:, y, s])
     push!(data, ω.generations[1].power[:, y, s])
 
     N_metric = length(data) # Elec curve, Solar curve

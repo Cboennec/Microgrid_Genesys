@@ -233,7 +233,7 @@ end
 
 function EAC(y::Int64, s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
     # Annualised capex
-    capex = Genesys.annualised_capex(1:y, s, mg, designer)
+    capex = annualised_capex(1:y, s, mg, designer)
     # opex
     opex = grid_cost(y, s, mg, designer)
 
