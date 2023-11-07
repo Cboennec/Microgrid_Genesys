@@ -89,7 +89,7 @@ function checking!(h::Int64, y::Int64, s::Int64, mg::Microgrid, type::DataType)
                 a.carrier.power[h,y,s] = min(a.powerMax, max(-a.powerMax, balance))
             end
         end
-    else # If the balance equation is not fulfilled, systems are turned to zerp
+    else # If the balance equation is not fulfilled, systems are turned to zero
         if balance > sum(a.carrier.power[h,y,s] for a in mg.demands if a.carrier isa type) + 1e-2 # 0.01 kW tolerance
             # Storage set to zero
             for a in mg.storages

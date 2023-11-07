@@ -100,6 +100,7 @@ function fix_investment_decisions!(m::Model, generations::Vector{Float64}, stora
     end
 end
 
+#Ancienne fonction avec des decisions de design 1 par composant et Float
 function fix_investment_decisions!(m::Model, generations::Vector{Float64}, storages::Vector{Float64}, converters::Vector{Float64})
     # Generation
     if !isempty(generations)
@@ -114,6 +115,44 @@ function fix_investment_decisions!(m::Model, generations::Vector{Float64}, stora
         fix.(m[:r_c], converters)
     end
 end
+
+
+function fix_investment_decisions!(m::Model, mg::Microgrid, generations::Dict, storages::Dict, converters::Dict)
+    # Generation
+    if !isempty(generations)
+        for (i,key) in enumerate(keys(generations))
+            fix(m[:r_g][i], generations[key])
+        end
+    end
+    # Storages
+    if !isempty(storages)
+        for (i,key) in enumerate(keys(storages))
+            fix(m[:r_sto][i], storages[key])
+        end
+    end
+    # Converters
+    if !isempty(converters)
+        for (i,key) in enumerate(keys(converters))
+            if converters[key] isa NamedTuple
+                power = maximum(mg.converters[i].V_J_ini.V .* mg.converters[i].V_J_ini.J) * converters["FuelCell"].surface * converters["FuelCell"].N_cell
+                fix(m[:r_c][i], power)
+            else
+                fix(m[:r_c][i], converters[key])
+            end
+        end
+    end
+end
+
+
+function add_FC_decisions!(m::Model, nh::Int64, ns::Int64)
+    @variables(m, begin
+    activation_fc[1:nh, 1:ns], Bin
+    MA[1:(nh-1)], Bin
+    end)
+end
+
+
+
 
 
 function add_operation_decisions!(m::Model, demands::Vector{AbstractDemand}, nh::Int64, ns::Int64)
@@ -455,7 +494,7 @@ function add_power_balance!(m::Model, mg::Microgrid, ω::AbstractScenarios, type
         if type == Electricity
             if a isa Heater
                 add_to_expression!.(balance, m[:p_c][:,:,k])
-            elseif a isa Electrolyzer
+            elseif typeof(a) <: AbstractElectrolyzer
                 add_to_expression!.(balance, m[:p_c][:,:,k])
             elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, .- m[:p_c][:,:,k])
@@ -463,13 +502,13 @@ function add_power_balance!(m::Model, mg::Microgrid, ω::AbstractScenarios, type
         elseif type == Heat
             if a isa Heater
                 add_to_expression!.(balance, .- m[:p_c][:,:,k] * a.η_E_H)
-            elseif a isa Electrolyzer
+            elseif  typeof(a) <: AbstractElectrolyzer
                 add_to_expression!.(balance, .- m[:p_c][:,:,k] * a.η_E_H)
             elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, .- m[:p_c][:,:,k] / a.η_H2_H * a.η_H2_E) #p_c is the electrical power, so the first step compute the H2 power then the efficiency to heat is applied
             end
         elseif type == Hydrogen
-            if a isa Electrolyzer
+            if typeof(a) <: AbstractElectrolyzer
                 add_to_expression!.(balance, .- m[:p_c][:,:,k] * a.η_E_H2)
             elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, m[:p_c][:,:,k] / a.η_H2_E)
@@ -492,6 +531,19 @@ function add_power_balance!(m::Model, mg::Microgrid, ω::AbstractScenarios, type
     end
 end
 
+
+function add_FC_constraints!(m, mg, nh, ns)
+    for (k,a) in enumerate(mg.converters)
+        if typeof(a) <: AbstractFuelCell
+            @constraints(m, begin
+            [s in 1:ns, h in 1:nh], m[:activation_fc][h,s] * 1000 >= m[:p_c][h,s,k]  
+            [s in 1:ns, h in 1:(nh-1)], m[:MA][h,s] >= m[:activation_fc][h,s]
+            [s in 1:ns, h in 1:(nh-1)], m[:MA][h,s] >= -m[:activation_fc][h,s]
+            end)
+            
+        end
+    end
+end
 
 # Renewable share
 function add_renewable_share!(m::Model, mg::Microgrid, ω::AbstractScenarios, probabilities::Vector{Float64}, risk::AbstractRiskMeasure, nh::Int64, ns::Int64)
@@ -614,6 +666,16 @@ function compute_opex(m::Model, mg::Microgrid, ω::AbstractScenarios, nh::Int64,
         add_to_expression!.(cost, sum((m[:p_in][h,:,k] .* ω.grids[k].cost_in[h,1,:] .- m[:p_out][h,:,k] .* ω.grids[k].cost_out[h,1,:]) .* mg.parameters.Δh  for h in 1:nh))
     end
     return cost
+end
+
+
+function compute_penalization(m, nh, ns)
+    penalization = AffExpr.(zeros(ns))
+
+    price_per_MA = 0.0 #€
+    add_to_expression!.(penalization, sum(m[:MA][h,:] .* price_per_MA for h in 1:(nh-1)))
+
+    return penalization
 end
 
 function compute_opex_mini(m::Model, mg::Microgrid, ω::AbstractScenarios, nh::Int64, ns::Int64, sequence::Vector{Int64})
@@ -873,7 +935,7 @@ function add_power_balance_my!(m::Model, mg::Microgrid, ω::AbstractScenarios, t
         if type == Electricity
             if a isa Heater
                 add_to_expression!.(balance, m[:p_c][:,:,:,k])
-            elseif a isa Electrolyzer
+            elseif typeof(a) <: AbstractElectrolyzer
                 add_to_expression!.(balance, m[:p_c][:,:,:,k])
             elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k])
@@ -881,13 +943,13 @@ function add_power_balance_my!(m::Model, mg::Microgrid, ω::AbstractScenarios, t
         elseif type == Heat
             if a isa Heater
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_E_H)
-            elseif a isa Electrolyzer
+            elseif typeof(a) <: AbstractElectrolyzer
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_E_H)
             elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_H2_H)
             end
         elseif type == Hydrogen
-            if a isa Electrolyzer
+            if typeof(a) <: AbstractElectrolyzer
                 add_to_expression!.(balance, .- m[:p_c][:,:,:,k] * a.η_E_H2)
             elseif typeof(a) <: AbstractFuelCell
                 add_to_expression!.(balance, m[:p_c][:,:,:,k] * a.η_H2_E)

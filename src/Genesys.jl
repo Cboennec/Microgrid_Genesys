@@ -18,6 +18,7 @@ abstract type AbstractConverter end
 abstract type AbstractGrid end
 
 abstract type AbstractDesigner end
+abstract type AbstractDesignerNonFloat end
 abstract type AbstractController end
 
 
@@ -48,7 +49,7 @@ include(joinpath("assets","heater.jl"))
 include(joinpath("assets","grid.jl"))
 include(joinpath("assets","solar.jl"))
 include(joinpath("assets","demand.jl"))
-export AbstractController,  AbstractDesigner
+export AbstractController,  AbstractDesigner, AbstractDesignerNonFloat
 export AbstractLiion, AbstractFuelCell
 export Microgrid, Demand, Solar
 export Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params

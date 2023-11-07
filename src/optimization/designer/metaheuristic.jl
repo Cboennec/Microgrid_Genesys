@@ -141,13 +141,20 @@ function initialize_designer!(mg::Microgrid, designer::Metaheuristic, ω::Scenar
       end
 
     # Assign values
-    for k in 1:length(mg.generations)
-        designer.decisions.generations[k][1,:] .= designer.results.minimizer[k]
+    for (k,a) in enumerate(mg.generations)
+        if a isa Solar
+            designer.decisions.generations["PV"][1,:] .= designer.results.minimizer[k]
+        end
     end
-    for k in 1:length(mg.storages)
-        designer.decisions.storages[k][1,:] .= designer.results.minimizer[length(mg.generations)+k]
+    for (k,a) in enumerate(mg.storages)
+        if typeof(a) <: AbstractLiion
+            designer.decisions.storages["Liion"][1,:] .= designer.results.minimizer[length(mg.generations)+k]
+        elseif a isa H2Tank
+            designer.decisions.storages["H2Tank"][1,:] .= designer.results.minimizer[length(mg.generations)+k]
+        end
     end
     for k in 1:length(mg.converters)
+        #TODO : Probably Not working 
         designer.decisions.converters[k][1,:] .= designer.results.minimizer[end-length(mg.converters)+k]
     end
 
@@ -163,10 +170,17 @@ end
 # regarder dans le papier sur investissement dynamique
 function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, designer::Metaheuristic)
 
-    if mg.storages[1].soh[end,y,s] <= mg.storages[1].SoH_threshold
-        designer.decisions.storages[1][y,s] =  designer.storages[1]
+    for a in mg.storages
+        if mg.storages[1].soh[end,y,s] <= mg.storages[1].SoH_threshold
+            if typeof(a) <: AbstractLiion
+                designer.decisions.storages["Liion"][y,s] =  designer.storages["Liion"]
+            elseif a isa H2Tank
+                #No SoH yet for H2Tank
+            end
+        end
     end
     return nothing
+
 end
 
 ### Utils

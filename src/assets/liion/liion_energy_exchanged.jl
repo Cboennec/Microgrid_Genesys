@@ -139,6 +139,7 @@ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_
 
 end
 
+
 function compute_operation_dynamics(liion::Liion_energy_exchanged, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)
 
 	power_dch, power_ch = get_power_flow(liion, (Erated = state.Erated, soc = state.soc, soh = state.soh), decision, Δh)

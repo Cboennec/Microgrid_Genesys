@@ -112,7 +112,7 @@ function Scenarios(mg::Microgrid, d::Dict{})
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
-        if a isa Electrolyzer
+        if typeof(a) <: AbstractElectrolyzer
             converters[k] = (cost = d["elyz"].cost[y, s],)
         elseif typeof(a) <: AbstractFuelCell
             converters[k] = (cost = d["fc"].cost[y, s],)
@@ -399,7 +399,7 @@ function Scenarios(mg::Microgrid, d::Dict{}, nweeks::Int64; seed = []) # repeat 
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
-        if a isa Electrolyzer
+        if typeof(a) <: AbstractElectrolyzer
             converters[k] = (cost = d["elyz"].cost[y, s],)
         elseif typeof(a) <: AbstractFuelCell
             converters[k] = (cost = d["fc"].cost[y, s],)
@@ -463,7 +463,7 @@ function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # rep
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
-        if a isa Electrolyzer
+        if typeof(a) <: AbstractElectrolyzer
             #converters[k] = (cost = d["elyz"].cost[y, s],)
             converters[k] = (cost = compose(d["elyz"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
         elseif typeof(a) <: AbstractFuelCell
@@ -685,7 +685,7 @@ function Scenarios(mg::Microgrid, d::Dict, k::Int64, algo::String; weeks = false
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
-        if a isa Electrolyzer
+        if typeof(a) <: AbstractElectrolyzer
             converters[k] = (cost = d["elyz"].cost[y, s],)
         elseif typeof(a) <: AbstractFuelCell
             converters[k] = (cost = d["fc"].cost[y, s],)

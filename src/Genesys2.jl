@@ -18,6 +18,7 @@ abstract type AbstractConverter end
 abstract type AbstractGrid end
 
 abstract type AbstractDesigner end
+abstract type AbstractDesignerNonFloat end
 abstract type AbstractController end
 
 
@@ -39,11 +40,15 @@ include(joinpath("assets","liion","liion_vermeer.jl"))
 include(joinpath("assets","liion","liion_fixed_lifetime.jl"))
 include(joinpath("assets","tes.jl"))
 include(joinpath("assets","h2tank.jl"))
-include(joinpath("assets","electrolyzer.jl"))
+include(joinpath("assets","electrolyzer","electrolyzer.jl"))
+include(joinpath("assets","electrolyzer","electrolyzer_V_J.jl"))
+include(joinpath("assets","electrolyzer","electrolyzer_lin.jl"))
 include(joinpath("assets","fuelcell","fuelcell.jl"))
 include(joinpath("assets","fuelcell","fuelcell_hoursmax.jl"))
 include(joinpath("assets","fuelcell","fuelcell_on_off.jl"))
 include(joinpath("assets","fuelcell","fuelCell_power.jl"))
+include(joinpath("assets","fuelcell","fuelCell_V_J.jl"))
+include(joinpath("assets","fuelcell","fuelCell_lin.jl"))
 include(joinpath("assets","heater.jl"))
 include(joinpath("assets","grid.jl"))
 include(joinpath("assets","solar.jl"))

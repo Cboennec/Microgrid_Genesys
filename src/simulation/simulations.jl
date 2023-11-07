@@ -89,6 +89,9 @@ function simulate!(y::Int64,
     # Parameters
     nh = mg.parameters.nh
 
+    println("y = ", y)
+
+
     if y == 1 
         if options.firstyear
             # Update investment informations
@@ -98,10 +101,10 @@ function simulate!(y::Int64,
             initialize_investments!(s, mg, designer)
 
             # Compute investment decision variables
-            compute_investment_decisions!(y, s, mg, designer)
+            #compute_investment_decisions!(y, s, mg, designer)
 
             # Compute investment dynamics
-            compute_investment_dynamics!(y, s, mg, designer)
+            #compute_investment_dynamics!(y, s, mg, designer)
 
             #update grid prices
             update_grid_cost_informations!(y, s, mg, ω_simu)
@@ -121,25 +124,28 @@ function simulate!(y::Int64,
 
         end
     end
-        for h in 1:nh
-            simulate!(h, y, s, mg, controller, designer, ω_simu, options)
-        end
 
-        # Update investment informations
-        update_investment_informations!(y, s, mg, ω_simu)
+    for h in 1:nh
+        simulate!(h, y, s, mg, controller, designer, ω_simu, options)
+    end
 
-        # Compute investment decision variables
-        compute_investment_decisions!(y, s, mg, designer)
+    # Update investment informations
+    update_investment_informations!(y, s, mg, ω_simu)
 
-        # Compute investment dynamics
-        compute_investment_dynamics!(y, s, mg, designer)
+    # Compute investment decision variables
+    compute_investment_decisions!(y, s, mg, designer)
 
-        #update grid prices
-        update_grid_cost_informations!(y, s, mg, ω_simu)
+    #Compute investment dynamics
+    compute_investment_dynamics!(y, s, mg, designer)
+
+    #update grid prices
+    update_grid_cost_informations!(y, s, mg, ω_simu)
 
 
     
 end
+
+
 function simulate!(h::Int64,
                    y::Int64,
                    s::Int64,

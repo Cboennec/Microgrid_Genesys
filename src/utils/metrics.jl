@@ -153,9 +153,17 @@ function complex_grid_cost(years::Union{Int64, UnitRange{Int64}}, s::Union{Int64
 
     #overcome cost by year
     overcome_cost = zeros(length(years),length(s))
-    for s in 1:length(s)
-        for y in 1:length(years)
-            overcome_cost[y,s] = sum(sum(count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power[k][y,s]) * a.cost_exceed[y,s] for (k, a) in enumerate(mg.grids))) # count the hourly consumption exceeding the subscribed power
+    for a in mg.grids
+        for s in 1:length(s)
+            for y in 1:length(years)
+                if a.carrier isa Electricity
+                    overcome_cost[y,s] = sum(sum(count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Electricity"][y,s]) * a.cost_exceed[y,s] for (k, a) in enumerate(mg.grids))) # count the hourly consumption exceeding the subscribed power
+                elseif a.carrier isa Heat
+                    overcome_cost[y,s] = sum(sum(count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Heat"][y,s]) * a.cost_exceed[y,s] for (k, a) in enumerate(mg.grids))) # count the hourly consumption exceeding the subscribed power
+                elseif a.carrier isa Hydrogen
+                    overcome_cost[y,s] = sum(sum(count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Hydrogen"][y,s]) * a.cost_exceed[y,s] for (k, a) in enumerate(mg.grids))) # count the hourly consumption exceeding the subscribed power
+                end
+            end
         end
     end
 
@@ -173,24 +181,89 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
     capex = 0.
     # Generations
     for (k, a) in enumerate(mg.generations)
-        capex = capex .+ designer.decisions.generations[k][:,s] .* a.cost[:,s]
+        if a isa Solar
+            capex = capex .+ designer.decisions.generations["PV"][:,s] .* a.cost[:,s]
+            capex[1,s] = capex[1,s] + designer.generations["PV"] * a.cost[1,s]
+
+        end
     end
     # Storages
     for (k, a) in enumerate(mg.storages)
-        capex = capex .+ designer.decisions.storages[k][:,s] .* a.cost[:,s]
+        if typeof(a) <: AbstractLiion
+            capex[1,s] = capex[1,s] + designer.storages["Liion"] * a.cost[1,s]
+            capex = capex .+ designer.decisions.storages["Liion"][:,s] .* a.cost[:,s]
+        elseif a isa H2Tank
+            capex[1,s] = capex[1,s] + designer.storages["H2Tank"] * a.cost[1,s]
+            capex = capex .+ designer.decisions.storages["H2Tank"][:,s] .* a.cost[:,s]
+        elseif a isa ThermalStorage
+            capex[1,s] = capex[1,s] + designer.storages["ThermalStorage"] * a.cost[1,s]
+            capex = capex .+ designer.decisions.storages["ThermalStorage"][:,s] .* a.cost[:,s]
+        end
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
-        capex = capex .+ designer.decisions.converters[k][:,s] .* a.cost[:,s]
+        if typeof(a) <: AbstractFuelCell
+            key = "FuelCell"
+            if a isa FuelCell_V_J || a isa FuelCell_lin
+                P_nom_replacement = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
+                P_nom_ini = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.converters[key].surface .* designer.converters[key].N_cell
+
+                #Initial installation
+                capex[1,s] = capex[1,s] .+ P_nom_ini .* a.cost[1,s]
+                #Each replacement
+                capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
+               
+
+            else 
+                #Initial installation
+                capex[1,s] = capex[1,s] .+ designer.converters[key] .* a.cost[1,s]
+                #Each replacement
+                capex = capex .+ designer.decisions.converters[key][:,s] .* a.cost[:,s]
+              
+
+            end
+        elseif typeof(a) <: AbstractElectrolyzer
+            key = "Electrolyzer"
+            if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
+                P_nom_replacement = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
+                P_nom_ini = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.converters[key].surface .* designer.converters[key].N_cell
+
+                #Initial installation
+                capex[1,s] = capex[1,s] .+ P_nom_ini .* a.cost[1,s]
+                #Each replacement
+                capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
+               
+
+            else 
+                #Initial installation
+                capex[1,s] = capex[1,s] .+ designer.converters[key] .* a.cost[1,s]
+                #Each replacement
+                capex = capex .+ designer.decisions.converters[key][:,s] .* a.cost[:,s]
+              
+
+            end
+        elseif a isa Heater
+            capex[1,s] = capex[1,s] + designer.converters["Heater"] * a.cost[1,s]
+            capex = capex .+ designer.decisions.converters["Heater"][:,s] .* a.cost[:,s]
+        end
+
+
     end
 
 
     # Subscribtion grid
-    for (k, a) in enumerate(mg.grids)
-        subscribtion = zeros(size(designer.decisions.subscribed_power[k][:,s]))
-        for i in 1:size(designer.decisions.subscribed_power[k][:,s], 1)
+    for a in mg.grids
+        if a.carrier isa Electricity
+            key = "Electricity"
+        elseif a.carrier isa Heat
+            key = "Heat"
+        elseif a.carrier isa hydrogen
+            key = "Hydrogen"
+        end
+        subscribtion = zeros(size(designer.decisions.subscribed_power[key][:,s]))
+        for i in 1:size(designer.decisions.subscribed_power[key][:,s], 1)
             for j in s
-                subscribtion[i,j] = interp_linear_extrap_sub_prices(designer.decisions.subscribed_power[k][i,j])
+                subscribtion[i,j] = interp_linear_extrap_sub_prices(designer.decisions.subscribed_power[key][i,j])
             end
         end
         capex = capex .+ subscribtion  #abonnement
@@ -245,26 +318,75 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
     capex = 0.
     # Generations
     for (k, a) in enumerate(mg.generations)
-        Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)
-        capex = capex .+ Γ .* designer.decisions.generations[k][y,s] .* a.cost[y,s]
+        if a isa Solar
+            Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)            
+            capex = capex .+ Γ .* designer.decisions.generations["PV"][y,s] .* a.cost[y,s]
+            capex[1,s] = capex[1,s] + Γ[1] .* designer.generations["PV"] * a.cost[1,s]
+        end
     end
     # Storages
     for (k, a) in enumerate(mg.storages)
+        if typeof(a) <: AbstractLiion
+            key = "Liion"
+        elseif a isa H2Tank
+            key = "H2Tank"
+        elseif a isa ThermalStorage
+            key = "ThermalStorage"
+        end
         Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)
-        capex = capex .+ Γ .* designer.decisions.storages[k][y,s] .* a.cost[y,s]
+        capex = capex .+ Γ .* designer.decisions.storages[key][y,s] .* a.cost[y,s]
+        capex[1,s] = capex[1,s] + Γ[1] .* designer.storages[key] * a.cost[1,s]
+
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
+
         Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)
-        capex = capex .+ Γ .* designer.decisions.converters[k][y,s] .* a.cost[y,s]
+
+        if typeof(a) <: AbstractFuelCell
+            key = "FuelCell"
+            if a isa FuelCell_V_J || a isa FuelCell_lin
+                P_nom_replacement = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
+                P_nom_ini = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.converters[key].surface .* designer.converters[key].N_cell
+
+                capex = capex .+ Γ .* P_nom_replacement[y,s] .* a.cost[y,s]
+                capex[1,:] = capex[1,:] .+ Γ[1] * P_nom_ini .* a.cost[1,s]
+            else 
+                capex = capex .+ Γ .* designer.decisions.converters[key][y,s] .* a.cost[y,s]
+                capex[1,:] = capex[1,:] .+ Γ[1] * designer.converters[key] .* a.cost[1,s]
+            end
+        elseif typeof(a) <: AbstractElectrolyzer
+            key = "Electrolyzer"
+            if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
+                P_nom_replacement = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
+                P_nom_ini = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.converters[key].surface .* designer.converters[key].N_cell
+
+                capex = capex .+ Γ .* P_nom_replacement[y,s] .* a.cost[y,s]
+                capex[1,:] = capex[1,:] .+ Γ[1] * P_nom_ini .* a.cost[1,s]
+            else 
+                capex = capex .+ Γ .* designer.decisions.converters[key][y,s] .* a.cost[y,s]
+                capex[1,:] = capex[1,:] .+ Γ[1] * designer.converters[key] .* a.cost[1,s]
+            end
+        elseif a isa Heater
+            capex = capex .+ Γ .* designer.decisions.converters["Heater"][y,s] .* a.cost[y,s]
+            capex[1,:] = capex[1,:] .+ Γ[1] * designer.converters["Heater"] .* a.cost[1,s]
+        end
     end
 
     # Subscribtion grid
-    for (k, a) in enumerate(mg.grids)
-        tmp = zeros(size(designer.decisions.subscribed_power[k][:,s]))
-        for i in 1:size(designer.decisions.subscribed_power[k][:,s],1)
+    for a in mg.grids
+        if a.carrier isa Electricity
+            key = "Electricity"
+        elseif a.carrier isa Heat
+            key = "Heat"
+        elseif a.carrier isa hydrogen
+            key = "Hydrogen"
+        end
+
+        tmp = zeros(size(designer.decisions.subscribed_power[key][:,s]))
+        for i in 1:size(designer.decisions.subscribed_power[key][:,s],1)
             for j in s
-                tmp[i,j] = interp_linear_extrap_sub_prices(designer.decisions.subscribed_power[k][i,j])
+                tmp[i,j] = interp_linear_extrap_sub_prices(designer.decisions.subscribed_power[key][i,j])
             end
         end
         capex = capex .+ (tmp/length(y))    #abonnement

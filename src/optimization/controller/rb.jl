@@ -126,6 +126,138 @@ end
 
 
 
+### PV, 
+# Bat, tank
+# FC, ELYZ, Heater
+function π_5(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
+    # Utils to simplify the writting
+    Δh = mg.parameters.Δh
+    liion, h2tank = mg.storages[1], mg.storages[2]
+    heater, elyz, fc = mg.converters[1], mg.converters[2], mg.converters[3]
+
+    # Net power elec
+    p_net_E = mg.demands[1].carrier.power[h,y,s] - mg.generations[1].carrier.power[h,y,s]
+
+    # priority to the battery
+    u_liion = compute_operation_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), p_net_E, Δh)
+
+    if p_net_E < 0.
+        # Elyz
+        u_elyz_E, elyz_H, elyz_H2 = compute_operation_dynamics(elyz, h, y, s , p_net_E - u_liion, Δh)
+        # H2 tank
+        _, u_h2tank = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), -elyz_H2, Δh)
+        # Did we charge the H2Tank
+        elyz_H2 == - u_h2tank ? nothing : u_elyz_E = elyz_H = elyz_H2 = u_h2tank = 0.
+        # FC
+        u_fc_E, fc_H, fc_H2 = 0., 0., 0.
+        # Rest goes to the Heater
+        u_heater_E, heater_H = compute_operation_dynamics(heater, (powerMax = heater.powerMax[y,s],), p_net_E - u_liion - u_elyz_E, Δh)
+    else
+        # FC
+        u_fc_E, fc_H, fc_H2 = compute_operation_dynamics(fc, h, y, s, p_net_E - u_liion, Δh)
+        # H2 tank
+        _, u_h2tank = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), -fc_H2, Δh)
+        # Test H2
+        fc_H2 == - u_h2tank ? nothing : u_fc_E = fc_H = fc_H2 = u_h2tank = 0.
+        # Elyz
+        u_elyz_E, elyz_H, elyz_H2 = 0., 0., 0.
+        # Heater
+        u_heater_E, heater_H = 0., 0.
+    end
+
+    # Net heating power post H2
+    p_net_H = mg.demands[2].carrier.power[h,y,s] - fc_H - elyz_H - heater_H
+
+    #
+    # Heater
+    if p_net_H < 0.
+        _u_heater_E = 0.
+    else
+        _u_heater_E, _ = compute_operation_dynamics(heater, (powerMax = heater.powerMax[y,s],), - (p_net_H) / heater.η_E_H, Δh)
+    end
+
+    # Store values
+    controller.decisions.storages[1][h,y,s] = u_liion
+    controller.decisions.storages[2][h,y,s] = u_h2tank
+    controller.decisions.converters[1][h,y,s]  = u_heater_E + _u_heater_E
+    controller.decisions.converters[2][h,y,s] = u_elyz_E
+    controller.decisions.converters[3][h,y,s] = u_fc_E
+end
+
+
+
+
+### PV, 
+# Bat, tank
+# FC, ELYZ, Heater 
+# The H2 is used to fill the Liion
+# Their is no heating demand, the heater is used for curtailment
+function π_6(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
+    # Utils to simplify the writting
+    Δh = mg.parameters.Δh
+    liion, h2tank = mg.storages[1], mg.storages[2]
+    heater, elyz, fc = mg.converters[1], mg.converters[2], mg.converters[3]
+
+    # Net power elec
+    p_net_E = mg.demands[1].carrier.power[h,y,s] - mg.generations[1].carrier.power[h,y,s]
+
+    # priority to the battery
+    u_liion = compute_operation_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), p_net_E, Δh)
+
+    if p_net_E < 0.
+        # Elyz
+        u_elyz_E, elyz_H, elyz_H2 = compute_operation_dynamics(elyz, h, y, s , p_net_E - u_liion, Δh)
+        # H2 tank
+        _, u_h2tank = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), -elyz_H2, Δh)
+        # Did we charge the H2Tank
+        elyz_H2 == - u_h2tank ? nothing : u_elyz_E = elyz_H = elyz_H2 = u_h2tank = 0.
+        # FC
+        u_fc_E, fc_H, fc_H2 = 0., 0., 0.
+        # Rest goes to the Heater
+        u_heater_E, heater_H = compute_operation_dynamics(heater, (powerMax = heater.powerMax[y,s],), p_net_E - u_liion - u_elyz_E, Δh)
+    else
+        # If the battery is getting low and the fuelcell is not activated due to minor demand we charge the battery with it
+        if p_net_E - u_liion < fc.powerMin[h,y,s] && p_net_E - u_liion != 0 #&& liion.soc[h,y,s] < 0.6 #&& h2tank.soc[h,y,s] > 0.3 
+            p_adjust_E = fc.powerMin[h,y,s]
+            u_liion = p_net_E - fc.powerMin[h,y,s]
+        else
+            p_adjust_E = p_net_E - u_liion
+        end
+
+        # FC
+        u_fc_E, fc_H, fc_H2 = compute_operation_dynamics(fc, h, y, s, p_adjust_E, Δh)
+        # H2 tank
+        _, u_h2tank = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), -fc_H2, Δh)
+        # Test H2
+        fc_H2 == - u_h2tank ? nothing : u_fc_E = fc_H = fc_H2 = u_h2tank = 0.
+        # Elyz
+        u_elyz_E, elyz_H, elyz_H2 = 0., 0., 0.
+        # Heater
+        u_heater_E, heater_H = 0., 0.
+    end
+
+    # Net heating power post H2
+    p_net_H = - fc_H - elyz_H - heater_H
+
+    #
+    # Heater
+    if p_net_H < 0.
+        _u_heater_E = 0.
+    else
+        _u_heater_E, _ = compute_operation_dynamics(heater, (powerMax = heater.powerMax[y,s],), - (p_net_H) / heater.η_E_H, Δh)
+    end
+
+
+
+    # Store values
+    controller.decisions.storages[1][h,y,s] = u_liion
+    controller.decisions.storages[2][h,y,s] = u_h2tank
+    controller.decisions.converters[1][h,y,s]  = u_heater_E + _u_heater_E
+    controller.decisions.converters[2][h,y,s] = u_elyz_E
+    controller.decisions.converters[3][h,y,s] = u_fc_E
+end
+
+
 
 ### Offline
 function initialize_controller!(mg::Microgrid, controller::RBC, ω::AbstractScenarios)
@@ -146,6 +278,10 @@ function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgri
         return π_3(h, y, s, mg, controller)
     elseif controller.options.policy_selection == 4
         return π_4(h, y, s, mg, controller)
+    elseif controller.options.policy_selection == 5
+        return π_5(h, y, s, mg, controller)
+    elseif controller.options.policy_selection == 6
+        return π_6(h, y, s, mg, controller)
     else
         println("Policy not defined !")
     end

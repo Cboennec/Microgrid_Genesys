@@ -49,9 +49,9 @@ function build_model_lim_SoH(mg::Microgrid, controller::Multi_Year_Anticipative,
     add_power_balance!(m, mg, ω, Heat, nh, ns)
     add_power_balance!(m, mg, ω, Hydrogen, nh, ns)
 
-    for (k,a) in enumerate(mg.storages)
-        if a isa AbstractLiion
-            E_ex_tot = (2. * a.nCycle * (a.α_soc_max - a.α_soc_min) * designer.storages[k]) 
+    for a in mg.storages
+        if typeof(a) <: AbstractLiion
+            E_ex_tot = (2. * a.nCycle * (a.α_soc_max - a.α_soc_min) * designer.storages["liion"]) 
             add_SoH_lim_variables_constraint!(m, k, nh, ns, E_ex_tot, lim)
         end
     end
@@ -124,7 +124,7 @@ function initialize_controller!(mg::Microgrid, controller::Multi_Year_Anticipati
                     #Get the cost and include some salvage if a part of the battery have been artificially dropped by the discretization of states
                     opex = objective_value(model)
                     effective_ΔSoH = value.(model[:ΔSoH])
-                    salvage = (ΔSoH.-effective_ΔSoH) .* (designer.storages[1] .* ω_reduced.storages[1].cost[1,1])
+                    salvage = (ΔSoH.-effective_ΔSoH) .* (designer.storages["Liion"] .* ω_reduced.storages[1].cost[1,1])
                     
                     Cost[s] = opex[1] - salvage[1]
 
@@ -170,7 +170,7 @@ function initialize_controller!(mg::Microgrid, controller::Multi_Year_Anticipati
     tab_noeuds[1,1] = 1
     node_num = 2
 
-    cout_remplacement = (designer.storages[1] .* ω.storages[1].cost[1,1])
+    cout_remplacement = (designer.storages["Liion"] .* ω.storages[1].cost[1,1])
 
     for y in 1:(Ny)
         #On active les noeuds grace aux arcs 

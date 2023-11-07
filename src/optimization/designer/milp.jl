@@ -152,27 +152,65 @@ function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; mult
 
     if multiyear
         # Assign values
-        for k in 1:length(mg.generations)
-            designer.decisions.generations[k][1,:] .= value(designer.model[:r_g][k])
-        end
-        for k in 1:length(mg.storages)
-            for y in 1:mg.parameters.ny
-                designer.decisions.storages[k][y,:] .= value(designer.model[:r_sto][y,k])
+        for (k,a) in enumerate(mg.generations)
+            if a isa Solar
+                designer.decisions.generations["PV"][1,:] .= value(designer.model[:r_g][k])
             end
         end
-        for k in 1:length(mg.converters)
-            designer.decisions.converters[k][1,:] .= value(designer.model[:r_c][k])
+        for (k,a) in enumerate(mg.storages)
+            for y in 1:mg.parameters.ny
+                if typeof(a) <: AbstractLiion
+                    designer.decisions.storages["Liion"][y,:] .= value(designer.model[:r_sto][y,k])
+                elseif a isa H2Tank
+                    designer.decisions.storages["H2Tank"][y,:] .= value(designer.model[:r_sto][y,k])
+                end
+            end
+        end
+        for (k,a) in enumerate(mg.converters)
+            if typeof(a) <: AbstractFuelCell
+                key = "FuelCell"
+                if a isa FuelCell_V_J || a isa FuelCell_lin
+                    #The decision should be stored in designer.converters[key] for the first year and the rest in designer.decisions.converters[key]
+                    designer.decisions.converters[key].surface[1,:] .= value(designer.model[:r_c_surface][k])
+                    designer.decisions.converters[key].N_cell[1,:] .= value(designer.model[:r_c_N_cell][k])
+                else
+                    designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
+                end
+            elseif a isa Electrolyzer
+                designer.decisions.converters["Electrolyzer"][1,:] .= value(designer.model[:r_c][k])
+            elseif a isa Heater
+                designer.decisions.converters["Heater"][1,:] .= value(designer.model[:r_c][k])
+            end
         end
     else
         # Assign values
-        for k in 1:length(mg.generations)
-            designer.decisions.generations[k][1,:] .= value(designer.model[:r_g][k])
+        for (k,a) in enumerate(mg.generations)
+            if a isa Solar
+                designer.decisions.generations["PV"][1,:] .= value(designer.model[:r_g][k])
+            end
         end
-        for k in 1:length(mg.storages)
-            designer.decisions.storages[k][1,:] .= value(designer.model[:r_sto][k])
+        for (k,a) in enumerate(mg.storages)
+            if typeof(a) <: AbstractLiion
+                designer.decisions.storages["Liion"][1,:] .= value(designer.model[:r_sto][k])
+            elseif a isa H2Tank
+                designer.decisions.storages["H2Tank"][1,:] .= value(designer.model[:r_sto][k])
+            end
         end
-        for k in 1:length(mg.converters)
-            designer.decisions.converters[k][1,:] .= value(designer.model[:r_c][k])
+        for (k,a) in enumerate(mg.converters)
+            if typeof(a) <: AbstractFuelCell
+                key = "FuelCell"
+                if a isa FuelCell_V_J || a isa FuelCell_lin
+                    designer.decisions.converters[key].surface[1,:] .= value(designer.model[:r_c_surface][k])
+                    designer.decisions.converters[key].N_cell[1,:] .= value(designer.model[:r_c_N_cell][k])
+                else
+                    designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
+                end
+            elseif a isa Electrolyzer
+                designer.decisions.converters["Electrolyzer"][1,:] .= value(designer.model[:r_c][k])
+            elseif a isa Heater
+                designer.decisions.converters["Heater"][1,:] .= value(designer.model[:r_c][k])
+            end
+
         end
     end
 
@@ -291,27 +329,69 @@ function initialize_designer_my!(mg::Microgrid, designer::MILP, ω::Scenarios; m
 
     if multiyear
         # Assign values
-        for k in 1:length(mg.generations)
-            designer.decisions.generations[k][1,:] .= value(designer.model[:r_g][k])
-        end
-        for k in 1:length(mg.storages)
-            for y in 1:mg.parameters.ny
-                designer.decisions.storages[k][y,:] .= value(designer.model[:r_sto][y,k])
+        for (k,a) in enumerate(mg.generations)
+            if a isa Solar
+                designer.decisions.generations["PV"][1,:] .= value(designer.model[:r_g][k])
             end
         end
-        for k in 1:length(mg.converters)
-            designer.decisions.converters[k][1,:] .= value(designer.model[:r_c][k])
+        for (k,a) in enumerate(mg.storages)
+            for y in 1:mg.parameters.ny
+                if typeof(a) <: AbstractLiion
+                    designer.decisions.storages["Liion"][y,:] .= value(designer.model[:r_sto][y,k])
+                elseif a isa H2Tank
+                    designer.decisions.storages["h2tank"][y,:] .= value(designer.model[:r_sto][y,k])
+                end
+            end
+        end
+
+        for (k,a) in enumerate(mg.converters)
+            if typeof(a) <: AbstractFuelCell
+                key = "FuelCell"
+                if a isa FuelCell_V_J ||  a isa FuelCell_lin
+                    designer.decisions.converters[key].surface[1,:] .= value(designer.model[:r_c_surface][k])
+                    designer.decisions.converters[key].N_cell[1,:] .= value(designer.model[:r_c_N_cell][k])
+                else
+                    designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
+                end
+            elseif a isa Heater 
+                key = "Heater"
+                designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
+            elseif a isa Electrolyzer
+                key = "Electrolyzer"
+                designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
+            end
         end
     else
         # Assign values
-        for k in 1:length(mg.generations)
-            designer.decisions.generations[k][1,:] .= value(designer.model[:r_g][k])
+        for (k,a) in enumerate(mg.generations)
+            if a isa Solar
+                designer.decisions.generations["PV"][1,:] .= value(designer.model[:r_g][k])
+            end
         end
-        for k in 1:length(mg.storages)
-            designer.decisions.storages[k][1,:] .= value(designer.model[:r_sto][k])
+        for (k,a) in enumerate(mg.storages)
+            if typeof(a) <: AbstractLiion
+                designer.decisions.storages["Liion"][1,:] .= value(designer.model[:r_sto][k])
+            elseif a isa H2Tank
+                designer.decisions.storages["H2Tank"][1,:] .= value(designer.model[:r_sto][k])
+            end
         end
-        for k in 1:length(mg.converters)
-            designer.decisions.converters[k][1,:] .= value(designer.model[:r_c][k])
+
+        for (k,a) in enumerate(mg.converters)
+            if typeof(a) <: AbstractFuelCell
+                key = "FuelCell"
+                if a isa FuelCell_V_J || a isa FuelCell_lin
+                    designer.decisions.converters[key].surface[1,:] .= value(designer.model[:r_c_surface][k])
+                    designer.decisions.converters[key].N_cell[1,:] .= value(designer.model[:r_c_N_cell][k])
+                else
+                    designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
+                end
+            elseif a isa Heater 
+                key = "Heater"
+                designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
+            elseif a isa Electrolyzer
+                key = "Electrolyzer"
+                designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
+            end
         end
     end
 

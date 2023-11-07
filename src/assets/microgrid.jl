@@ -86,11 +86,77 @@ Preallocate abstract designer
 Data struct are sized according to the number of scenario and years
  to store for each element to size a decision per investment stage.
 """
+#function preallocate!(mg::Microgrid, designer::AbstractDesigner)
+#    designer.decisions = (generations = [zeros(mg.parameters.ny, mg.parameters.ns) for a in mg.generations],
+#                          storages = [zeros(mg.parameters.ny, mg.parameters.ns) for a in mg.storages],
+#                          converters = [zeros(mg.parameters.ny, mg.parameters.ns) for a in mg.converters],
+#                          subscribed_power = [zeros(mg.parameters.ny, mg.parameters.ns) for a in mg.grids])
+#end
+
+
+"""
+    preallocate!(mg::Microgrid, designer::AbstractDesignerNonFloat)
+
+Preallocate abstract designer with not only float decisions
+
+Data struct are sized according to the number of scenario and years
+ to store for each element to size a decision per investment stage.
+"""
 function preallocate!(mg::Microgrid, designer::AbstractDesigner)
-    designer.decisions = (generations = [zeros(mg.parameters.ny, mg.parameters.ns) for a in mg.generations],
-                          storages = [zeros(mg.parameters.ny, mg.parameters.ns) for a in mg.storages],
-                          converters = [zeros(mg.parameters.ny, mg.parameters.ns) for a in mg.converters],
-                          subscribed_power = [zeros(mg.parameters.ny, mg.parameters.ns) for a in mg.grids])
+    generations_dict = Dict()
+    storages_dict = Dict()
+    converter_dict = Dict()
+    subscribed_power_dict = Dict()
+
+    for a in mg.generations
+        if a isa Solar
+            generations_dict["PV"] = zeros(mg.parameters.ny, mg.parameters.ns)
+        end
+    end
+
+    for a in mg.storages
+        if typeof(a) <: AbstractLiion
+            storages_dict["Liion"] = zeros(mg.parameters.ny, mg.parameters.ns)
+        elseif a isa H2Tank
+            storages_dict["H2Tank"] = zeros(mg.parameters.ny, mg.parameters.ns)
+        elseif a isa ThermalStorage
+            storages_dict["ThermalStorage"] = zeros(mg.parameters.ny, mg.parameters.ns)
+        end
+    end
+
+    for a in mg.converters
+        if typeof(a) <: AbstractFuelCell
+            if a isa FuelCell_V_J || a isa FuelCell_lin
+                converter_dict["FuelCell"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
+            else 
+                converter_dict["FuelCell"] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
+            end
+        elseif typeof(a) <: AbstractElectrolyzer
+            if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
+                converter_dict["Electrolyzer"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
+            else 
+                converter_dict["Electrolyzer"] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
+            end
+        elseif a isa Heater
+            converter_dict["Heater"] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
+        end
+    end
+
+    
+    for a in mg.grids
+        if a.carrier isa Electricity
+            subscribed_power_dict["Electricity"] = zeros(mg.parameters.ny, mg.parameters.ns)
+        elseif a.carrier isa Heat
+            subscribed_power_dict["Heat"] = zeros(mg.parameters.ny, mg.parameters.ns)
+        elseif a.carrier isa Hydrogen
+            subscribed_power_dict["Hydrogen"] = zeros(mg.parameters.ny, mg.parameters.ns)
+        end
+    end
+
+    designer.decisions = (generations = generations_dict,
+                          storages = storages_dict,
+                          converters = converter_dict,
+                          subscribed_power = subscribed_power_dict)
 end
 
 """
@@ -125,4 +191,22 @@ function isin(field::Vector, type::DataType)
         end
     end
     return bool, idx
+end
+
+
+# serie_a : the serie you know a value on
+# serie_b : the serie you want to find a value on
+# a : the value you have
+# b : the value you want
+# increasing : is serie a increasing ?
+function interpolation(serie_a::Vector{Float64}, serie_b::Vector{Float64}, a::Float64, serie_a_increasing::Bool)
+    
+    if serie_a_increasing
+        id = findfirst(serie_a .>= a)
+    else
+        id = findfirst(serie_a .<= a)
+    end
+    frac = (a - serie_a[id-1]) / (serie_a[id] - serie_a[id-1])
+    b = frac * (serie_b[id] - serie_b[id-1]) + serie_b[id-1]
+    return b
 end

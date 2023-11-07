@@ -1,3 +1,6 @@
+abstract type AbstractElectrolyzer <: AbstractConverter  end
+
+
 #=
     Electrolyzer modelling
  =#
@@ -33,7 +36,7 @@ A mutable struct representing an Electrolyzer, which is a subtype of `AbstractCo
 electrolyzer = Electrolyzer(α_p=0.05, η_E_H2=0.5, η_E_H=0.3, lifetime=15, nHoursMax=26000.0, bounds=(lb=0.0, ub=50.0), powerMax_ini=0.0, soh_ini=1.0)
 ```
 """
-mutable struct Electrolyzer <: AbstractConverter
+mutable struct Electrolyzer <: AbstractElectrolyzer
   # Paramètres
   α_p::Float64
   η_E_H2::Float64
@@ -76,19 +79,19 @@ end
 
 ### Operation dynamic
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, elyz::Electrolyzer, decision::Float64, Δh::Int64)
- elyz.soh[h+1,y,s], elyz.carrier[1].power[h,y,s], elyz.carrier[2].power[h,y,s], elyz.carrier[3].power[h,y,s] =
- compute_operation_dynamics(elyz, (powerMax = elyz.powerMax[y,s], soh = elyz.soh[h,y,s]), decision, Δh)
+ elyz.carrier[1].power[h,y,s], elyz.carrier[2].power[h,y,s], elyz.carrier[3].power[h,y,s] =
+ compute_operation_dynamics(elyz, h, y, s, decision, Δh)
 end
 
-function compute_operation_dynamics(elyz::Electrolyzer, state::NamedTuple{(:powerMax, :soh), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(elyz::Electrolyzer, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Int64)
  # Power constraint and correction
- elyz.α_p * state.powerMax >= decision && state.soh * elyz.nHoursMax / Δh > 1. ? power_E = max(decision, -state.powerMax) : power_E = 0.
+ elyz.α_p * elyz.powerMax[y,s] >= decision && elyz.soh[h,y,s] * elyz.nHoursMax / Δh > 1. ? power_E = max(decision, -elyz.powerMax[y,s]) : power_E = 0.
  # Power conversion
  power_H2 = - power_E * elyz.η_E_H2
  power_H = - power_E * elyz.η_E_H
  # SoH computation
- soh_next = state.soh - (power_E > 0.) * Δh / elyz.nHoursMax
- return soh_next, power_E, power_H, power_H2
+ elyz.soh[h+1,y,s] = elyz.soh[h,y,s] - (power_E > 0.) * Δh / elyz.nHoursMax
+ return power_E, power_H, power_H2
 end
 
 ### Investment dynamic
@@ -112,4 +115,25 @@ function compute_investment_dynamics(elyz::Electrolyzer, state::NamedTuple{(:pow
      soh_next = state.soh
  end
  return powerMax_next, soh_next
+end
+
+
+
+#compute the power that correpond to the maximum allowed tension
+function compute_min_power(elyz::AbstractElectrolyzer)
+  P_min = interpolation(elyz.V_J[1,:], elyz.V_J[3,:], elyz.J_min, true )
+  P_min_tot = P_min * (1 + elyz.k_aux)
+  return P_min_tot
+end
+
+
+function get_η_E(P_brut::Float64, elyz::AbstractElectrolyzer)
+  P_net = ceil(P_brut / (1 + elyz.k_aux); digits=6)
+  
+  #Find the corresponding current from an interpolation from P(I) curve 
+  j = interpolation(elyz.V_J[3,:], elyz.V_J[1,:], P_net, true)
+  i = j * elyz.surface
+
+  return elyz.K * i / (P_brut / elyz.N_cell)
+
 end

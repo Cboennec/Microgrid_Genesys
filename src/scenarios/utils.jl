@@ -286,8 +286,8 @@ function get_days(N_days, N_bins, ω, y ,s; time_limit = 0)
 
     optimize!(m)
 
-    days_id = findall( x -> x > 0, Int64.(value.(m[:day])))
-    return days_id, Int64.(value.(m[:weight_day]))[days_id]
+    days_id = findall( x -> x > 0, Int64.(round.(value.(m[:day]))))
+    return days_id, Int64.(round.(value.(m[:weight_day])))[days_id]
             
 end
 
