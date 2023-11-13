@@ -26,7 +26,7 @@ function π_1(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
     p_net_E = mg.demands[1].carrier.power[h,y,s] - mg.generations[1].carrier.power[h,y,s]
 
     # Liion
-    _, _, u_liion = compute_operation_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), p_net_E, Δh)
+    _, _, u_liion = compute_operation_dynamics(liion, h, y, s, p_net_E, Δh)
 
     if p_net_E < 0.
         # Elyz
@@ -202,7 +202,7 @@ function π_6(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
     p_net_E = mg.demands[1].carrier.power[h,y,s] - mg.generations[1].carrier.power[h,y,s]
 
     # priority to the battery
-    u_liion = compute_operation_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), p_net_E, Δh)
+    u_liion = compute_operation_dynamics(liion, h, y, s, p_net_E, Δh)
 
     if p_net_E < 0.
         # Elyz
@@ -216,10 +216,10 @@ function π_6(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
         # Rest goes to the Heater
         u_heater_E, heater_H = compute_operation_dynamics(heater, (powerMax = heater.powerMax[y,s],), p_net_E - u_liion - u_elyz_E, Δh)
     else
-        # If the battery is getting low and the fuelcell is not activated due to minor demand we charge the battery with it
-        if p_net_E - u_liion < fc.powerMin[h,y,s] && p_net_E - u_liion != 0 #&& liion.soc[h,y,s] < 0.6 #&& h2tank.soc[h,y,s] > 0.3 
-            p_adjust_E = fc.powerMin[h,y,s]
-            u_liion = p_net_E - fc.powerMin[h,y,s]
+        # If the battery is getting low and the fuelcell is not activated due to minor demand we activate and use the excess to charge the battery with it
+        if p_net_E - u_liion < fc.SoC_model.powerMin[h,y,s] && p_net_E - u_liion != 0 #&& liion.soc[h,y,s] < 0.6 #&& h2tank.soc[h,y,s] > 0.3 
+            p_adjust_E = fc.SoC_model.powerMin[h,y,s]
+            u_liion = p_net_E - fc.SoC_model.powerMin[h,y,s]
         else
             p_adjust_E = p_net_E - u_liion
         end

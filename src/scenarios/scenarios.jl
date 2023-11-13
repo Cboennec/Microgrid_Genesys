@@ -466,7 +466,7 @@ function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # rep
         if typeof(a) <: AbstractElectrolyzer
             #converters[k] = (cost = d["elyz"].cost[y, s],)
             converters[k] = (cost = compose(d["elyz"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
-        elseif typeof(a) <: AbstractFuelCell
+        elseif a isa FuelCell
             #converters[k] = (cost = d["fc"].cost[y, s],)
             converters[k] = (cost = compose(d["fc"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
 

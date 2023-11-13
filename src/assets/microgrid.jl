@@ -115,7 +115,7 @@ function preallocate!(mg::Microgrid, designer::AbstractDesigner)
     end
 
     for a in mg.storages
-        if typeof(a) <: AbstractLiion
+        if a isa Liion
             storages_dict["Liion"] = zeros(mg.parameters.ny, mg.parameters.ns)
         elseif a isa H2Tank
             storages_dict["H2Tank"] = zeros(mg.parameters.ny, mg.parameters.ns)
@@ -125,12 +125,8 @@ function preallocate!(mg::Microgrid, designer::AbstractDesigner)
     end
 
     for a in mg.converters
-        if typeof(a) <: AbstractFuelCell
-            if a isa FuelCell_V_J || a isa FuelCell_lin
-                converter_dict["FuelCell"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
-            else 
-                converter_dict["FuelCell"] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
-            end
+        if a isa FuelCell
+            converter_dict["FuelCell"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
         elseif typeof(a) <: AbstractElectrolyzer
             if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
                 converter_dict["Electrolyzer"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))

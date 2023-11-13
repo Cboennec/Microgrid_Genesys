@@ -24,7 +24,7 @@ abstract type AbstractController end
 
 
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP, Gurobi, Juniper, Alpine, Ipopt, HiGHS
+using JuMP, Cbc, Metaheuristics, SDDP, Gurobi, HiGHS
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
@@ -33,11 +33,11 @@ using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames,
 include(joinpath("assets","microgrid.jl"))
 include(joinpath("assets","carriers.jl"))
 include(joinpath("assets","liion","liion.jl"))
-include(joinpath("assets","liion","liion_energy_exchanged.jl"))
-include(joinpath("assets","liion","liion_rainflow.jl"))
-include(joinpath("assets","liion","liion_electro_chimique.jl"))
-include(joinpath("assets","liion","liion_vermeer.jl"))
-include(joinpath("assets","liion","liion_fixed_lifetime.jl"))
+#include(joinpath("assets","liion","liion_energy_exchanged.jl"))
+#include(joinpath("assets","liion","liion_rainflow.jl"))
+#include(joinpath("assets","liion","liion_electro_chimique.jl"))
+#include(joinpath("assets","liion","liion_vermeer.jl"))
+#include(joinpath("assets","liion","liion_fixed_lifetime.jl"))
 include(joinpath("assets","tes.jl"))
 include(joinpath("assets","h2tank.jl"))
 include(joinpath("assets","electrolyzer","electrolyzer.jl"))

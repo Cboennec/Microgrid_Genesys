@@ -32,12 +32,8 @@ function compute_investment_dynamics!(y::Int64, s::Int64, mg::Microgrid, designe
      # Converters
      for (k, a) in enumerate(mg.converters)
 
-        if typeof(a) <: AbstractFuelCell
-            if a isa FuelCell_V_J || a isa FuelCell_lin
-                compute_investment_dynamics!(y, s, a, (surface = designer.decisions.converters["FuelCell"].surface[y,s], N_cell = Int(designer.decisions.converters["FuelCell"].N_cell[y,s])) )
-            else 
-                compute_investment_dynamics!(y, s, a, designer.decisions.converters["FuelCell"][y,s])
-            end
+        if a isa FuelCell
+            compute_investment_dynamics!(y, s, a, (surface = designer.decisions.converters["FuelCell"].surface[y,s], N_cell = Int(designer.decisions.converters["FuelCell"].N_cell[y,s])) )
         elseif typeof(a) <: AbstractElectrolyzer
             if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
                 compute_investment_dynamics!(y, s, a, (surface = designer.decisions.converters["Electrolyzer"].surface[y,s], N_cell = Int(designer.decisions.converters["Electrolyzer"].N_cell[y,s])) )
@@ -70,12 +66,8 @@ function initialize_investments!(s::Int64, mg::Microgrid, designer::AbstractDesi
     end
     # Converters
     for a in mg.converters
-        if typeof(a) <: AbstractFuelCell
-            if a isa FuelCell_V_J || a isa FuelCell_lin
-                initialize_investments!(s, a, (surface = designer.converters["FuelCell"].surface, N_cell = designer.converters["FuelCell"].N_cell))
-            else 
-                initialize_investments!(s, a, designer.converters["FuelCell"])
-            end
+        if a isa FuelCell
+            initialize_investments!(s, a, (surface = designer.converters["FuelCell"].surface, N_cell = designer.converters["FuelCell"].N_cell))
         elseif typeof(a) <: AbstractElectrolyzer
             if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
                 initialize_investments!(s, a, (surface = designer.converters["Electrolyzer"].surface, N_cell = designer.converters["Electrolyzer"].N_cell))

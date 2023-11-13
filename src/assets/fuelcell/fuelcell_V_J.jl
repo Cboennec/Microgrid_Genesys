@@ -10,7 +10,7 @@ mutable struct deg_params
 end
 
 
-function create_deg_params(datas::Vector{DataFrames.DataFrame}, Js::Vector{Float64}, V_J::DataFrames.DataFrame, J_ref::Float64, objective_lifetime::Float64; power = 1/2)
+function create_deg_params(datas::Vector{DataFrames.DataFrame}, Js::Vector{Float64}, V_J::Matrix{Float64}, J_ref::Float64, objective_lifetime::Float64; power = 1/2)
 
     P_max = datas[3]
 
@@ -18,7 +18,7 @@ function create_deg_params(datas::Vector{DataFrames.DataFrame}, Js::Vector{Float
 
     a_slope, b_slope, c_slope = fit_dot(Js, as, power)
 
-    V_ini_ref =  interpolation(V_J.J,  V_J.V, J_ref, true)
+    V_ini_ref =  interpolation(V_J[1,:],  V_J[2,:], J_ref, true)
 
     ΔV_tot = V_ini_ref * 0.1
 

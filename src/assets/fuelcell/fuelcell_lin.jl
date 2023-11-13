@@ -158,11 +158,11 @@ function update_FC(fc::FuelCell_lin, powers::Vector{Float64})
     V_nom_ini = interpolation(fc.V_J_ini.J, fc.V_J_ini.V, fc.J_ref, true)
     V_nom = interpolation(fc.V_J[1,:], fc.V_J[2,:], fc.J_ref, true)
     
-    plt = PyPlot.subplot()
+    # plt = PyPlot.subplot()
     
-    PyPlot.plot(fc.V_J[1,:], fc.V_J[2,:])
-    plt.set_ylabel("Tension (V)")
-    plt.set_xlabel("Current density (A/cm²)")
+    # PyPlot.plot(fc.V_J[1,:], fc.V_J[2,:])
+    # plt.set_ylabel("Tension (V)")
+    # plt.set_xlabel("Current density (A/cm²)")
     # plt = PyPlot.subplot()
 
     # x_val = vcat([x for x in P_min:1:P_max], P_max)

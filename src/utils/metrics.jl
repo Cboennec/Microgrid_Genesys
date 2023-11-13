@@ -97,8 +97,6 @@ baseline_cost(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid) = baseline_cost(
 function baseline_cost(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
     # TODO : compute baseline cost whatever the microgrid...
 
-
-
     total = 0.
     if !isempty(mg.demands)
         for (k,a) in enumerate(mg.demands)
@@ -117,12 +115,9 @@ function baseline_cost(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, UnitRa
                 end
                 total = total .+ subscribtion  #abonnement
 
-
             elseif a.carrier isa Heat
                 total = total .+ sum(a.carrier.power[:,y,s] / mg.converters[isin(mg.converters, Heater)[2]].η_E_H .* mg.grids[1].cost_in[:,y,s] * mg.parameters.Δh, dims = 1)
             end
-
-
         end
     end
 
@@ -141,7 +136,7 @@ end
 
 complex_grid_cost(mg::Microgrid, designer::AbstractDesigner) = complex_grid_cost(1:mg.parameters.ns, mg , designer)
 complex_grid_cost(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner) = complex_grid_cost(1:mg.parameters.ny, s, mg, designer)
-function complex_grid_cost(years::Union{Int64, UnitRange{Int64}}, s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
+function complex_grid_cost(years::Union{Int64, UnitRange{Int64}}, scenarios::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
 
     nh = mg.parameters.nh
     hour_factor = ones(size(mg.grids[1].cost_in))
@@ -149,25 +144,26 @@ function complex_grid_cost(years::Union{Int64, UnitRange{Int64}}, s::Union{Int64
     hour_factor[creuse,:,:] = hour_factor[creuse,:,:] .* 0.75   #heure pleine . #Informations comes from https://www.kelwatt.fr/guide/heures-creuses#:~:text=La%20p%C3%A9riode%20des%20heures%20creuses,et%20entre%2020h%20et%208h.
 
     #Energy buying cost
-    net_energy_cost = sum(sum(max.(0., a.carrier.power[:,years,s]) .* a.cost_in[:,years,s] .* hour_factor[:,years,s] .+ min.(0., a.carrier.power[:,years,s]) .* a.cost_out[:,years,s], dims = 1) * mg.parameters.Δh for a in mg.grids)
+    net_energy_cost = sum(sum(max.(0., a.carrier.power[:,years,scenarios]) .* a.cost_in[:,years,scenarios] .* hour_factor[:,years,scenarios] .+ min.(0., a.carrier.power[:,years,scenarios]) .* a.cost_out[:,years,scenarios], dims = 1) * mg.parameters.Δh for a in mg.grids)
 
+    net_energy_cost = dropdims(net_energy_cost, dims=1)
     #overcome cost by year
-    overcome_cost = zeros(length(years),length(s))
+    overcome_cost = zeros(length(years),length(scenarios))
     for a in mg.grids
-        for s in 1:length(s)
+        for s in 1:length(scenarios)
             for y in 1:length(years)
                 if a.carrier isa Electricity
-                    overcome_cost[y,s] = sum(sum(count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Electricity"][y,s]) * a.cost_exceed[y,s] for (k, a) in enumerate(mg.grids))) # count the hourly consumption exceeding the subscribed power
+                    overcome_cost[y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Electricity"][y,s]) * a.cost_exceed[y,s] # count the hourly consumption exceeding the subscribed power
                 elseif a.carrier isa Heat
-                    overcome_cost[y,s] = sum(sum(count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Heat"][y,s]) * a.cost_exceed[y,s] for (k, a) in enumerate(mg.grids))) # count the hourly consumption exceeding the subscribed power
+                    overcome_cost[y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Heat"][y,s]) * a.cost_exceed[y,s]  # count the hourly consumption exceeding the subscribed power
                 elseif a.carrier isa Hydrogen
-                    overcome_cost[y,s] = sum(sum(count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Hydrogen"][y,s]) * a.cost_exceed[y,s] for (k, a) in enumerate(mg.grids))) # count the hourly consumption exceeding the subscribed power
+                    overcome_cost[y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Hydrogen"][y,s]) * a.cost_exceed[y,s] # count the hourly consumption exceeding the subscribed power
                 end
             end
         end
     end
 
-    net_energy_cost[1,:,:] = net_energy_cost[1,:,:] .+ overcome_cost
+    net_energy_cost .+= overcome_cost
     return net_energy_cost
 end
 
@@ -202,26 +198,17 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
-        if typeof(a) <: AbstractFuelCell
+        if a isa FuelCell
             key = "FuelCell"
-            if a isa FuelCell_V_J || a isa FuelCell_lin
-                P_nom_replacement = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
-                P_nom_ini = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.converters[key].surface .* designer.converters[key].N_cell
+           
+            P_nom_replacement = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
+            P_nom_ini = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.converters[key].surface .* designer.converters[key].N_cell
 
-                #Initial installation
-                capex[1,s] = capex[1,s] .+ P_nom_ini .* a.cost[1,s]
-                #Each replacement
-                capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
-               
-
-            else 
-                #Initial installation
-                capex[1,s] = capex[1,s] .+ designer.converters[key] .* a.cost[1,s]
-                #Each replacement
-                capex = capex .+ designer.decisions.converters[key][:,s] .* a.cost[:,s]
-              
-
-            end
+            #Initial installation
+            capex[1,s] = capex[1,s] .+ P_nom_ini .* a.cost[1,s]
+            #Each replacement
+            capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
+            
         elseif typeof(a) <: AbstractElectrolyzer
             key = "Electrolyzer"
             if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
@@ -293,8 +280,13 @@ function salvage_value(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
     end
     # Converters
     for a in mg.converters
-        salvage[ny,:] = salvage[ny,:] .+ (a.lifetime .- ny) ./ a.lifetime .* a.cost[ny, s]
+        if a isa FuelCell
+            salvage[ny,:] = salvage[ny,:] .+ ((a.soh[1,end,s] .- a.SoH_threshold) ./ (1 .-a.SoH_threshold)) .* a.cost[ny, s]
+        else
+            salvage[ny,:] = salvage[ny,:] .+ (a.lifetime .- ny) ./ a.lifetime .* a.cost[ny, s]
+        end
     end
+   
     return salvage
 end
 
@@ -327,34 +319,41 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
     # Storages
     for (k, a) in enumerate(mg.storages)
         if typeof(a) <: AbstractLiion
-            key = "Liion"
+            key = "Liion" 
+            id = findfirst(a.soh[:,:,s] .<= a.SoH_threshold) 
+            lifetime = id[2] + id[1]/8760
         elseif a isa H2Tank
             key = "H2Tank"
+            lifetime = a.lifetime
         elseif a isa ThermalStorage
             key = "ThermalStorage"
+            lifetime = a.lifetime
         end
-        Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)
+        Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ lifetime) / ((mg.parameters.τ + 1.) ^  lifetime - 1.)
         capex = capex .+ Γ .* designer.decisions.storages[key][y,s] .* a.cost[y,s]
         capex[1,s] = capex[1,s] + Γ[1] .* designer.storages[key] * a.cost[1,s]
 
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
+        if a isa FuelCell
+            id = findfirst(a.soh[:,:,s] .<= a.SoH_threshold) 
+            lifetime = id[2] + id[1]/8760
+        else
+            lifetime = a.lifetime
+        end
 
-        Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)
+        Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ lifetime) / ((mg.parameters.τ + 1.) ^ lifetime - 1.)
 
-        if typeof(a) <: AbstractFuelCell
+        if a isa FuelCell
             key = "FuelCell"
-            if a isa FuelCell_V_J || a isa FuelCell_lin
-                P_nom_replacement = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
-                P_nom_ini = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.converters[key].surface .* designer.converters[key].N_cell
+            
+            P_nom_replacement = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
+            P_nom_ini = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.converters[key].surface .* designer.converters[key].N_cell
 
-                capex = capex .+ Γ .* P_nom_replacement[y,s] .* a.cost[y,s]
-                capex[1,:] = capex[1,:] .+ Γ[1] * P_nom_ini .* a.cost[1,s]
-            else 
-                capex = capex .+ Γ .* designer.decisions.converters[key][y,s] .* a.cost[y,s]
-                capex[1,:] = capex[1,:] .+ Γ[1] * designer.converters[key] .* a.cost[1,s]
-            end
+            capex = capex .+ Γ .* P_nom_replacement[y,s] .* a.cost[y,s]
+            capex[1,:] = capex[1,:] .+ Γ[1] * P_nom_ini .* a.cost[1,s]
+           
         elseif typeof(a) <: AbstractElectrolyzer
             key = "Electrolyzer"
             if a isa Electrolyzer_V_J || a isa Electrolyzer_lin

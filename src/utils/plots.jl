@@ -2,220 +2,165 @@
 
 using Pandas
 
-function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "hours", ci = false)
+function powerPlot(energy_carriers::Vector{EnergyCarrier}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+    f = figure("Powers")
+    f.subplotpars.hspace = 0.32
+    for s_id in s
+        for (i, type) in enumerate(energy_carriers)
+            i == 1 ? subplot(length(energy_carriers), 1, i, title = string(type)) : subplot(length(energy_carriers), 1, i, sharex = f.axes[1], title = string(type))
+            # Demands
+            for (k, a) in enumerate(mg.demands)
+                if a.carrier isa type
+                    Seaborn.plot(hours, -vec(a.carrier.power[:,y,s_id]), label = string("Demand : ",  typeof(a.carrier)))
+                end
+            end
+            # Generations
+            for (k, a) in enumerate(mg.generations)
+                if a.carrier isa type
+                    Seaborn.plot(hours, vec(a.carrier.power[:,y,s_id]), label = string("Generation : ", typeof(a)))
+                end
+            end
+            # Storages
+            for (k, a) in enumerate(mg.storages)
+                if a.carrier isa type
+                    Seaborn.plot(hours, vec(a.carrier.power[:,y,s_id]), label = string("Storage : ", typeof(a)))
+                end
+            end
+            # Converters
+            for (k, a) in enumerate(mg.converters)
+                for c in a.carrier
+                    if c isa type
+                        Seaborn.plot(hours, vec(c.power[:,y,s_id]), label = string("Converter : ", typeof(a)))
+                    end
+                end
+            end
+            for (k, a) in enumerate(mg.grids)
+                if a.carrier isa type
+                    Seaborn.plot(hours,  vec(a.carrier.power[:,y,s_id]), label = string("Grids : ", typeof(a)))
+                end
+            end
+            legend()
+        end
+    end
+end
+
+function powerBalancePlot(energy_carriers::Vector{EnergyCarrier}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+    f = figure("Power Balances")
+    f.subplotpars.hspace = 0.32
+
+    sum = zeros(length(energy_carriers), nh , length(y), length(s))
+    for s_id in s
+        for (i, type) in enumerate(energy_carriers)
+            i == 1 ? subplot(length(energy_carriers), 1, i, title = string(type)) : subplot(length(energy_carriers), 1, i, sharex = f.axes[1], title = string(type))
+            # Demands
+            for (k, a) in enumerate(mg.demands)
+                if a.carrier isa type
+                    sum[i,:,:,s_id] .+= -a.carrier.power[:,y,s_id]
+                end
+            end
+            # Generations
+            for (k, a) in enumerate(mg.generations)
+                if a.carrier isa type
+                    sum[i,:,:,s_id] .+= a.carrier.power[:,y,s_id]
+                end
+            end
+            # Storages
+            for (k, a) in enumerate(mg.storages)
+                if a.carrier isa type
+                    sum[i,:,:,s_id] .+= a.carrier.power[:,y,s_id]
+                end
+            end
+            # Converters
+            for (k, a) in enumerate(mg.converters)
+                for c in a.carrier
+                    if c isa type
+                        sum[i,:,:,s_id] .+= c.power[:,y,s_id]
+                    end
+                end
+            end
+            for (k, a) in enumerate(mg.grids)
+                if a.carrier isa type
+                    sum[i,:,:,s_id] .+= a.carrier.power[:,y,s_id]
+                end
+            end
+            Seaborn.plot(hours,  vec(sum[i,:,1:length(y),s_id]), label = string("Net sum"))
+            legend()
+        end
+    end
+
+end
+
+function SoCPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+    # State of charge
+    f = figure("State-of-charge")
+
+   
+    for s_id in s
+        for (k, a) in enumerate(mg.storages)
+            
+            k == 1 ? subplot(length(mg.storages), 1, k) : subplot(length(mg.storages), 1, k, sharex = f.axes[1])
+            Seaborn.lineplot(x= hours, y=vec(a.soc[1:end-1, y, s_id]), label = string("Storage : ", typeof(a)))
+            legend()
+
+        end
+    end
+end
+ 
+function SoHPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+    #State of health hydrogen
+    f = figure("State-of-health")
+
+    assets = vcat(mg.converters,mg.storages, mg.generations)
+    #How many of the storages + converters + generators have a SoH field, we keep only those ones
+    assets = assets[hasproperty.(assets, :soh)]
+   
+   
+    for (k, a) in enumerate(assets)
+        for s_id in s
+            k == 1 ? subplot(length(assets), 1, k) : subplot(length(assets), 1, k, sharex = f.axes[1])
+            Seaborn.lineplot(x=hours, y=vec(a.soh[1:end-1, y, s_id]), label = string("Storage : ", typeof(a)))
+            legend()
+        end
+    end
+end
+
+
+function plot_operation(mg::Microgrid ; y=2, s=1)
     # Seaborn configuration
     Seaborn.set_theme(context="notebook", style="ticks", palette="muted", font="serif", font_scale=1.5)
-
 
     # Parameters
     nh = mg.parameters.nh
     Δh = mg.parameters.Δh
-    hours = range(1, length = nh * length(y), step = Δh) / Δh
+    #Hours range starting from the first year of the interval 
+    hours = range((y[1]-1) * nh +1, length = nh * length(y), step = Δh) / Δh
 
-
-
-    #If there is no converter let's say we have only one type of energy carrier (can theoriticaly be false)
-    if length(mg.converters) == 0
-        energy_carriers = typeof(mg.generations[1].carrier)
-    else #Else we enumerate what type of carrier we have in the converters
-        energy_carriers_list = []
-        for conv in mg.converters
-            for carrier in conv.carrier
-                push!(energy_carriers_list, carrier)
-            end
+    # we enumerate what type of carrier we have in the converters
+    energy_carriers_list = []
+    for conv in mg.converters
+        for carrier in conv.carrier
+            push!(energy_carriers_list, carrier)
         end
-
-        energy_carriers = unique((typeof(a) for a in energy_carriers_list))
+    end
+    for demand in mg.demands
+        push!(energy_carriers_list,  demand.carrier)
     end
 
+    energy_carriers = unique((typeof(a) for a in energy_carriers_list))
+    
     # Plots
     # Powers
-    f = figure("Powers")
-    f.subplotpars.hspace = 0.32
-    #sum = zeros(length(energy_carriers), nh , length(y), length(s))
+    powerPlot(energy_carriers, mg, y, s, hours)
 
-    for (i, type) in enumerate(energy_carriers)
-        i == 1 ? subplot(3, 1, i, title = string(type)) : subplot(3, 1, i, sharex = f.axes[1], title = string(type))
-        # Demands
-        for (k, a) in enumerate(mg.demands)
-            if a.carrier isa type
-                Seaborn.plot(hours, -vec(a.carrier.power[:,y,s]), label = string("Demand : ",  typeof(a.carrier)))
-                #sum[i,:,:,:] .+= -vec(a.carrier.power[:,y,s])
-            end
-        end
-        # Generations
-        for (k, a) in enumerate(mg.generations)
-            if a.carrier isa type
-                Seaborn.plot(hours, vec(a.carrier.power[:,y,s]), label = string("Generation : ", typeof(a)))
-                #sum[i,:,:,:] .+= vec(a.carrier.power[:,y,s])
-            end
-        end
-        # Storages
-        for (k, a) in enumerate(mg.storages)
-            if a.carrier isa type
-                Seaborn.plot(hours, vec(a.carrier.power[:,y,s]), label = string("Storage : ", typeof(a)))
-                #sum[i,:,:,:] .+= vec(a.carrier.power[:,y,s])
-            end
-        end
-        # Converters
-        for (k, a) in enumerate(mg.converters)
-            for c in a.carrier
-                if c isa type
-                    Seaborn.plot(hours, vec(c.power[:,y,s]), label = string("Converter : ", typeof(a)))
-                    #sum[i,:,:,:] .+= vec(c.power[:,y,s])
-                end
-            end
-        end
-        for (k, a) in enumerate(mg.grids)
-            if a.carrier isa type
-                Seaborn.plot(hours,  vec(a.carrier.power[:,y,s]), label = string("Grids : ", typeof(a)))
-                #sum[i,:,:,:] .+= vec(a.carrier.power[:,y,s])
-            end
-        end
-        #Seaborn.plot(hours,  sum[i,:,y,s], label = string("Net sum"))
-        legend()
-    end
+    #Power balance to check Electricity and hydrogen perfect balance and heat positivity.
+    powerBalancePlot(energy_carriers, mg, y, s, hours)
+    
+    #State of charge for every storage
+    SoCPlot(mg, hours, y, s)
 
-    f = figure("Power Balances")
-    f.subplotpars.hspace = 0.32
-    sum = zeros(length(energy_carriers), nh , length(y), length(s))
-    for (i, type) in enumerate(energy_carriers)
-        i == 1 ? subplot(3, 1, i, title = string(type)) : subplot(3, 1, i, sharex = f.axes[1], title = string(type))
-        # Demands
-        for (k, a) in enumerate(mg.demands)
-            if a.carrier isa type
-                sum[i,:,:,:] .+= -a.carrier.power[:,y,s]
-            end
-        end
-        # Generations
-        for (k, a) in enumerate(mg.generations)
-            if a.carrier isa type
-                sum[i,:,:,:] .+= a.carrier.power[:,y,s]
-            end
-        end
-        # Storages
-        for (k, a) in enumerate(mg.storages)
-            if a.carrier isa type
-                sum[i,:,:,:] .+= a.carrier.power[:,y,s]
-            end
-        end
-        # Converters
-        for (k, a) in enumerate(mg.converters)
-            for c in a.carrier
-                if c isa type
-                    sum[i,:,:,:] .+= c.power[:,y,s]
-                end
-            end
-        end
-        for (k, a) in enumerate(mg.grids)
-            if a.carrier isa type
-                sum[i,:,:,:] .+= a.carrier.power[:,y,s]
-            end
-        end
-        Seaborn.plot(hours,  vec(sum[i,:,1:length(y),1:length(s)]), label = string("Net sum"))
-        legend()
-    end
-
-
-    # State of charge
-    f = figure("State-of-charge")
-    for (k, a) in enumerate(mg.storages)
-        k == 1 ? subplot(length(mg.storages), 1, k) : subplot(length(mg.storages), 1, k, sharex = f.axes[1])
-        Seaborn.plot(hours, vec(a.soc[1:end-1, y, s]), label = string("Storage : ", typeof(a)))
-        legend()
-    end
-
-    #State of health hydrogen
-    f = figure("State-of-health")
-
-    for (k, a) in enumerate(mg.converters)
-        if !(a isa Heater) 
-            subplot(length(mg.converters), 1, k) 
-            Seaborn.plot(hours, vec(a.soh[1:end-1, y, s]), label = string("Converter : ", typeof(a)))
-            legend()
-        end
-    end
-  
-
-    x_val = []
-    y_val = []
-    x_lab = ""
-    soc = ""
-    x_ticks_lab = []
-    x_ticks = []
-
-    for s in 1:mg.parameters.ns
-        subplot(length(mg.converters), 1, 1) 
-
-        mg.storages[1].soc_model == "linear" ? soc = "lin" : (mg.storages[1].soc_model == "vermeer" ? soc = "ver" : soc = "t-d")
-
-        if xdisplay == "years"
-            y_values = vec(mg.storages[1].soh[:, y[1]:mg.parameters.ny, s])[1:24:((y[end] - y[1] +1) * (mg.parameters.nh+1) )]
-            x_values = 1:((nh / 24) * (y[end] - y[1] +1) +1)
-            x_lab = "Years"
-            x_ticks_lab = [string(n) for n in 0:y[end-1]]
-            x_ticks = [365 * n for n in 0:y[end-1]]
-
-        elseif xdisplay == "hours"
-            y_values = vec(mg.storages[1].soh[:, y[1]:mg.parameters.ny, s])[1:((y[end] - y[1] +1) * (mg.parameters.nh+1) )]
-            x_values = 1:((nh+1) * (y[end] - y[1] +1))
-            x_lab = "Hours"
-        elseif xdisplay == "days"
-            y_values = vec(mg.storages[1].soh[:, y[1]:mg.parameters.ny, s])[1:24:((y[end] - y[1] +1) * (mg.parameters.nh+1) )]
-            x_values = 1:((nh / 24) * (y[end] - y[1] +1) +1)
-            x_lab = "Days"
-
-        end
-
-        if ci
-            x_val = vcat(x_val, x_values)
-            y_val = vcat(y_val, y_values)
-        else
-
-
-            if (mg.storages[1] isa Liion_electro_chimique || mg.storages[1] isa Liion_rainflow) && smooth
-                plot_soh = Seaborn.plot(1:(mg.parameters.nh/mg.storages[1].update_by_year):((y[end] - y[1] +1) * (mg.parameters.nh+1) ) ,
-                vec(mg.storages[1].soh[:, y[1]:mg.parameters.ny, s])[1:(convert(Int64,mg.parameters.nh/mg.storages[1].update_by_year)):((y[end] - y[1] +1) * (mg.parameters.nh+1) )],
-                label = string("soh : ", typeof(mg.storages[1]), " ", mg.storages[1].couplage, " ", soc ))
-            else
-                plot_soh = Seaborn.plot(x_values ,
-                y_values,
-                label = string("soh : ", typeof(mg.storages[1]), " ", mg.storages[1].couplage, " ", soc, ", s",s ))
-            end
-
-            xlabel(x_lab, fontsize = 20)
-            ylabel("SoH", fontsize = 20)
-            legend()
-        end
-    end
-
-    if ci
-        df = Pandas.DataFrame(Dict(:x_val=>x_val, :y_val=>y_val))
-        pl = Seaborn.lineplot(data=df, x="x_val", y="y_val", label = string("soh : ", typeof(mg.storages[1]), " ", mg.storages[1].couplage, " ", soc ), ci = 95)
-    	xlabel(x_lab, fontsize = 20)
-        ylabel("SoH", fontsize = 20)
-        pl.set_xticks(x_ticks)
-        pl.set_xticklabels(x_ticks_lab)
-
-
-        legend()
-
-    end
-
-
-    #State of health
-
+    #State of health for every concerned component
+    SoHPlot(mg, hours, y ,s)
    
-
-
-    #voltage
-    if mg.storages[1].soc_model == "tremblay_dessaint" 
-        figure("voltage")
-        Seaborn.plot(1:((mg.parameters.ny -1) * (mg.parameters.nh+1) ), vec(mg.storages[1].voltage[:, 2:mg.parameters.ny, s]), label = string("voltage : ", typeof(mg.storages[1])))
-        legend()
-    end
-
-
 end
 
 

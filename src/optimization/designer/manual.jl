@@ -25,7 +25,7 @@ function initialize_designer!(mg::Microgrid, designer::Manual, ω::AbstractScena
         end
     end
     for k in 1:length(mg.storages)
-        if typeof(mg.storages[k]) <: AbstractLiion
+        if mg.storages[k] isa Liion
             designer.decisions.storages["Liion"][1,:] .= designer.storages["Liion"]
         elseif mg.storages[k] isa H2Tank
             designer.decisions.storages["H2Tank"][1,:] .= designer.storages["H2Tank"]
@@ -33,14 +33,10 @@ function initialize_designer!(mg::Microgrid, designer::Manual, ω::AbstractScena
     end
 
     for k in 1:length(mg.converters)
-        if typeof(mg.converters[k]) <: AbstractFuelCell
+        if mg.converters[k] isa FuelCell
             key = "FuelCell"
-            if mg.converters[k] isa FuelCell_V_J || mg.converters[k] isa FuelCell_lin
-                designer.decisions.converters[key].surface[1,:] .= designer.converters[key].surface
-                designer.decisions.converters[key].N_cell[1,:] .= designer.converters[key].N_cell
-            else 
-                designer.decisions.converters[key][1,:] .= designer.converters[key]
-            end
+            designer.decisions.converters[key].surface[1,:] .= designer.converters[key].surface
+            designer.decisions.converters[key].N_cell[1,:] .= designer.converters[key].N_cell
         elseif mg.converters[k] isa Electrolyzer
             key = "Electrolyzer"
             designer.decisions.converters[key][1,:] .= designer.converters[key]
@@ -50,13 +46,14 @@ function initialize_designer!(mg::Microgrid, designer::Manual, ω::AbstractScena
         end
     end
 
+    #The value is the same for all years
     for k in 1:length(mg.grids)
         if mg.grids[k].carrier isa Electricity
-            designer.decisions.subscribed_power["Electricity"][1,:] .= designer.subscribed_power["Electricity"]
+            designer.decisions.subscribed_power["Electricity"][:,:] .= designer.subscribed_power["Electricity"]
         elseif mg.grids[k].carrier isa Heat
-            designer.decisions.subscribed_power["Heat"][1,:] .= designer.subscribed_power["Heat"]
+            designer.decisions.subscribed_power["Heat"][:,:] .= designer.subscribed_power["Heat"]
         elseif mg.grids[k].carrier isa Hydrogen
-            designer.decisions.subscribed_power["Hydrogen"][1,:] .= designer.subscribed_power["Hydrogen"]
+            designer.decisions.subscribed_power["Hydrogen"][:,:] .= designer.subscribed_power["Hydrogen"]
         end
     end
 
@@ -78,19 +75,14 @@ function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, design
    
     #Compute decision
     for k in 1:length(mg.converters)
-        if typeof(mg.converters[k]) <: AbstractFuelCell
-            if mg.converters[k] isa FuelCell_V_J || mg.converters[k] isa FuelCell_lin
-
-                if mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold
-                    #println( "mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold : " ,  mg.converters[k].soh[end,y,s], " <= " ,mg.converters[k].SoH_threshold)
-                    designer.decisions.converters["FuelCell"].surface[y,s] = designer.converters["FuelCell"].surface
-                    designer.decisions.converters["FuelCell"].N_cell[y,s] = designer.converters["FuelCell"].N_cell
-                else
-                    designer.decisions.converters["FuelCell"].surface[y,s] = 0.
-                    designer.decisions.converters["FuelCell"].N_cell[y,s] = 0.
-                end
-            else 
-                key = "FuelCell"
+        if mg.converters[k] isa FuelCell
+            if mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold
+                #println( "mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold : " ,  mg.converters[k].soh[end,y,s], " <= " ,mg.converters[k].SoH_threshold)
+                designer.decisions.converters["FuelCell"].surface[y,s] = designer.converters["FuelCell"].surface
+                designer.decisions.converters["FuelCell"].N_cell[y,s] = designer.converters["FuelCell"].N_cell
+            else
+                designer.decisions.converters["FuelCell"].surface[y,s] = 0.
+                designer.decisions.converters["FuelCell"].N_cell[y,s] = 0.
             end
         elseif typeof(mg.converters[k]) <: AbstractElectrolyzer
             if mg.converters[k] isa Electrolyzer_V_J
