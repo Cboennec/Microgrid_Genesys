@@ -21,10 +21,12 @@ abstract type AbstractDesigner end
 abstract type AbstractDesignerNonFloat end
 abstract type AbstractController end
 
+abstract type EnergyCarrier end
+
 
 
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP, Gurobi, HiGHS
+using JuMP, Cbc, Metaheuristics, SDDP, Gurobi, Ipopt
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others

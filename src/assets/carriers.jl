@@ -1,9 +1,4 @@
-"""
-    EnergyCarrier
 
-An abstract type representing an energy carrier (e.g., [`Main.Genesys.Electricity`](@ref), [`Main.Genesys.Heat`](@ref), [`Main.Genesys.Hydrogen`](@ref)).
-"""
-abstract type EnergyCarrier end
 
 """
     Electricity

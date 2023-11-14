@@ -2,7 +2,7 @@
 
 using Pandas
 
-function powerPlot(energy_carriers::Vector{EnergyCarrier}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+function powerPlot(energy_carriers::Vector{DataType}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
     f = figure("Powers")
     f.subplotpars.hspace = 0.32
     for s_id in s
@@ -44,7 +44,7 @@ function powerPlot(energy_carriers::Vector{EnergyCarrier}, mg::Microgrid, y::Uni
     end
 end
 
-function powerBalancePlot(energy_carriers::Vector{EnergyCarrier}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+function powerBalancePlot(energy_carriers::Vector{DataType}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
     f = figure("Power Balances")
     f.subplotpars.hspace = 0.32
 
@@ -133,7 +133,9 @@ function plot_operation(mg::Microgrid ; y=2, s=1)
     nh = mg.parameters.nh
     Δh = mg.parameters.Δh
     #Hours range starting from the first year of the interval 
-    hours = range((y[1]-1) * nh +1, length = nh * length(y), step = Δh) / Δh
+    start =  Int64((y[1]-1) * nh +1 / Δh)
+    len = Int64(nh * length(y) / Δh)
+    hours = (start:(start+len-1))
 
     # we enumerate what type of carrier we have in the converters
     energy_carriers_list = []
@@ -147,6 +149,8 @@ function plot_operation(mg::Microgrid ; y=2, s=1)
     end
 
     energy_carriers = unique((typeof(a) for a in energy_carriers_list))
+
+    
     
     # Plots
     # Powers
@@ -156,10 +160,10 @@ function plot_operation(mg::Microgrid ; y=2, s=1)
     powerBalancePlot(energy_carriers, mg, y, s, hours)
     
     #State of charge for every storage
-    SoCPlot(mg, hours, y, s)
+    SoCPlot(mg, y, s, hours)
 
     #State of health for every concerned component
-    SoHPlot(mg, hours, y ,s)
+    SoHPlot(mg, y ,s, hours)
    
 end
 

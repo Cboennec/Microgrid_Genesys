@@ -146,18 +146,17 @@ function complex_grid_cost(years::Union{Int64, UnitRange{Int64}}, scenarios::Uni
     #Energy buying cost
     net_energy_cost = sum(sum(max.(0., a.carrier.power[:,years,scenarios]) .* a.cost_in[:,years,scenarios] .* hour_factor[:,years,scenarios] .+ min.(0., a.carrier.power[:,years,scenarios]) .* a.cost_out[:,years,scenarios], dims = 1) * mg.parameters.Δh for a in mg.grids)
 
-    net_energy_cost = dropdims(net_energy_cost, dims=1)
     #overcome cost by year
-    overcome_cost = zeros(length(years),length(scenarios))
+    overcome_cost = zeros(1,length(years),length(scenarios))
     for a in mg.grids
         for s in 1:length(scenarios)
             for y in 1:length(years)
                 if a.carrier isa Electricity
-                    overcome_cost[y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Electricity"][y,s]) * a.cost_exceed[y,s] # count the hourly consumption exceeding the subscribed power
+                    overcome_cost[1,y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Electricity"][y,s]) * a.cost_exceed[y,s] # count the hourly consumption exceeding the subscribed power
                 elseif a.carrier isa Heat
-                    overcome_cost[y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Heat"][y,s]) * a.cost_exceed[y,s]  # count the hourly consumption exceeding the subscribed power
+                    overcome_cost[1,y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Heat"][y,s]) * a.cost_exceed[y,s]  # count the hourly consumption exceeding the subscribed power
                 elseif a.carrier isa Hydrogen
-                    overcome_cost[y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Hydrogen"][y,s]) * a.cost_exceed[y,s] # count the hourly consumption exceeding the subscribed power
+                    overcome_cost[1,y,s] = count(nb_overcome->(nb_overcome > 0), a.carrier.power[:,y,s] .- designer.decisions.subscribed_power["Hydrogen"][y,s]) * a.cost_exceed[y,s] # count the hourly consumption exceeding the subscribed power
                 end
             end
         end
