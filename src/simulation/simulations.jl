@@ -4,8 +4,7 @@
 
  mutable struct Options
      mode::String
-     firstyear::Bool #simulate
-     Options(; mode = "multithreads", firstyear = false) = new(mode, firstyear)
+     Options(; mode = "multithreads") = new(mode)
  end
 
 # Simulate function
@@ -89,40 +88,24 @@ function simulate!(y::Int64,
     # Parameters
     nh = mg.parameters.nh
 
-    println("y = ", y)
-
 
     if y == 1 
-        if options.firstyear
-            # Update investment informations
-            update_investment_informations!(y, s, mg, ω_simu)
+    
+        # Update investment informations
+        update_investment_informations!(y, s, mg, ω_simu)
 
-            #Install component at the begining of the 1st year
-            initialize_investments!(s, mg, designer)
+        #Install component at the begining of the 1st year
+        initialize_investments!(s, mg, designer)
 
-            # Compute investment decision variables
-            #compute_investment_decisions!(y, s, mg, designer)
+        # Compute investment decision variables
+        #compute_investment_decisions!(y, s, mg, designer)
 
-            # Compute investment dynamics
-            #compute_investment_dynamics!(y, s, mg, designer)
+        # Compute investment dynamics
+        #compute_investment_dynamics!(y, s, mg, designer)
 
-            #update grid prices
-            update_grid_cost_informations!(y, s, mg, ω_simu)
-        else
-
-            # Update investment informations
-            update_investment_informations!(y, s, mg, ω_simu)
-
-            # Compute investment decision variables
-            compute_investment_decisions!(y, s, mg, designer)
-
-            # Compute investment dynamics
-            compute_investment_dynamics!(y, s, mg, designer)
-
-            #update grid prices
-            update_grid_cost_informations!(y, s, mg, ω_simu)
-
-        end
+        #update grid prices
+        update_grid_cost_informations!(y, s, mg, ω_simu)
+       
     end
 
     for h in 1:nh

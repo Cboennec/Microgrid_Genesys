@@ -7,7 +7,29 @@ abstract type AbstractFuelCellAgingModel end
 
 
 
+"""
+FixedFuelCellEfficiency
 
+A mutable struct representing a fixed efficiency fuel cell model.
+
+# Parameters:
+- `α_p::Float64`: Minimum power defined as a share of the maximum power (default: 0.08)
+- `η_H2_E::Float64`: Efficiency from DiHydrogen to Electricity (default: 0.4)
+- `η_H2_H::Float64`: Efficiency from DiHydrogen to Heat (default: 0.4)
+- `k_aux::Float64`: Auxiliary power coefficient (default: 0.15)
+- `powerMax_ini::Float64`: Initial maximum power (default: 0.00001)
+- `couplage::Bool`: Boolean indicating if there is coupling between parameters (default: false)
+
+# Arrays:
+- `powerMax::AbstractArray{Float64,3}`: The maximum power that can be demanded from the fuel cell
+- `powerMin::AbstractArray{Float64,3}`: The minimum power that can be demanded from the fuel cell
+- `V_J::AbstractArray{Float64,2}`: polarization curve (voltage as a function of current density)
+
+## Example 
+```julia
+FixedFuelCellEfficiency()
+```
+"""
 mutable struct FixedFuelCellEfficiency <: AbstractFuelCellEffModel
  
   α_p::Float64 #Minimum power defined as a share of the maximum Power
@@ -32,6 +54,29 @@ mutable struct FixedFuelCellEfficiency <: AbstractFuelCellEffModel
     ) = new(α_p, η_H2_E, η_H2_H, k_aux, powerMax_ini, couplage)
 end
 
+
+"""
+PolarizationFuelCellEfficiency
+
+A mutable struct representing a fuel cell efficiency model based on polarization curve.
+
+# Parameters:
+- `k_aux::Float64`: Share of the power used by auxiliaries (default: 0.15)
+- `couplage::Bool`: Boolean indicating if there is coupling between parameters (default: true)
+- `K::Float64`: Constant value calculated as Latent Heat Value * molar mass * stoichiometric coefficient / (2 * Faraday constant) (default: (33.33 *  2.016 * 1.2 * 3600)  / (2*96485.3321))
+- `powerMax_ini::Float64`: Initial maximum power (default: 0.00001)
+- `V_max::Float64`: Maximum voltage (default: 0.8 V)
+
+# Arrays:
+- `powerMax::AbstractArray{Float64,3}`: The maximum power that can be demanded from the fuel cell
+- `powerMin::AbstractArray{Float64,3}`: The minimum power that can be demanded from the fuel cell
+- `V_J::AbstractArray{Float64,2}`: Polarization curve (voltage as a function of current density)
+
+## Example 
+```julia
+PolarizationFuelCellEfficiency()
+```
+"""
 mutable struct PolarizationFuelCellEfficiency <: AbstractFuelCellEffModel
   k_aux::Float64 # Share of the power used by the auxiliaries
   couplage::Bool
@@ -54,7 +99,30 @@ mutable struct PolarizationFuelCellEfficiency <: AbstractFuelCellEffModel
   ) = new(k_aux, couplage, K, powerMax_ini, V_max)
 end
 
+"""
+LinearFuelCellEfficiency
 
+A mutable struct representing a linear fuel cell efficiency model.
+
+# Parameters:
+- `k_aux::Float64`: Share of the power used by auxiliaries (default: 0.15)
+- `couplage::Bool`: Boolean indicating if there is coupling between parameters (default: true)
+- `K::Float64`: Constant value calculated as Latent Heat Value * molar mass * stoichiometric coefficient / (2 * Faraday constant) (default: (33.33 *  2.016 * 1.2 * 3600)  / (2*96485.3321))
+- `powerMax_ini::Float64`: Initial maximum power (default: 0.00001)
+- `V_max::Float64`: Maximum voltage (default: 0.8)
+- `a_η::Float64`: Slope for the function η(P) 
+- `b_η::Float64`: Ordinate at the origin for the function η(P) 
+
+# Arrays:
+- `powerMax::AbstractArray{Float64,3}`: The maximum power that can be demanded from the fuel cell
+- `powerMin::AbstractArray{Float64,3}`: The minimum power that can be demanded from the fuel cell
+- `V_J::AbstractArray{Float64,2}`: Polarization curve (voltage as a function of current density)
+
+## Example 
+```julia
+LinearFuelCellEfficiency()
+```
+"""
 mutable struct LinearFuelCellEfficiency <: AbstractFuelCellEffModel
   k_aux::Float64 # Share of the power used by the auxiliaries
   couplage::Bool
@@ -80,16 +148,36 @@ mutable struct LinearFuelCellEfficiency <: AbstractFuelCellEffModel
 end
 
 
+"""
+deg_params
 
+A mutable struct containing parameters for aging and the modification of the polarization curve. Aging is computed based on the evolution of the polarization curve, and this struct provides the parameters for describing it.
+
+# Parameters:
+- `a_slope::Float64`, `b_slope::Float64`, `c_slope::Float64`: Coefficients for computing the degradation slope (of the affine degradation) as: a * j^power + b * j + c
+- `power_slope::Float64`: The power in the slope equation
+- `b::Float64`: Ordinate at origin
+- `adjustment_coef::Float64`: Coefficient for achieving a life expectancy of X hours at the reference current density
+- `start_stop_coef::Float64`: Degradation due to starts and stops
+
+## Example 
+```julia
+deg_params()
+```
+"""
 mutable struct deg_params
-  a_slope::Float64
+  #Structure containing the parameters for the aging and the modification of th epolarization curve. Aging gonna be computed based on the evolution of the polarization curve and this struct gives the paramters for describing it.
+  #At each hour the degradation is an afine function defining the number of μV/h to withdraw from the polarization curve 
+  a_slope::Float64 # a, b and c coef for computing the degradation slope as : a j^power + b j + c 
   b_slope::Float64
   c_slope::Float64
-  power_slope::Float64
-  b::Float64
-  adjustment_coef::Float64
-  start_stop_coef::Float64
+  power_slope::Float64 # The power in the slope equation
+  b::Float64 #Ordinate at origin
+  adjustment_coef::Float64 # Coef for having a life expectency of X hours at ref current desnity
+  start_stop_coef::Float64 # Degradation due to start and stops
 end
+
+
 
 #M/A en option
 mutable struct PowerAgingFuelCell <: AbstractFuelCellAgingModel
@@ -162,7 +250,7 @@ end
 
 mutable struct FuelCell <: AbstractFuelCell
 
-  SoC_model::AbstractFuelCellEffModel
+  EffModel::AbstractFuelCellEffModel
 	SoH_model::AbstractFuelCellAgingModel
 	
 	bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}
@@ -171,7 +259,6 @@ mutable struct FuelCell <: AbstractFuelCell
   V_J_ini::AbstractArray{Float64,2}
 
 	# Initial conditions
-	soc_ini::Float64 # first state of charge for the begining of simulation
 	soh_ini::Float64 # first state of health for the begining of simulation
 
   N_cell::Int64 #The number of assembled cells
@@ -186,15 +273,14 @@ mutable struct FuelCell <: AbstractFuelCell
   # Eco
   cost::AbstractArray{Float64,2}
 
-	FuelCell(;SoC_model = PolarizationFuelCellEfficiency(),
+	FuelCell(;EffModel = PolarizationFuelCellEfficiency(),
     SoH_model = PowerAgingFuelCell(),
     bounds = (lb = 0., ub = 50.),
     SoH_threshold = 0.9,
     couplage = true,
     V_J_ini = nothing,
-    soc_ini = 0.5,
     soh_ini = 1. 
-  ) = new(SoC_model, SoH_model, bounds, SoH_threshold, couplage, V_J_ini, soc_ini, soh_ini)
+  ) = new(EffModel, SoH_model, bounds, SoH_threshold, couplage, V_J_ini, soh_ini)
 
 end
 
@@ -204,8 +290,8 @@ end
   ### Preallocation
   function preallocate!(fc::FuelCell, nh::Int64, ny::Int64, ns::Int64)
 
-    fc.SoC_model.powerMax = convert(SharedArray,zeros(nh+1, ny+1, ns)) ;  fc.SoC_model.powerMax[1,1,:] .= fc.SoC_model.powerMax_ini
-    fc.SoC_model.powerMin = convert(SharedArray,zeros(nh+1, ny+1, ns)) ;  fc.SoC_model.powerMin[1,1,:] .= fc.SoC_model.powerMax_ini
+    fc.EffModel.powerMax = convert(SharedArray,zeros(nh+1, ny+1, ns)) ;  fc.EffModel.powerMax[1,1,:] .= fc.EffModel.powerMax_ini
+    fc.EffModel.powerMin = convert(SharedArray,zeros(nh+1, ny+1, ns)) ;  fc.EffModel.powerMin[1,1,:] .= fc.EffModel.powerMax_ini
     fc.η = convert(SharedArray,zeros(nh+1, ny+1, ns))
     fc.carrier = [Electricity(), Heat(), Hydrogen()]
     fc.carrier[1].power = convert(SharedArray,zeros(nh, ny, ns))
@@ -216,7 +302,7 @@ end
 
     fc.SoH_model.V_J_ini = zeros(3, length(fc.V_J_ini[1,:])) #J, V, P
     fc.SoH_model.V_J = zeros(3, length(fc.V_J_ini[1,:])) #J, V, P
-    fc.SoC_model.V_J = zeros(3, length(fc.V_J_ini[1,:])) #J, V, P
+    fc.EffModel.V_J = zeros(3, length(fc.V_J_ini[1,:])) #J, V, P
 
     return fc
 end
@@ -225,9 +311,9 @@ end
 ### Operation dynamic
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, fc::FuelCell, decision::Float64, Δh::Int64)
 
-  fc.carrier[1].power[h,y,s], fc.carrier[2].power[h,y,s], fc.carrier[3].power[h,y,s] = compute_operation_soc(fc, fc.SoC_model, h ,y ,s , decision, Δh)
+  fc.carrier[1].power[h,y,s], fc.carrier[2].power[h,y,s], fc.carrier[3].power[h,y,s] = compute_operation_efficiency(fc, fc.EffModel, h ,y ,s , decision, Δh)
 
-  fc.soh[h+1,y,s], fc.SoC_model.powerMax[h+1,y,s], fc.SoC_model.powerMin[h+1,y,s] = compute_operation_soh(fc, fc.SoH_model, h ,y ,s, Δh)
+  fc.soh[h+1,y,s], fc.EffModel.powerMax[h+1,y,s], fc.EffModel.powerMin[h+1,y,s] = compute_operation_soh(fc, fc.SoH_model, h ,y ,s, Δh)
 
 end
 
@@ -235,12 +321,12 @@ end
 ### Operation dynamic
 function compute_operation_dynamics(fc::FuelCell, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Int64)
 
-  return compute_operation_soc(fc, fc.SoC_model, h ,y ,s , decision, Δh)
+  return compute_operation_efficiency(fc, fc.EffModel, h ,y ,s , decision, Δh)
 
 end
 
 
-function compute_operation_soc(fc::FuelCell, model::PolarizationFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_efficiency(fc::FuelCell, model::PolarizationFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
 	
  #Apply minimum power
   model.powerMin[h,y,s] <= decision ? power_E = min(decision, model.powerMax[h,y,s]) : power_E = 0. 
@@ -272,7 +358,7 @@ end
 
 
 
-function compute_operation_soc(fc::FuelCell, model::FixedFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_efficiency(fc::FuelCell, model::FixedFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
 	
   #Apply minimum power
    model.powerMin[h,y,s] <= decision ? power_E = min(decision, model.powerMax[h,y,s]) : power_E = 0. 
@@ -290,7 +376,7 @@ function compute_operation_soc(fc::FuelCell, model::FixedFuelCellEfficiency, h::
 
 
  
-function compute_operation_soc(fc::FuelCell, model::LinearFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_efficiency(fc::FuelCell, model::LinearFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
 	
   #Apply minimum power
    model.powerMin[h,y,s] <= decision ? power_E = min(decision, model.powerMax[h,y,s]) : power_E = 0. 
@@ -304,7 +390,6 @@ function compute_operation_soc(fc::FuelCell, model::LinearFuelCellEfficiency, h:
       if η_E >= 0.45 && y==9 && h < 1000
         println("y,h = ", y, ", ", h, "   a_η = ", model.a_η, " , P_tot = ", P_tot, ", b_η = ",  model.b_η )
       end
-      #println("y,h = ", y, ", ", h, "a_η = ", model.a_η, " , P_tot = ", P_tot, ", b_η = ",  model.b_η )
 
 
       fc.η[h,y,s] = η_E
@@ -379,23 +464,23 @@ function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64
 
     nextSoH = V_nom/V_nom_ini  
 
-    if fc.SoC_model.couplage
-      nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.SoC_model.k_aux)
+    if fc.EffModel.couplage
+      nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
       nextPowerMin = compute_min_power(fc)
-      fc.SoC_model.V_J = model.V_J
+      fc.EffModel.V_J = model.V_J
 
-        if fc.SoC_model isa LinearFuelCellEfficiency 
-          update_η_lin(fc, fc.SoC_model)
+        if fc.EffModel isa LinearFuelCellEfficiency 
+          update_η_lin(fc, fc.EffModel)
         end
 
     else
-      nextPowerMax = fc.SoC_model.powerMax[h,y,s] 
-      nextPowerMin = fc.SoC_model.powerMin[h,y,s] 
+      nextPowerMax = fc.EffModel.powerMax[h,y,s] 
+      nextPowerMin = fc.EffModel.powerMin[h,y,s] 
     end
   else 
     nextSoH = fc.soh[h,y,s] 
-    nextPowerMax = fc.SoC_model.powerMax[h,y,s] 
-    nextPowerMin = fc.SoC_model.powerMin[h,y,s] 
+    nextPowerMax = fc.EffModel.powerMax[h,y,s] 
+    nextPowerMin = fc.EffModel.powerMin[h,y,s] 
   end
 
   return nextSoH, nextPowerMax, nextPowerMin
@@ -445,23 +530,23 @@ function compute_operation_soh(fc::FuelCell, model::FunctHoursAgingFuelCell, h::
 
     nextSoH = V_nom/V_nom_ini  
 
-      if fc.SoC_model.couplage
-        nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.SoC_model.k_aux)
+      if fc.EffModel.couplage
+        nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
         nextPowerMin = compute_min_power(fc)
-        fc.SoC_model.V_J = model.V_J
+        fc.EffModel.V_J = model.V_J
 
-          if fc.SoC_model isa LinearFuelCellEfficiency 
-            update_η_lin(fc, fc.SoC_model)
+          if fc.EffModel isa LinearFuelCellEfficiency 
+            update_η_lin(fc, fc.EffModel)
           end
 
       else
-        nextPowerMax = fc.SoC_model.powerMax[h,y,s] 
-        nextPowerMin = fc.SoC_model.powerMin[h,y,s] 
+        nextPowerMax = fc.EffModel.powerMax[h,y,s] 
+        nextPowerMin = fc.EffModel.powerMin[h,y,s] 
       end
   else 
     nextSoH = fc.soh[h,y,s] 
-    nextPowerMax = fc.SoC_model.powerMax[h,y,s] 
-    nextPowerMin = fc.SoC_model.powerMin[h,y,s] 
+    nextPowerMax = fc.EffModel.powerMax[h,y,s] 
+    nextPowerMin = fc.EffModel.powerMin[h,y,s] 
   end
 
   return nextSoH, nextPowerMax, nextPowerMin
@@ -492,23 +577,23 @@ function compute_operation_soh(fc::FuelCell, model::FixedLifetimeFuelCell, h::In
     end
 
 
-      if fc.SoC_model.couplage
-        nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.SoC_model.k_aux)
+      if fc.EffModel.couplage
+        nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
         nextPowerMin = compute_min_power(fc)
-        fc.SoC_model.V_J = model.V_J
+        fc.EffModel.V_J = model.V_J
 
-          if fc.SoC_model isa LinearFuelCellEfficiency 
-            update_η_lin(fc, fc.SoC_model)
+          if fc.EffModel isa LinearFuelCellEfficiency 
+            update_η_lin(fc, fc.EffModel)
           end
 
       else
-        nextPowerMax = fc.SoC_model.powerMax[h,y,s] 
-        nextPowerMin = fc.SoC_model.powerMin[h,y,s] 
+        nextPowerMax = fc.EffModel.powerMax[h,y,s] 
+        nextPowerMin = fc.EffModel.powerMin[h,y,s] 
       end
   else 
     nextSoH = fc.soh[h,y,s] 
-    nextPowerMax = fc.SoC_model.powerMax[h,y,s] 
-    nextPowerMin = fc.SoC_model.powerMin[h,y,s] 
+    nextPowerMax = fc.EffModel.powerMax[h,y,s] 
+    nextPowerMin = fc.EffModel.powerMin[h,y,s] 
   end
 
   return nextSoH, nextPowerMax, nextPowerMin
@@ -522,14 +607,14 @@ function initialize_investments!(s::Int64, fc::FuelCell, decision::NamedTuple{(:
   fc.soh[1,1,s] = fc.soh_ini
 
 
-  fc.SoC_model.V_J[1,:] = fc.V_J_ini[1,:] 
-  fc.SoC_model.V_J[2,:] = fc.V_J_ini[2,:]
-  fc.SoC_model.V_J[3,:] = fc.V_J_ini[2,:] .* fc.V_J_ini[1,:] * fc.surface * fc.N_cell
-  fc.SoC_model.powerMax[1,1,s] = maximum(fc.SoC_model.V_J[3,:]) * (1-fc.SoC_model.k_aux)
-  fc.SoC_model.powerMin[1,1,s] = compute_min_power(fc)
+  fc.EffModel.V_J[1,:] = fc.V_J_ini[1,:] 
+  fc.EffModel.V_J[2,:] = fc.V_J_ini[2,:]
+  fc.EffModel.V_J[3,:] = fc.V_J_ini[2,:] .* fc.V_J_ini[1,:] * fc.surface * fc.N_cell
+  fc.EffModel.powerMax[1,1,s] = maximum(fc.EffModel.V_J[3,:]) * (1-fc.EffModel.k_aux)
+  fc.EffModel.powerMin[1,1,s] = compute_min_power(fc)
 
-  if fc.SoC_model isa LinearFuelCellEfficiency 
-    update_η_lin(fc, fc.SoC_model)
+  if fc.EffModel isa LinearFuelCellEfficiency 
+    update_η_lin(fc, fc.EffModel)
   end
 
   #Initialization of V(J)
@@ -548,6 +633,7 @@ function initialize_investments!(s::Int64, fc::FuelCell, decision::NamedTuple{(:
     fc.SoH_model.V_nom_ini = interpolation(fc.V_J_ini[1,:], fc.V_J_ini[2,:], fc.SoH_model.J_ref , true)
 
   end
+
   
 end
 
@@ -556,7 +642,7 @@ end
 
   ### Investment dynamic
   function compute_investment_dynamics!(y::Int64, s::Int64, fc::FuelCell,  decision::NamedTuple{(:surface, :N_cell), Tuple{Float64, Int64}})    
-    fc.SoC_model.powerMax[1,y+1,s], fc.SoC_model.powerMin[1,y+1,s], fc.soh[1,y+1,s] = compute_investment_dynamics(fc, (powerMax = fc.SoC_model.powerMax[end,y,s], powerMin = fc.SoC_model.powerMin[end,y,s], soh = fc.soh[end,y,s]), decision)
+    fc.EffModel.powerMax[1,y+1,s], fc.EffModel.powerMin[1,y+1,s], fc.soh[1,y+1,s] = compute_investment_dynamics(fc, (powerMax = fc.EffModel.powerMax[end,y,s], powerMin = fc.EffModel.powerMin[end,y,s], soh = fc.soh[end,y,s]), decision)
   end
 
   
@@ -578,14 +664,14 @@ end
         soh_next = fc.soh_ini
 
         fc.SoH_model.V_J = V_J
-        fc.SoC_model.V_J = V_J
+        fc.EffModel.V_J = V_J
 
-        powerMax_next = maximum(V_J[3,:]) * (1-fc.SoC_model.k_aux)
+        powerMax_next = maximum(V_J[3,:]) * (1-fc.EffModel.k_aux)
 
         powerMin_next = compute_min_power(fc)
 
-        if fc.SoC_model isa LinearFuelCellEfficiency 
-          update_η_lin(fc, fc.SoC_model)
+        if fc.EffModel isa LinearFuelCellEfficiency 
+          update_η_lin(fc, fc.EffModel)
         end
 
     else
@@ -624,13 +710,13 @@ end
 
 
 function get_η_E(P_net::Float64, fc::FuelCell)
-  P_tot = floor(P_net / (1 - fc.SoC_model.k_aux); digits=6)
+  P_tot = floor(P_net / (1 - fc.EffModel.k_aux); digits=6)
   
   #Find the corresponding current from an interpolation from P(I) curve 
-  j = interpolation(fc.SoC_model.V_J[3,:], fc.SoC_model.V_J[1,:], P_tot, true )
+  j = interpolation(fc.EffModel.V_J[3,:], fc.EffModel.V_J[1,:], P_tot, true )
   i = j * fc.surface
 
-  return P_net / (fc.SoC_model.K * i * fc.N_cell)
+  return P_net / (fc.EffModel.K * i * fc.N_cell)
 
 end
 
@@ -639,11 +725,11 @@ end
 
 #compute the power that correpond to the maximum allowed tension
 function compute_min_power(fc::FuelCell)
-  if fc.SoC_model isa FixedFuelCellEfficiency
-    P_min = fc.SoC_model.α_p * maximum(fc.SoC_model.V_J[3,:])
+  if fc.EffModel isa FixedFuelCellEfficiency
+    P_min = fc.EffModel.α_p * maximum(fc.EffModel.V_J[3,:])
   else
-    P_min_tot = interpolation(fc.SoC_model.V_J[2,:], fc.SoC_model.V_J[3,:], fc.SoC_model.V_max, false )
-    P_min = P_min_tot / (1 + fc.SoC_model.k_aux)
+    P_min_tot = interpolation(fc.EffModel.V_J[2,:], fc.EffModel.V_J[3,:], fc.EffModel.V_max, false )
+    P_min = P_min_tot / (1 + fc.EffModel.k_aux)
   end
   return P_min
 end
@@ -676,7 +762,153 @@ function update_η_lin(fc::FuelCell, model::LinearFuelCellEfficiency)
   b_η = η_P_min - a_η * P_min
 
 
-  fc.SoC_model.a_η = a_η
-  fc.SoC_model.b_η = b_η
+  fc.EffModel.a_η = a_η
+  fc.EffModel.b_η = b_η
 
 end
+
+
+function toStringShort(fc::FuelCell)
+
+	if fc.EffModel isa LinearFuelCellEfficiency
+		efficiency = "x"
+	elseif fc.EffModel isa PolarizationFuelCellEfficiency
+		efficiency = "V(J)"
+  elseif fc.EffModel isa FixedFuelCellEfficiency
+		efficiency = "fix."
+	end
+
+	if fc.SoH_model isa PowerAgingFuelCell
+		aging = "P"
+	elseif fc.SoH_model isa FixedLifetimeFuelCell
+		aging = "FL"
+	elseif fc.SoH_model isa FunctHoursAgingFuelCell
+		aging = "FH"
+	end
+
+	return string("FC :", efficiency, ", ", aging)
+end
+
+
+function create_deg_params(datas::Vector{DataFrames.DataFrame}, Js::Vector{Float64}, V_J::Matrix{Float64}, J_ref::Float64, objective_lifetime::Float64; power = 1/2)
+
+  #Maximum deg profil in Alexandra Pessot thesis
+  P_max = datas[3]
+
+  #Get affine coef from input data
+  as, b = fit_all_curves(datas, Js)
+
+  #get a,b,c coef to be able to write the degradation as ax^power + bx + c
+  a_slope, b_slope, c_slope = fit_dot(Js, as, power)
+
+  #initial voltage at ref current density
+  V_ini_ref =  interpolation(V_J[1,:],  V_J[2,:], J_ref, true)
+
+  ΔV_tot = V_ini_ref * 0.1
+
+  #Voltage ref loss
+  V_deg_ref = interpolation(P_max.J,  P_max.V, J_ref, true)
+
+  #Adujst the lifetime to fit a target (The FC will be able to be used at its ref current density for the target amount of hour)
+  current_lifetime = ΔV_tot / (V_deg_ref * 1e-6)
+
+  adaptation_coefficient = current_lifetime * 1e-6/objective_lifetime
+
+  start_stop_coef = 0.0000196 #0.00196% as stated in Pucheng Pei, Qianfei Chang, Tian Tang,
+ # A quick evaluating method for automotive fuel cell lifetime (https://doi.org/10.1016/j.ijhydene.2008.04.048)
+  
+  return deg_params(a_slope, b_slope, c_slope, power, b, adaptation_coefficient, start_stop_coef)
+
+end
+
+
+
+   
+  
+
+
+function fit_all_curves(data, Js)
+
+  n_data = length(data)
+  n_data_point = [length(data[i].J) for i in 1:n_data]
+
+
+  m2 = Model(Ipopt.Optimizer)
+  #set_optimizer_attribute(m2, "TimeLimit", 100)
+  
+  @variable(m2, a[1:n_data] >= 0)
+  @variable(m2, b >= 0)
+
+  @variable(m2, errors[1:n_data])
+  @constraint(m2, [d in 1:n_data], errors[d] >= sum( (a[d]*data[d].J[i]+b - data[d].V[i])^2 for i in 1:n_data_point[d]))
+
+  #Minimize the squared error
+  @objective(m2, Min, sum(errors[d] for d in 1:n_data))
+
+
+  optimize!(m2)
+  plt = PyPlot.subplot()
+  for d in 1:n_data
+      PyPlot.scatter(data[d].J, data[d].V, label = string(Js[d] , " A/cm² : data"))
+      PyPlot.plot(data[d].J, data[d].J .* value.(m2[:a])[d] .+ value(m2[:b]), label = string(Js[d] , " A/cm² : model"))
+  end
+  plt.set_xlabel("Current density (A/cm²)", fontsize=20)
+  plt.set_ylabel("μV/h", fontsize=20)
+  PyPlot.legend(fontsize = 15)
+
+  return value.(m2[:a]), value(m2[:b])
+end
+
+
+function fit_dot(Js, as, power)
+
+  n_data_point = length(Js)
+
+  m2 = Model(Ipopt.Optimizer)
+  #set_optimizer_attribute(m2, "TimeLimit", 100)
+  
+  @variable(m2, a)
+  @variable(m2, b)
+  @variable(m2, c)
+
+
+  @variable(m2, errors[1:n_data_point])
+  @constraint(m2, [i in 1:n_data_point], errors[i] == (a*Js[i]^(power)+(b * Js[i]) + c) - as[i])
+
+  #Minimize the squared error
+  @objective(m2, Min, sum((errors[i]^2) for i in 1:n_data_point))
+
+
+  optimize!(m2)
+
+  p = PyPlot.subplot()
+
+ 
+
+  interval =0:0.01:1
+  PyPlot.plot(interval, [value(m2[:a])*x^(power)+(value(m2[:b]) * x) + value(m2[:c]) for x in interval], label = string("ax^", power, " + bx + c"))
+
+  p.set_xlabel("Current density (A/cm²)", fontsize=20)
+  p.set_ylabel("Slope", fontsize=20)
+  PyPlot.legend(fontsize = 15)
+   
+  
+      PyPlot.scatter(Js, as, label = "Fitted slopes coefficients")
+      PyPlot.legend(fontsize = 15)
+  
+
+  return value(m2[:a]), value(m2[:b]), value(m2[:c])
+end
+
+
+
+function get_slope_deg(j, power, a_slope, b_slope, c_slope)
+  
+  slope = a_slope * j^(power) + b_slope * j + c_slope 
+  return slope
+  
+end
+
+
+
+

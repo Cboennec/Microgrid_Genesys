@@ -30,27 +30,15 @@ using JuMP, Cbc, Metaheuristics, SDDP, Gurobi, Ipopt
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
-using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD, Pandas, Random
+using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD2, Pandas, Random
 # Assets
 include(joinpath("assets","microgrid.jl"))
 include(joinpath("assets","carriers.jl"))
 include(joinpath("assets","liion","liion.jl"))
-#include(joinpath("assets","liion","liion_energy_exchanged.jl"))
-#include(joinpath("assets","liion","liion_rainflow.jl"))
-#include(joinpath("assets","liion","liion_electro_chimique.jl"))
-#include(joinpath("assets","liion","liion_vermeer.jl"))
-#include(joinpath("assets","liion","liion_fixed_lifetime.jl"))
 include(joinpath("assets","tes.jl"))
 include(joinpath("assets","h2tank.jl"))
 include(joinpath("assets","electrolyzer","electrolyzer.jl"))
-include(joinpath("assets","electrolyzer","electrolyzer_V_J.jl"))
-include(joinpath("assets","electrolyzer","electrolyzer_lin.jl"))
 include(joinpath("assets","fuelcell","fuelcell.jl"))
-include(joinpath("assets","fuelcell","fuelcell_hoursmax.jl"))
-include(joinpath("assets","fuelcell","fuelcell_on_off.jl"))
-include(joinpath("assets","fuelcell","fuelCell_power.jl"))
-include(joinpath("assets","fuelcell","fuelCell_V_J.jl"))
-include(joinpath("assets","fuelcell","fuelCell_lin.jl"))
 include(joinpath("assets","heater.jl"))
 include(joinpath("assets","grid.jl"))
 include(joinpath("assets","solar.jl"))

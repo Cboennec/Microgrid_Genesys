@@ -5,7 +5,7 @@ abstract type AbstractLiionEffModel end
 abstract type AbstractLiionAgingModel end
 
 """
-LinearLiionEfficiency
+LinearLiionEfficiency <: AbstractLiionEffModel
 
 A mutable struct that represents a Li-ion battery efficiency model for SoC computation.
 This model implement a fixed efficiency that can decrease linearly with battery aging.
@@ -47,7 +47,7 @@ mutable struct LinearLiionEfficiency <: AbstractLiionEffModel
 end
 
 """
-polynomialLiionEfficiency
+polynomialLiionEfficiency <: AbstractLiionEffModel
 
 A mutable struct that represents a Li-ion battery efficiency model with polynomial efficiency characteristics for SoC computation.
 This model implements an efficiency model based on polynomial coefficients of the form `ax² + bx + c`  that can be used to calculate efficiency.
@@ -103,35 +103,39 @@ end
 
 
 """
-EnergyThroughputLiion
+EnergyThroughputLiion <: AbstractLiionAgingModel
 
 A mutable struct that represents an aging model for Li-ion batteries based on energy throughput, which accounts for calendar aging and cycling aging.
 This model calculates aging based on the cumulative energy throughput and additionnaly calendar aging.
 
 # Parameters:
 - `calendar::Bool`: A boolean value to indicate whether to consider calendar aging (default: true)
-- `nCycle::Int64`: The total number of cycles (default: 2500)
+- `nCycle::Int64`: An adjusted number of cycle to reach the SoH replacement threshold after nCycle_ini cycles (default: 2500)
+- `nCycle_ini::Int64`: The total number of cycles achievable before reaching EOL(default: 2500)
 - `Δcal::Float64`: The calendar aging parameter (default: 1 - exp(-4.14e-10 * 3600))
 
 ## Example 
 ```julia
-EnergyThroughputLiion()
-```
+EnergyThroughputLiion(;nCycle_ini = Int(floor(fatigue_data.cycle[findfirst(fatigue_data.DoD .> (0.6))])))```
+
+supposing that fatigue data is a dataframe with a cycle column and a DoD column
 """
 mutable struct EnergyThroughputLiion <: AbstractLiionAgingModel
 
 	calendar::Bool
 	nCycle::Int64
+	nCycle_ini::Int64
 	Δcal::Float64 
 
 	EnergyThroughputLiion(;calendar = true,
 	nCycle = 2500.,
+	nCycle_ini = 2500.,
 	Δcal = (1 - exp(- 4.14e-10 * 3600))
-	) = new(calendar, nCycle, Δcal)
+	) = new(calendar, nCycle, nCycle_ini, Δcal)
 end
 
 """
-FixedLifetimeLiion
+FixedLifetimeLiion <: AbstractLiionAgingModel
 
 A mutable struct that represents an aging model for Li-ion batteries with a fixed lifetime in years.
 
@@ -152,7 +156,7 @@ end
 
 
 """
-RainflowLiion
+RainflowLiion <: AbstractLiionAgingModel
 
 A mutable struct that represents an aging model for Li-ion batteries based on rainflow cycle counting, considering calendar aging and cycling aging.
 
@@ -163,8 +167,9 @@ A mutable struct that represents an aging model for Li-ion batteries based on ra
 
 ## Example 
 ```julia
-RainflowLiion()
-```
+RainflowLiion(fatigue_data = fatigue_data)```
+
+supposing that fatigue_data is a dataframe with a cycle column and a DoD column
 """
 mutable struct RainflowLiion <: AbstractLiionAgingModel
 	calendar::Bool#Booleann for the activation of calendar aging
@@ -181,7 +186,7 @@ mutable struct RainflowLiion <: AbstractLiionAgingModel
 end
 
 """
-SemiEmpiricalLiion
+SemiEmpiricalLiion <: AbstractLiionAgingModel
 
 A mutable struct that represents an aging model for Li-ion batteries based on a semi-empirical model, accounting for temperature and other parameters.
 
@@ -197,7 +202,7 @@ A mutable struct that represents an aging model for Li-ion batteries based on a 
   - `k_T::Float64`
   - `T_ref::Float64`
   - `k_t::Float64`
-- `temperature::Float64`: Temperature of the battery (default: 298K)
+- `temperature::Float64`: Temperature of the battery in Kelvin (default: 298)
 - `Sum_fd::AbstractArray{Float64,1}`: Used as a memory of the cumulated fatigue of the battery
 
 ## Example 
@@ -207,7 +212,6 @@ SemiEmpiricalLiion()
 """
 mutable struct SemiEmpiricalLiion <: AbstractLiionAgingModel
 	update_by_year::Int64 #Number of update each year
-
 	
 	# for NMC parameters #
    #Technoeconomic model of second-life batteries for utility-scale solar
@@ -220,7 +224,7 @@ mutable struct SemiEmpiricalLiion <: AbstractLiionAgingModel
 	k_delta2::Float64
 	k_sigma::Float64
 	sigma_ref::Float64
-	k_T::Float64
+	k_T::Float64 
 	T_ref::Float64
 	k_t::Float64
 
@@ -241,9 +245,41 @@ mutable struct SemiEmpiricalLiion <: AbstractLiionAgingModel
 	temperature = 298) = new(update_by_year, alpha_sei, beta_sei, k_delta1, k_delta2, k_sigma, sigma_ref, k_T, T_ref, k_t, temperature)
 end
 
+"""
+# Liion
 
+A mutable struct representing a Li-ion battery model with state of charge (SoC) computation and aging models.
 
+## Parameters
 
+- `SoC_model::AbstractLiionEffModel`: Model for state of charge computation.
+- `SoH_model::AbstractLiionAgingModel`: Model for aging computation.
+- `α_soc_min::Float64`: Minimum threshold of charge (normalized).
+- `α_soc_max::Float64`: Maximum threshold of charge (normalized).
+- `bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}`: Lower and upper bounds for the battery capacity.
+- `SoH_threshold::Float64`: State of health (SoH) level to replace the battery.
+- `couplage::NamedTuple{(:E, :R), Tuple{Bool, Bool}}`: Tuple to indicate if SoH should influence other parameters.
+
+## Initial Conditions
+
+- `Erated_ini::Float64`: Initial capacity of the battery in Wh.
+- `soc_ini::Float64`: Initial state of charge for the beginning of the simulation.
+- `soh_ini::Float64`: Initial state of health for the beginning of the simulation.
+
+## Variables
+
+- `Erated::AbstractArray{Float64, 2}`: Battery capacity.
+- `carrier::Electricity`: Type of energy.
+- `soc::AbstractArray{Float64, 3}`: 3-dimensional matrix (h, y, s) containing the state of charge [0-1].
+- `soh::AbstractArray{Float64, 3}`: 3-dimensional matrix (h, y, s) containing the state of health [0-1].
+## Eco
+- `cost::AbstractArray{Float64, 2}`: Economic cost.
+
+## Example 
+```julia
+Liion(SoC_model = polynomialLiionEfficiency(), SoH_model = FixedLifetimeLiion())```
+
+"""
 mutable struct Liion <: AbstractLiion
 
 	
@@ -277,7 +313,7 @@ mutable struct Liion <: AbstractLiion
 
 	# Inner constructor
 	Liion(; SoC_model = LinearLiionEfficiency(),
-		SoH_model = EnergyThroughputLiion(),
+		SoH_model = FixedLifetimeLiion(),
 		α_soc_min = 0.2,
 		α_soc_max = 0.8,
 		bounds = (lb = 0., ub = 1000.),
@@ -290,7 +326,29 @@ mutable struct Liion <: AbstractLiion
 
 end
 
-### Preallocation
+"""
+# preallocate!
+
+Preallocates arrays within the Liion struct for a given simulation size.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `nh::Int64`: Number of time steps.
+- `ny::Int64`: Number of scenarios.
+- `ns::Int64`: Number of states.
+
+## Description
+
+This function preallocates arrays within the Liion struct based on the simulation size defined by `nh`, `ny`, and `ns`. It initializes arrays such as `Erated`, `carrier.power`, `soc`, `soh`, and `cost` to improve efficiency during simulation.
+
+## Example
+
+```julia
+liion = Liion()
+preallocate!(liion, nh, ny, ns)
+```
+"""
 function preallocate!(liion::Liion, nh::Int64, ny::Int64, ns::Int64)
    liion.Erated = convert(SharedArray,zeros(ny+1, ns)) ; liion.Erated[1,:] .= liion.Erated_ini
    liion.carrier = Electricity()
@@ -300,7 +358,7 @@ function preallocate!(liion::Liion, nh::Int64, ny::Int64, ns::Int64)
    liion.cost = convert(SharedArray,zeros(ny, ns))
   
    if liion.SoH_model isa EnergyThroughputLiion
- 		liion.SoH_model.nCycle = Int(round(liion.SoH_model.nCycle * 1/(1-liion.SoH_threshold))) #cycle to failure calibrée pour SoH_threshold %
+ 		liion.SoH_model.nCycle = Int(round(liion.SoH_model.nCycle_ini * 1/(1-liion.SoH_threshold))) #cycle to failure calibrée pour SoH_threshold %
    elseif  liion.SoH_model isa SemiEmpiricalLiion
 		liion.SoH_model.Sum_fd = convert(SharedArray,zeros(ns))
    end
@@ -311,9 +369,35 @@ function preallocate!(liion::Liion, nh::Int64, ny::Int64, ns::Int64)
 end
 
 
-### Operation dynamic
-function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion, decision::Float64, Δh::Int64)
+"""
+# compute_operation_dynamics!
 
+Compute and update inner arrays of Liion according to the input decisions using [`compute_operation_soc`](@ref) and [`compute_operation_soh`](@ref).
+
+## Arguments
+
+- `h::Int64`: Operation time step index.
+- `y::Int64`: Decision step index.
+- `s::Int64`: scenario index.
+- `liion::Liion`: Li-ion battery structure.
+- `decision::Float64`: Input power decision (positive or negative).
+- `Δh::Int64`: Time step duration.
+
+## Description
+
+This function computes and updates the state of charge (SoC), power, and state of health (SoH) of the Liion battery model based on the input decisions. It utilizes the [`compute_operation_soc`](@ref) and [`compute_operation_soh`](@ref) functions to perform the calculations.
+
+## Example
+
+```julia
+h = 1
+y = 1
+s = 1
+decision = 0.5
+Δh = 1
+compute_operation_dynamics!(h, y, s, liion, decision, Δh)```
+"""
+function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion, decision::Float64, Δh::Int64)
 
 	liion.soc[h+1,y,s], power_ch, power_dch = compute_operation_soc(liion, liion.SoC_model, h ,y ,s , decision, Δh)
 	
@@ -321,15 +405,44 @@ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion,
 
 	liion.soh[h+1,y,s] = compute_operation_soh(liion,  liion.SoH_model, h ,y ,s, Δh)
 
-
 end
 
 
+"""
+# compute_operation_soc
+
+Compute and update the state of charge (SoC) dynamics based on the input decisions using the LinearLiionEfficiency model.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `model::LinearLiionEfficiency`: Linear efficiency model.
+- `h::Int64`: Operation time step index.
+- `y::Int64`: Decision time step index.
+- `s::Int64`: Scenario index.
+- `decision::Float64`: Power input (positive or negative).
+- `Δh::Int64`: Time step duration.
+
+## Description
+
+This function computes and updates the state of charge (SoC) dynamics of the Liion battery model based on the input decisions and the LinearLiionEfficiency model. It considers efficiency, capacity coupling, and efficiency coupling according to the model parameters.
+
+## Example
+
+```julia
+h = 1
+y = 1
+s = 1
+decision = 0.5
+Δh = 1
+compute_operation_soc(liion, model, h, y, s, decision, Δh)
+```
+"""
 function compute_operation_soc(liion::Liion, model::LinearLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
 	if decision >= 0 
-		η_ini = model.η_dch #0.98   
+		η_ini = model.η_dch 
 	else
-		η_ini = model.η_ch #0.98   
+		η_ini = model.η_ch    
 	end
 
 	if model.couplage.E
@@ -351,7 +464,36 @@ function compute_operation_soc(liion::Liion, model::LinearLiionEfficiency, h::In
 
 end
 
+"""
+# compute_operation_soc
 
+Compute and update the state of charge (SoC) dynamics based on the input decisions using the polynomialLiionEfficiency model.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `model::polynomialLiionEfficiency`: Polynomial efficiency model.
+- `h::Int64`: Operation time step index.
+- `y::Int64`: Decision time step index.
+- `s::Int64`: Scenario index.
+- `decision::Float64`: Power input (positive or negative).
+- `Δh::Int64`: Time step duration.
+
+## Description
+
+This function computes and updates the state of charge (SoC) dynamics of the Liion battery model based on the input decisions and the polynomialLiionEfficiency model. It considers efficiency, capacity coupling, and efficiency coupling according to the model parameters.
+
+## Example
+
+```julia
+h = 1
+y = 1
+s = 1
+decision = 0.5
+Δh = 1
+compute_operation_soc(liion, model, h, y, s, decision, Δh)
+```
+"""
 function compute_operation_soc(liion::Liion, model::polynomialLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
 	if liion.couplage.E
 		Erated = liion.Erated[y,s] * liion.soh[h,y,s]
@@ -381,7 +523,33 @@ function compute_operation_soc(liion::Liion, model::polynomialLiionEfficiency, h
 end
 
 
+"""
+# compute_operation_soh
 
+Compute and update the state of health (SoH) dynamics at the current time using the EnergyThroughputLiion aging model.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `model::EnergyThroughputLiion`: EnergyThroughputLiion aging model.
+- `h::Int64`: Operation time step index.
+- `y::Int64`: Decision time step index.
+- `s::Int64`: Scenario index.
+- `Δh::Int64`: Time step duration.
+
+## Description
+
+This function computes and updates the state of health (SoH) dynamics of the Liion battery model. It considers both cycling aging and calendar aging.
+The EnergyThroughput model compute aging based on the energy going through the battery. It consider a total amount of exchangeable energy and compute the SoH based on a fraction of it already exchanged.
+## Example
+
+```julia
+h = 1
+y = 1
+s = 1
+Δh = 1
+compute_operation_soh(liion, model, h, y, s, Δh)```
+"""
 function compute_operation_soh(liion::Liion, model::EnergyThroughputLiion, h::Int64,y::Int64 ,s::Int64 , Δh::Int64)
 	
 	ΔSoH = (abs(liion.carrier.power[h,y,s])) * Δh / (2. * model.nCycle * (liion.α_soc_max - liion.α_soc_min) * liion.Erated[y,s])
@@ -397,6 +565,38 @@ function compute_operation_soh(liion::Liion, model::EnergyThroughputLiion, h::In
 end
 
 
+"""
+# compute_operation_soh
+
+Compute and update the state of health (SoH) dynamics based on the SemiEmpiricalLiion aging model.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `model::SemiEmpiricalLiion`: SemiEmpiricalLiion aging model.
+- `h::Int64`: Operation time step index.
+- `y::Int64`: Decision time step index.
+- `s::Int64`: Scenario index.
+- `Δh::Int64`: Time step duration.
+
+## Description
+
+This function computes and updates the state of health (SoH) dynamics of the Liion battery model based on the SemiEmpiricalLiion aging model.  The SoH is updated based on rainflow cycle counting, considering calendar aging and cycling aging. It uses the `compute_operation_soh_rainflow` function with the state of charge (SoC) profile `liion.soc[interval, y, s]` over a certain interval.
+
+## References
+	
+- [`compute_operation_soh_rainflow`](#compute_operation_soh_rainflow): Function for rainflow cycle counting. (implémented for this model and different form the one for the rainflow aging model)
+- `liion.soc[interval, y, s]`: State of charge (SoC) profile over a certain interval.
+	
+## Example
+
+```julia
+h = 1
+y = 1
+s = 1
+Δh = 1
+compute_operation_soh(liion, model, h, y, s, Δh)```
+"""
 function compute_operation_soh(liion::Liion, model::SemiEmpiricalLiion, h::Int64, y::Int64, s::Int64, Δh::Int64)
 	
 	h_between_update = convert(Int64,floor(8760/model.update_by_year))
@@ -413,8 +613,39 @@ function compute_operation_soh(liion::Liion, model::SemiEmpiricalLiion, h::Int64
 	
 end
 
+"""
+# compute_operation_soh
 
+Compute and update the state of health (SoH) dynamics based on the RainflowLiion aging model.
 
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `model::RainflowLiion`: RainflowLiion aging model.
+- `h::Int64`: Operation time step index.
+- `y::Int64`: Decision time step index.
+- `s::Int64`: Scenario index.
+- `Δh::Int64`: Time step duration.
+
+## Description
+
+This function computes and updates the state of health (SoH) dynamics of the Liion battery model based on the RainflowLiion aging model. The SoH is updated based on rainflow cycle counting, considering calendar aging and cycling aging. It uses the `compute_operation_soh_rainflow` function with the state of charge (SoC) profile `liion.soc[interval, y, s]` over a certain interval.
+
+## References
+
+- [`compute_operation_soh_rainflow`](#compute_operation_soh_rainflow): Function for rainflow cycle counting.
+- `liion.soc[interval, y, s]`: State of charge (SoC) profile over a certain interval.
+
+## Example
+
+```julia
+h = 1
+y = 1
+s = 1
+Δh = 1
+compute_operation_soh(liion, model, h, y, s, Δh)
+```
+"""
 function compute_operation_soh(liion::Liion, model::RainflowLiion, h::Int64, y::Int64, s::Int64, Δh::Int64)
 	
 	h_between_update = convert(Int64,floor(8760/model.update_by_year))
@@ -438,7 +669,34 @@ function compute_operation_soh(liion::Liion, model::RainflowLiion, h::Int64, y::
 	
 end
 
+"""
+# compute_operation_soh
 
+Compute and update the state of health (SoH) dynamics based on the FixedLifetimeLiion aging model.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `model::FixedLifetimeLiion`: FixedLifetimeLiion aging model.
+- `h::Int64`: Operation time step index.
+- `y::Int64`: Decision time step index.
+- `s::Int64`: Scenario index.
+- `Δh::Int64`: Time step duration.
+
+## Description
+
+This function computes and updates the state of health (SoH) dynamics of the Liion battery model based on the FixedLifetimeLiion aging model. The SoH is updated based on a fixed lifetime, and the update is proportional to the remaining lifetime of the battery.
+
+## Example
+
+```julia
+h = 1
+y = 1
+s = 1
+Δh = 1
+compute_operation_soh(liion, model, h, y, s, Δh)
+```
+"""
 function compute_operation_soh(liion::Liion, model::FixedLifetimeLiion, h::Int64, y::Int64, s::Int64, Δh::Int64)
 	
 	return liion.soh[h,y,s] - ((1 - liion.SoH_threshold) * Δh)/(8760 * model.lifetime)
@@ -449,7 +707,32 @@ end
 
 
 
+"""
+# compute_operation_soh_rainflow
 
+Compute and update the state of health (SoH) using rainflow cycle counting based on the SemiEmpiricalLiion aging model.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `model::SemiEmpiricalLiion`: SemiEmpiricalLiion aging model.
+- `Δh::Int64`: Time step duration.
+- `soc::Vector{Float64}`: State of charge (SoC) profile over a certain interval.
+- `Sum_fd::Float64`: Cumulated fatigue of the battery.
+
+## Description
+
+This function calculates the state of health (SoH) of the Liion battery model using rainflow cycle counting based on the SemiEmpiricalLiion aging model. It analyzes the SoC profile, identifies peaks, and computes the Depth of Discharge (DoD) sequences for each sub-cycle. The cumulated fatigue is updated, and the overall SoH is determined.
+
+## Example
+
+```julia
+Δh = 1
+soc_profile = [0.2, 0.4, 0.8, 0.6, 0.2]
+Sum_fd = 0.0
+compute_operation_soh_rainflow(liion, model, Δh, soc_profile, Sum_fd)
+```
+"""
 function compute_operation_soh_rainflow(liion::Liion, model::SemiEmpiricalLiion, Δh::Int64, soc::Vector{Float64}, Sum_fd::Float64)
 
 	soc_peak, soc_peak_id = get_soc_peaks(soc)
@@ -506,7 +789,30 @@ function compute_operation_soh_rainflow(liion::Liion, model::SemiEmpiricalLiion,
 end
 
 
+"""
+# compute_operation_soh_rainflow
 
+Compute and update the state of health (SoH) using rainflow cycle counting based on the RainflowLiion aging model.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `model::RainflowLiion`: RainflowLiion aging model.
+- `Δh::Int64`: Time step duration.
+- `soc::Vector{Float64}`: State of charge (SoC) profile.
+
+## Description
+
+This function calculates the state of health (SoH) of the Liion battery model using rainflow cycle counting based on the RainflowLiion aging model. It identifies peaks in the SoC profile and computes the Depth of Discharge (DoD) sequences for each sub-cycle. The cumulated fatigue is determined, and the overall SoH is updated.
+
+## Example
+
+```julia
+Δh = 1
+soc_profile = [0.2, 0.4, 0.8, 0.6, 0.2]
+compute_operation_soh_rainflow(liion, model, Δh, soc_profile)
+```
+"""
 function compute_operation_soh_rainflow(liion::Liion, model::RainflowLiion, Δh::Int64, soc::Vector{Float64})
 
 	#Gather peaks from the soc profil
@@ -556,6 +862,36 @@ function compute_operation_soh_rainflow(liion::Liion, model::RainflowLiion, Δh:
 end
 
 
+
+"""
+# compute_operation_dynamics
+
+Compute and retur the power dynamics based on the input decisions.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `h::Int64`: Operation time step index.
+- `y::Int64`: Decision time step index.
+- `s::Int64`: Scenario index.
+- `decision::Float64`: Power input (positive or negative).
+- `Δh::Int64`: Time step duration.
+
+## Description
+
+This function computes the power dynamics of the Liion battery model based on the input decisions. It calls the `compute_operation_soc` function to calculate the next state of charge (SoC), power for charging (`power_ch`), and power for discharging (`power_dch`). 
+
+## Example
+
+```julia
+h = 1
+y = 1
+s = 1
+decision = -10.0
+Δh = 1
+compute_operation_dynamics(liion, h, y, s, decision, Δh)
+```
+"""
 function compute_operation_dynamics(liion::Liion, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Int64)
 	 
 	soc_next, power_ch, power_dch = compute_operation_soc(liion, liion.SoC_model, h, y, s, decision, Δh)
@@ -563,19 +899,95 @@ function compute_operation_dynamics(liion::Liion, h::Int64, y::Int64, s::Int64, 
 	return power_dch + power_ch
  end
  
- ### Investment dynamic
+ """
+ # compute_investment_dynamics!
+ 
+ Compute and update Liion battery model arrays for investment dynamics based on the input decision.
+ 
+ ## Arguments
+ 
+ - `y::Int64`: Decision time step index.
+ - `s::Int64`: Scenario index.
+ - `liion::Liion`: Li-ion battery model.
+ - `decision::Union{Float64, Int64}`: Investment decision.
+ 
+ ## Description
+ 
+ This function computes and updates the Liion battery model arrays for investment dynamics based on the input decision. It calls the `compute_investment_dynamics` function to calculate the new values for battery capacity (`Erated`), initial state of charge (`soc`), and initial state of health (`soh`). The Liion battery model arrays are updated in place.
+ 
+ ## Example
+ 
+ ```julia
+ y = 1
+ s = 1
+ decision = 100.0
+ compute_investment_dynamics!(y, s, liion, decision)
+```
+"""
  function compute_investment_dynamics!(y::Int64, s::Int64, liion::Liion, decision::Union{Float64, Int64})
 	liion.Erated[y+1,s], liion.soc[1,y+1,s], liion.soh[1,y+1,s] = compute_investment_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[end,y,s], soh = liion.soh[end,y,s]), decision)
  end
 
 
- 
+ """
+# initialize_investments!
+
+Initialize (at first year) Liion battery model arrays for investments.
+
+## Arguments
+
+- `s::Int64`: Scenario index.
+- `liion::Liion`: Li-ion battery model.
+- `decision::Union{Float64, Int64}`: Initial investment decision.
+
+## Description
+
+This function initializes the Liion battery model arrays for investments based on the initial investment decision. It sets the initial values for battery capacity (`Erated`), initial state of charge (`soc`), and initial state of health (`soh`). The Liion battery model arrays are updated in place.
+
+## Example
+
+```julia
+s = 1
+decision = 100.0
+initialize_investments!(s, liion, decision)
+```
+"""
  function initialize_investments!(s::Int64, liion::Liion, decision::Union{Float64, Int64})
    liion.Erated[1,s] = decision
    liion.soc[1,1,s] = liion.soc_ini
    liion.soh[1,1,s] = liion.soh_ini
 end
 
+
+"""
+# compute_investment_dynamics
+
+Compute Liion battery model dynamics for investment decisions.
+
+## Arguments
+
+- `liion::Liion`: Li-ion battery model.
+- `state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}`: Current state of the battery model.
+- `decision::Union{Float64, Int64}`: Investment decision.
+
+## Returns
+
+- `(Erated_next, soc_next, soh_next)`: Updated values for battery capacity (`Erated`), state of charge (`soc`), and state of health (`soh`).
+
+## Description
+
+This function computes the Liion battery model dynamics for investment decisions. It calculates the updated values for battery capacity, state of charge, and state of health based on the given investment decision. If the investment decision is greater than `1e-2`, it sets the battery to a new state, otherwise, it maintains the current state.
+
+The Liion battery model arrays are updated in place.
+
+## Example
+
+```julia
+state = (Erated = 100.0, soc = 0.5, soh = 1.0)
+decision = 50.0
+Erated_next, soc_next, soh_next = compute_investment_dynamics(liion, state, decision)
+```
+"""
  function compute_investment_dynamics(liion::Liion, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Union{Float64, Int64})
 	 if decision > 1e-2
 		 Erated_next = decision
@@ -597,56 +1009,32 @@ end
 
 
 
-
-
-
- function get_power_flow(liion::AbstractLiion, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Float64, Δh::Int64)
-	if liion.couplage.E
-	 Erated = state.Erated * state.soh
-	else
-	 Erated = state.Erated
-	end
-
-   η_ini = 0.95   #Fixed (dis)charging efficiency for both BES and EV (0.98)     dans la nomenclature
-
-   if liion.couplage.R
-	   η = η_ini - ((1-state.soh)/12)   #(15) simplifié
-   else
-	   η = η_ini
-   end
-
-   	power_dch = max(min(decision, liion.α_p_dch * Erated, state.soh * state.Erated / Δh, η * (state.soc - liion.α_soc_min) * Erated / Δh), 0.)
-	power_ch = min(max(decision, -liion.α_p_ch * Erated, -state.soh * state.Erated / Δh, (state.soc - liion.α_soc_max) * Erated / Δh / η), 0.)
-
-   return power_dch, power_ch
-end
-
-
-#Optimal Sizing and Control of a PV-EV-BES Charging System Including Primary Frequency Control and Component Degradation
-#Wiljan Vermeer et al.
-#With this soc the efficiency is based on battery state of health
- function compute_operation_soc_Vermeer(liion::AbstractLiion, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision, Δh::Int64)
-
-	η_ini = 0.98   #Fixed (dis)charging efficiency for both BES and EV (0.98)     dans la nomenclature
-	η = η_ini - ((1-state.soh)/12)   #(15) simplifié
-
-	power_dch = max(min(decision, liion.α_p_dch * state.Erated, state.soh *  state.Erated / Δh, η * (liion.α_soc_max - state.soc) * state.Erated * state.soh / Δh), 0.)
- 	power_ch = min(max(decision, -liion.α_p_ch * state.Erated, -state.soh *  state.Erated / Δh, (liion.α_soc_min - state.soc) * state.Erated * state.soh / Δh / η), 0.)
-
-	P = ( power_dch / η) + (power_ch * η) #(13)
-	E_lim = state.Erated * state.soh   #Definition : Maximum battery capacity at time t, based on degradation
-	E = E_lim * state.soc # based on (31)
-	new_E = E + P * Δh #(34)
-
-	return new_E/E_lim , P# Get the SoC to keep coherence with the entire code.
-  end
-
-function compute_operation_soc_artificial(liion::AbstractLiion, profil::Array{Float64,2},  y::Int64, h::Int64)
-	return profil[y,h]
-end
-
-
-
+ """
+ # get_soc_peaks
+ 
+ Identify peaks in the state of charge (soc) vector.
+ 
+ ## Arguments
+ 
+ - `soc::Vector{Float64}`: Vector containing the state of charge values.
+ 
+ ## Returns
+ 
+ - `(soc_peak, soc_peak_id)`: Tuple containing sequences of state of charge peaks (`soc_peak`) and their corresponding indices (`soc_peak_id`).
+ 
+ ## Description
+ 
+ This function identifies peaks in the given state of charge vector (`soc`). It returns two sequences: `soc_peak`, which contains the values of the state of charge peaks, and `soc_peak_id`, which contains the indices of these peaks in the original vector.
+ 
+ The identification is based on changes in the sign of the first derivative of the state of charge vector. A peak is detected when there is a change in trend (from increasing to decreasing or vice versa).
+ 
+ ## Example
+ 
+ ```julia
+ soc = [0.2, 0.5, 0.8, 0.4, 0.9, 0.3, 0.7]
+ soc_peak, soc_peak_id = get_soc_peaks(soc)
+```
+""" 
 function get_soc_peaks(soc::Vector{Float64})
 	soc_peak = Float64[] #soc_peak is the sequence of values for the state of charges peaks
 	soc_peak_id = Int64[] #soc_peak is the sequence of values for the state of charges peaks
@@ -676,31 +1064,202 @@ function get_soc_peaks(soc::Vector{Float64})
 end
 
 
+"""
+# S_delta
 
+Compute a factor based on depth of discharge (DoD) for a SemiEmpiricalLiion model.
+
+## Arguments
+
+- `params::SemiEmpiricalLiion`: Parameters of the SemiEmpiricalLiion model.
+- `DoD::Float64`: Depth of discharge.
+
+## Returns
+
+- `Float64`: Depth of discharge factor.
+
+## Description
+
+This function calculates a factor (`S_delta`) based on the depth of discharge (DoD) for a SemiEmpiricalLiion model. The factor is computed using the parameters specified in the `params` argument.
+
+## Example
+
+```julia
+DoD_factor = S_delta(params, 0.5)
+```
+"""
 function S_delta(params::SemiEmpiricalLiion, DoD::Float64)
 	return params.k_delta1 * (DoD ^ params.k_delta2)
 end
 
+"""
+# S_T
+
+Compute a temperature-related factor for a SemiEmpiricalLiion model.
+
+## Arguments
+
+- `params::SemiEmpiricalLiion`: Parameters of the SemiEmpiricalLiion model.
+- `T::Float64`: Temperature.
+
+## Returns
+
+- `Float64`: Temperature factor.
+
+## Description
+
+This function calculates a factor (`S_T`) based on temperature for a SemiEmpiricalLiion model. The factor is computed using the parameters specified in the `params` argument.
+
+## Example
+
+```julia
+temperature_factor = S_T(params, 3
+```
+"""
 function S_T(params::SemiEmpiricalLiion, T::Float64)
 	return exp(params.k_T*(T-params.T_ref) * (params.T_ref/T))
 end
 
+"""
+# S_sigma
+
+Compute a factor related to mean state of charge during cycles for a SemiEmpiricalLiion model.
+
+## Arguments
+
+- `params::SemiEmpiricalLiion`: Parameters of the SemiEmpiricalLiion model.
+- `mean_SoC::Float64`: Mean state of charge.
+
+## Returns
+
+- `Float64`: State of charge factor.
+
+## Description
+
+This function calculates a factor (`S_sigma`) based on the mean state of charge for a SemiEmpiricalLiion model. The factor is computed using the parameters specified in the `params` argument.
+
+## Example
+
+```julia
+soc_factor = S_sigma(params, 0.6)
+```
+"""
 function S_sigma(params::SemiEmpiricalLiion, mean_SoC::Float64)
 	return exp(params.k_sigma * (mean_SoC  - params.sigma_ref))
 end
 
+
+"""
+# S_t
+
+Compute a time-related factor for a SemiEmpiricalLiion model.
+
+## Arguments
+
+- `params::SemiEmpiricalLiion`: Parameters of the SemiEmpiricalLiion model.
+- `t::Int64`: Time in hours.
+
+## Returns
+
+- `Float64`: Time factor.
+
+## Description
+
+This function calculates a factor (`S_t`) based on the time for a SemiEmpiricalLiion model. The factor is computed using the parameters specified in the `params` argument.
+
+## Example
+
+```julia
+time_factor = S_t(params, 10)
+```
+"""
 function S_t(params::SemiEmpiricalLiion, t::Int64)
 	return params.k_t * t * 3600 #hours to second
 end
 
+
+"""
+# compute_fd
+
+Compute the Fatigue Damage for a SemiEmpiricalLiion model.
+
+## Arguments
+
+- `params::SemiEmpiricalLiion`: Parameters of the SemiEmpiricalLiion model.
+- `DoD::Float64`: Depth of Discharge.
+- `T::Float64`: Temperature.
+- `mean_SoC::Float64`: Mean State of Charge.
+- `t::Int64`: Time in hours.
+
+## Returns
+
+- `Float64`: Fatigue Damage.
+
+## Description
+
+This function calculates the Fatigue Damage (`compute_fd`) for a SemiEmpiricalLiion model. The damage is computed based on the Depth of Discharge (`DoD`), Temperature (`T`), Mean State of Charge (`mean_SoC`), and time (`t`) using the parameters specified in the `params` argument.
+
+## Example
+
+```julia
+damage = compute_fd(params, 0.2, 298, 0.5, 1)
+```
+"""
 function compute_fd(params::SemiEmpiricalLiion, DoD::Float64, T::Float64, mean_SoC::Float64, t::Int64)
 	return (0.5 * S_delta(params, DoD) + S_t(params, t)) * S_sigma(params, mean_SoC) * S_T(params, T)
 end
 
 
+"""
+# Φ
+
+Compute the fatigue cycle corresponding to a given Depth of Discharge (DoD).
+
+## Arguments
+
+- `DoD::Float64`: Depth of Discharge.
+- `fatigue_data`: Fatigue data containing the mapping between DoD and fatigue cycles.
+
+## Returns
+
+- `Any`: Fatigue cycle corresponding to the given DoD.
+
+## Description
+
+This function calculates the fatigue cycle (`Φ`) based on the provided Depth of Discharge (`DoD`) and the fatigue data. The `fatigue_data` is expected to have a field `DoD` containing the DoD values and a field `cycle` containing the corresponding fatigue cycles.
+
+## Example
+
+```julia
+data = (DoD = [0.1, 0.2, 0.3], cycle = [1000, 800, 600])
+cycle = Φ(0.25, data)
+```
+"""
 function Φ(DoD::Float64, fatigue_data)
 	index = findfirst(>=(DoD), fatigue_data.DoD)
 
 	return fatigue_data.cycle[index]
 end
 
+
+function toStringShort(liion::Liion)
+
+	if liion.SoC_model isa LinearLiionEfficiency
+		efficiency = "x"
+	elseif liion.SoC_model isa polynomialLiionEfficiency
+		efficiency = "x²"
+	end
+
+	if liion.SoH_model isa FixedLifetimeLiion
+		aging = "FL"
+	elseif liion.SoH_model isa EnergyThroughputLiion
+		aging = "ET"
+	elseif liion.SoH_model isa RainflowLiion
+		aging = "RF"
+	elseif liion.SoH_model isa SemiEmpiricalLiion
+		aging = "SE"
+
+	end
+
+	return string("Liion :", efficiency, ", ", aging)
+end

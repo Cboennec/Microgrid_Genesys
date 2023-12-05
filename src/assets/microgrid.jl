@@ -36,12 +36,11 @@ Structure containing every element of the grid including immaterial ones like el
  demands.
 
 Those elements are divided in 5 types and stored in 5 vectors with one field for each element of a type :
-* demands inheriting from AbstractDemand and containing a demand for each energy (Electricity and Heat);
-* generations inheriting from AbstractGeneration and containing energy 
-production/generation assets;
-* storages inheriting from AbstractStorage and containing energy storage assets;
-* converters inheriting from AbstractConverter and containing energy convertion assets;
-* grids inheriting from AbstractGrid and containing energy market assets 
+* demands inheriting from AbstractDemand and containing a demand one or multiple `Main.Genesys.EnergyCarrier` (Electricity, Heat ,Hydrogen);
+* generations inheriting from AbstractGeneration and containing energy production/generation element;
+* storages inheriting from AbstractStorage and containing element responsible for the storage of different energy vectors;
+* converters inheriting from AbstractConverter and containing any element that transform an energy vector into another one;
+* grids inheriting from AbstractGrid and containing elements that sell or buy energy vectors.
 (usually an external grid from which can be bought and sold energy);
 
 These assets can be later added with the add!(mg::Microgrid, assets...) 
@@ -127,12 +126,8 @@ function preallocate!(mg::Microgrid, designer::AbstractDesigner)
     for a in mg.converters
         if a isa FuelCell
             converter_dict["FuelCell"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
-        elseif typeof(a) <: AbstractElectrolyzer
-            if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
-                converter_dict["Electrolyzer"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
-            else 
-                converter_dict["Electrolyzer"] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
-            end
+        elseif a isa Electrolyzer
+            converter_dict["Electrolyzer"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
         elseif a isa Heater
             converter_dict["Heater"] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
         end

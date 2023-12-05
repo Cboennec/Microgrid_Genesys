@@ -105,25 +105,68 @@ function SoCPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours:
         end
     end
 end
+
+
+function SoCPlot(microgrids::Vector{Microgrid}, names_list::Vector{String}, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+    # State of charge
+    f = figure("State-of-charge")
+
+    
+    for (i,mg) in enumerate(microgrids)
+        for s_id in s
+            for (k, a) in enumerate(mg.storages)
+               
+                k == 1 ? subplot(length(mg.storages), 1, k) : subplot(length(mg.storages), 1, k, sharex = f.axes[1])
+                Seaborn.lineplot(x= hours, y=vec(a.soc[1:end-1, y, s_id]), label = names_list[i])
+                f.axes[k].set_title(string(typeof(a)))
+                legend()
+
+            end
+        end
+    end
+end
  
-function SoHPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+function SoHPlot(microgrids::Vector{Microgrid}, names_list::Vector{String}, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
     #State of health hydrogen
     f = figure("State-of-health")
 
-    assets = vcat(mg.converters,mg.storages, mg.generations)
-    #How many of the storages + converters + generators have a SoH field, we keep only those ones
-    assets = assets[hasproperty.(assets, :soh)]
-   
-   
-    for (k, a) in enumerate(assets)
-        for s_id in s
-            k == 1 ? subplot(length(assets), 1, k) : subplot(length(assets), 1, k, sharex = f.axes[1])
-            Seaborn.lineplot(x=hours, y=vec(a.soh[1:end-1, y, s_id]), label = string("Storage : ", typeof(a)))
-            legend()
+
+    for (i, mg) in enumerate(microgrids)
+        assets = vcat(mg.converters,mg.storages, mg.generations)
+        #How many of the storages + converters + generators have a SoH field, we keep only those ones
+        assets = assets[hasproperty.(assets, :soh)]
+    
+    
+        for (k, a) in enumerate(assets)
+            for s_id in s
+                k == 1 ? subplot(length(assets), 1, k) : subplot(length(assets), 1, k, sharex = f.axes[1])
+                Seaborn.lineplot(x=hours, y=vec(a.soh[1:end-1, y, s_id]), label = label = names_list[i])
+                f.axes[k].set_title(string(typeof(a)))
+                legend()
+            end
         end
     end
 end
 
+function SoHPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+    #State of health hydrogen
+    f = figure("State-of-health")
+
+
+    assets = vcat(mg.converters,mg.storages, mg.generations)
+    #How many of the storages + converters + generators have a SoH field, we keep only those ones
+    assets = assets[hasproperty.(assets, :soh)]
+
+
+    for (k, a) in enumerate(assets)
+        for s_id in s
+            k == 1 ? subplot(length(assets), 1, k) : subplot(length(assets), 1, k, sharex = f.axes[1])
+            Seaborn.lineplot(x=hours, y=vec(a.soh[1:end-1, y, s_id]))
+            f.axes[k].set_title(string(typeof(a)))
+            legend()
+        end
+    end
+end
 
 function plot_operation(mg::Microgrid ; y=2, s=1)
     # Seaborn configuration
@@ -164,6 +207,32 @@ function plot_operation(mg::Microgrid ; y=2, s=1)
 
     #State of health for every concerned component
     SoHPlot(mg, y ,s, hours)
+   
+end
+
+
+
+
+function plot_dynamics(microgrids::Vector{Microgrid}, labels::Vector{String} ; y=2:2, s=1:1)
+    # Seaborn configuration
+    Seaborn.set_theme(context="notebook", style="ticks", palette="muted", font="serif", font_scale=1.5)
+
+    # Parameters
+    nh = microgrids[1].parameters.nh
+    Δh = microgrids[1].parameters.Δh
+    #Hours range starting from the first year of the interval 
+    start =  Int64((y[1]-1) * nh +1 / Δh)
+    len = Int64(nh * length(y) / Δh)
+    hours = (start:(start+len-1))
+
+
+    # Plots
+    
+    #State of charge for every storage
+    SoCPlot(microgrids, labels, y, s, hours)
+
+    #State of health for every concerned component
+    SoHPlot(microgrids, labels, y ,s, hours)
    
 end
 

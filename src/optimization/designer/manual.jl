@@ -39,7 +39,8 @@ function initialize_designer!(mg::Microgrid, designer::Manual, ω::AbstractScena
             designer.decisions.converters[key].N_cell[1,:] .= designer.converters[key].N_cell
         elseif mg.converters[k] isa Electrolyzer
             key = "Electrolyzer"
-            designer.decisions.converters[key][1,:] .= designer.converters[key]
+            designer.decisions.converters[key].surface[1,:] .= designer.converters[key].surface
+            designer.decisions.converters[key].N_cell[1,:] .= designer.converters[key].N_cell
         elseif mg.converters[k] isa Heater
             key = "Heater"
             designer.decisions.converters[key][1,:] .= designer.converters[key]
@@ -70,6 +71,8 @@ function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, design
             else 
                 designer.decisions.storages["Liion"][y,s] = 0.
             end
+        else
+            designer.decisions.storages["H2Tank"][y,s] = 0.
         end
     end
    
@@ -84,19 +87,15 @@ function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, design
                 designer.decisions.converters["FuelCell"].surface[y,s] = 0.
                 designer.decisions.converters["FuelCell"].N_cell[y,s] = 0.
             end
-        elseif typeof(mg.converters[k]) <: AbstractElectrolyzer
-            if mg.converters[k] isa Electrolyzer_V_J
+        elseif mg.converters[k] isa Electrolyzer
 
-                if mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold
-                    #println( "mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold : " ,  mg.converters[k].soh[end,y,s], " <= " ,mg.converters[k].SoH_threshold)
-                    designer.decisions.converters["Electrolyzer"].surface[y,s] = designer.converters["Electrolyzer"].surface
-                    designer.decisions.converters["Electrolyzer"].N_cell[y,s] = designer.converters["Electrolyzer"].N_cell
-                else
-                    designer.decisions.converters["Electrolyzer"].surface[y,s] = 0.
-                    designer.decisions.converters["Electrolyzer"].N_cell[y,s] = 0.
-                end
-            else 
-                key = "Electrolyzer"
+            if mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold
+                #println( "mg.converters[k].soh[end,y,s] <= mg.converters[k].SoH_threshold : " ,  mg.converters[k].soh[end,y,s], " <= " ,mg.converters[k].SoH_threshold)
+                designer.decisions.converters["Electrolyzer"].surface[y,s] = designer.converters["Electrolyzer"].surface
+                designer.decisions.converters["Electrolyzer"].N_cell[y,s] = designer.converters["Electrolyzer"].N_cell
+            else
+                designer.decisions.converters["Electrolyzer"].surface[y,s] = 0.
+                designer.decisions.converters["Electrolyzer"].N_cell[y,s] = 0.
             end
         elseif mg.converters[k] isa Heater
             key = "Heater"

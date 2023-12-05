@@ -17,8 +17,8 @@ demand = Demand(carrier = Electricity())
 """
 mutable struct Demand <: AbstractDemand
   # Variables
-  carrier::EnergyCarrier
-  timestamp::Array{DateTime,3}
+  carrier::EnergyCarrier # structre composed of AbstractArray{Float64,3} (nh,ny,ns) representing the powers
+  timestamp::Array{DateTime,3} # Every timestamp fr the above struct
 
   # Inner constructor
   Demand(; carrier = Electricity()) = new(carrier)

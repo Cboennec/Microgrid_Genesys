@@ -208,26 +208,17 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
             #Each replacement
             capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
             
-        elseif typeof(a) <: AbstractElectrolyzer
+        elseif a isa Electrolyzer
             key = "Electrolyzer"
-            if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
-                P_nom_replacement = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
-                P_nom_ini = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.converters[key].surface .* designer.converters[key].N_cell
 
-                #Initial installation
-                capex[1,s] = capex[1,s] .+ P_nom_ini .* a.cost[1,s]
-                #Each replacement
-                capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
+            P_nom_replacement = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
+            P_nom_ini = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.converters[key].surface .* designer.converters[key].N_cell
+
+            #Initial installation
+            capex[1,s] = capex[1,s] .+ P_nom_ini .* a.cost[1,s]
+            #Each replacement
+            capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
                
-
-            else 
-                #Initial installation
-                capex[1,s] = capex[1,s] .+ designer.converters[key] .* a.cost[1,s]
-                #Each replacement
-                capex = capex .+ designer.decisions.converters[key][:,s] .* a.cost[:,s]
-              
-
-            end
         elseif a isa Heater
             capex[1,s] = capex[1,s] + designer.converters["Heater"] * a.cost[1,s]
             capex = capex .+ designer.decisions.converters["Heater"][:,s] .* a.cost[:,s]
@@ -279,7 +270,7 @@ function salvage_value(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
     end
     # Converters
     for a in mg.converters
-        if a isa FuelCell
+        if a isa FuelCell || a isa Electrolyzer
             salvage[ny,:] = salvage[ny,:] .+ ((a.soh[1,end,s] .- a.SoH_threshold) ./ (1 .-a.SoH_threshold)) .* a.cost[ny, s]
         else
             salvage[ny,:] = salvage[ny,:] .+ (a.lifetime .- ny) ./ a.lifetime .* a.cost[ny, s]
@@ -335,7 +326,7 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
-        if a isa FuelCell
+        if a isa FuelCell ||a isa Electrolyzer
             id = findfirst(a.soh[:,:,s] .<= a.SoH_threshold) 
             lifetime = id[2] + id[1]/8760
         else
@@ -353,18 +344,14 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
             capex = capex .+ Γ .* P_nom_replacement[y,s] .* a.cost[y,s]
             capex[1,:] = capex[1,:] .+ Γ[1] * P_nom_ini .* a.cost[1,s]
            
-        elseif typeof(a) <: AbstractElectrolyzer
+        elseif a isa Electrolyzer
             key = "Electrolyzer"
-            if a isa Electrolyzer_V_J || a isa Electrolyzer_lin
-                P_nom_replacement = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
-                P_nom_ini = maximum(a.V_J_ini.J .* a.V_J_ini.V) * designer.converters[key].surface .* designer.converters[key].N_cell
+            
+            P_nom_replacement = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
+            P_nom_ini = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.converters[key].surface .* designer.converters[key].N_cell
 
-                capex = capex .+ Γ .* P_nom_replacement[y,s] .* a.cost[y,s]
-                capex[1,:] = capex[1,:] .+ Γ[1] * P_nom_ini .* a.cost[1,s]
-            else 
-                capex = capex .+ Γ .* designer.decisions.converters[key][y,s] .* a.cost[y,s]
-                capex[1,:] = capex[1,:] .+ Γ[1] * designer.converters[key] .* a.cost[1,s]
-            end
+            capex = capex .+ Γ .* P_nom_replacement[y,s] .* a.cost[y,s]
+            capex[1,:] = capex[1,:] .+ Γ[1] * P_nom_ini .* a.cost[1,s]
         elseif a isa Heater
             capex = capex .+ Γ .* designer.decisions.converters["Heater"][y,s] .* a.cost[y,s]
             capex[1,:] = capex[1,:] .+ Γ[1] * designer.converters["Heater"] .* a.cost[1,s]
