@@ -403,7 +403,11 @@ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion,
 	
 	liion.carrier.power[h,y,s] = power_ch + power_dch 
 
-	liion.soh[h+1,y,s] = compute_operation_soh(liion,  liion.SoH_model, h ,y ,s, Δh)
+	if liion.Erated[y,s] == 0
+		liion.soh[h+1,y,s] = 0
+	else
+		liion.soh[h+1,y,s] = compute_operation_soh(liion,  liion.SoH_model, h ,y ,s, Δh)
+	end
 
 end
 
@@ -495,13 +499,18 @@ compute_operation_soc(liion, model, h, y, s, decision, Δh)
 ```
 """
 function compute_operation_soc(liion::Liion, model::polynomialLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+	
+	if liion.Erated[y,s] == 0
+		return 0,0,0
+	end 
+	
 	if liion.couplage.E
 		Erated = liion.Erated[y,s] * liion.soh[h,y,s]
 	else
 		Erated = liion.Erated[y,s]
 	end
 	
-	C_r = abs(decision * Δh) / Erated 
+	C_r =  abs(decision * Δh) / Erated 
 	
 	if decision >= 0 
 		η_ini = model.a_η_ch * C_r ^ 2 - model.b_η_ch * C_r + model.c_η_ch 

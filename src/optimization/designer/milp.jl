@@ -148,7 +148,7 @@ function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; mult
 
     # Compute investment decisions for the first year
     println("Starting optimization...")
-    optimize!(designer.model)
+    JuMP.optimize!(designer.model)
 
     if multiyear
         # Assign values
@@ -325,7 +325,7 @@ function initialize_designer_my!(mg::Microgrid, designer::MILP, ω::Scenarios; m
 
     # Compute investment decisions for the first year
     println("Starting optimization...")
-    optimize!(designer.model)
+    JuMP.optimize!(designer.model)
 
     if multiyear
         # Assign values

@@ -23,6 +23,18 @@ abstract type AbstractController end
 
 abstract type EnergyCarrier end
 
+#Metaheuristic module part
+using Distributions, Random, LinearAlgebra, Statistics
+using Distributed
+
+# Clearing
+include(joinpath("optimization","designer", "metaheuristic","clearing","struct.jl"))
+include(joinpath("optimization","designer", "metaheuristic","clearing","functions.jl"))
+include(joinpath("optimization","designer", "metaheuristic","clearing","optimize.jl"))
+include(joinpath("optimization","designer", "metaheuristic","clearing","utils.jl"))
+
+
+#Genesys package part 
 
 
 # Optimisation
@@ -77,7 +89,7 @@ include(joinpath("optimization","controller","multi_year_anticipative.jl"))
 # Investment optimization
 include(joinpath("optimization","designer","manual.jl"))
 include(joinpath("optimization","designer","milp.jl"))
-include(joinpath("optimization","designer","metaheuristic.jl"))
+include(joinpath("optimization","designer","metaheuristic", "metaheuristic.jl"))
 #export Manual, Metaheuristic, MILP
 #export MetaheuristicOptions, MILPOptions, ManualOptions
 #export initialize_designer!, initialize_designer_my!

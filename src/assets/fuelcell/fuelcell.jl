@@ -710,7 +710,10 @@ end
 
 
 function get_η_E(P_net::Float64, fc::FuelCell)
+
+  
   P_tot = floor(P_net / (1 - fc.EffModel.k_aux); digits=6)
+
   
   #Find the corresponding current from an interpolation from P(I) curve 
   j = interpolation(fc.EffModel.V_J[3,:], fc.EffModel.V_J[1,:], P_tot, true )
@@ -754,9 +757,14 @@ end
 function update_η_lin(fc::FuelCell, model::LinearFuelCellEfficiency)
   P_max = maximum(model.V_J[3,:]) * (1-model.k_aux)
   P_min = compute_min_power(fc)
-  
-  η_P_min = get_η_E(P_min, fc)
-  η_P_max = get_η_E(P_max, fc)
+
+
+  if P_max == 0.
+    η_P_min, η_P_max = 0., 0.
+  else
+    η_P_min = get_η_E(P_min, fc)
+    η_P_max = get_η_E(P_max, fc)
+  end
   
   a_η = (η_P_max - η_P_min) / (P_max - P_min)
   b_η = η_P_min - a_η * P_min
@@ -846,7 +854,7 @@ function fit_all_curves(data, Js)
   @objective(m2, Min, sum(errors[d] for d in 1:n_data))
 
 
-  optimize!(m2)
+  JuMP.optimize!(m2)
   plt = PyPlot.subplot()
   for d in 1:n_data
       PyPlot.scatter(data[d].J, data[d].V, label = string(Js[d] , " A/cm² : data"))
@@ -879,7 +887,7 @@ function fit_dot(Js, as, power)
   @objective(m2, Min, sum((errors[i]^2) for i in 1:n_data_point))
 
 
-  optimize!(m2)
+  JuMP.optimize!(m2)
 
   p = PyPlot.subplot()
 

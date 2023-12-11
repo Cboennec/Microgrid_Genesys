@@ -3,7 +3,7 @@
 =#
 
 mutable struct MetaheuristicOptions
-    method::Metaheuristics.AbstractMetaheuristic
+    method::AbstractMetaheuristic
     iterations::Int64
     multithreads::Bool
     controller::AbstractController
@@ -17,7 +17,7 @@ mutable struct MetaheuristicOptions
     read_reduction::Union{String, Nothing}
     write_reduction::Union{String, Nothing}
 
-    MetaheuristicOptions(; method = Metaheuristics.Clearing(),
+    MetaheuristicOptions(; method = Clearing(),
                            iterations = 50,
                            multithreads = false,
                            controller = RBC(),
@@ -43,7 +43,7 @@ mutable struct Metaheuristic <: AbstractDesigner
     subscribed_power::Dict
     
     decisions::NamedTuple
-    results::Metaheuristics.MetaheuristicResults
+    results::MetaheuristicResults
     history::AbstractScenarios
 
  
@@ -129,9 +129,9 @@ function initialize_designer!(mg::Microgrid, designer::Metaheuristic, ω::Scenar
     lb, ub = set_bounds(mg)
 
     # Optimize
-    designer.results = Metaheuristics.optimize(lb, ub,
+    designer.results = optimizeMetaheuristic(lb, ub,
                                                designer.options.method,
-                                               options = Metaheuristics.Options(iterations = designer.options.iterations, multithreads = designer.options.multithreads)
+                                               options = MetaResultOptions(iterations = designer.options.iterations, multithreads = designer.options.multithreads)
     ) do decisions
         fobj(decisions, mg, designer, ω_reduced, probabilities)
       end
@@ -263,9 +263,9 @@ function initialize_designer!(mg::Microgrid, designer::Metaheuristic, ω::Scenar
     #Scenarios reduction #Currently removed   
 
     # Optimize
-    designer.results = Metaheuristics.optimize(lb, ub,
+    designer.results = optimizeMetaheuristic(lb, ub,
                                                designer.options.method,
-                                               options = Metaheuristics.Options(iterations = designer.options.iterations, multithreads = designer.options.multithreads)
+                                               options = MetaResultOptions(iterations = designer.options.iterations, multithreads = designer.options.multithreads)
     ) do decisions
         fobj2(decisions, mg, designer, ω, varID)
       end

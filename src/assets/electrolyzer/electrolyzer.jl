@@ -154,7 +154,7 @@ mutable struct Electrolyzer <: AbstractElectrolyzer
   cost::AbstractArray{Float64,2}
 
 	Electrolyzer(;EffModel = PolarizationElectrolyzerEfficiency(),
-    SoH_model = PowerAgingElectrolyzer(),
+    SoH_model = FunctHoursAgingElectrolyzer(),
     bounds = (lb = 0., ub = 50.),
     SoH_threshold = 0.8,
     couplage = true,
