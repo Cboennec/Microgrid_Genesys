@@ -19,33 +19,33 @@ function initialize_designer!(mg::Microgrid, designer::Manual, ω::AbstractScena
 
     # Fix initial values
 
-    for k in 1:length(mg.generations)
-        if mg.generations[k] isa Solar
-            designer.decisions.generations["PV"][1,:] .= designer.generations["PV"]
-        end
-    end
-    for k in 1:length(mg.storages)
-        if mg.storages[k] isa Liion
-            designer.decisions.storages["Liion"][1,:] .= designer.storages["Liion"]
-        elseif mg.storages[k] isa H2Tank
-            designer.decisions.storages["H2Tank"][1,:] .= designer.storages["H2Tank"]
-        end
-    end
+    # for k in 1:length(mg.generations)
+    #     if mg.generations[k] isa Solar
+    #         designer.decisions.generations["PV"][1,:] .= designer.generations["PV"]
+    #     end
+    # end
+    # for k in 1:length(mg.storages)
+    #     if mg.storages[k] isa Liion
+    #         designer.decisions.storages["Liion"][1,:] .= designer.storages["Liion"]
+    #     elseif mg.storages[k] isa H2Tank
+    #         designer.decisions.storages["H2Tank"][1,:] .= designer.storages["H2Tank"]
+    #     end
+    # end
 
-    for k in 1:length(mg.converters)
-        if mg.converters[k] isa FuelCell
-            key = "FuelCell"
-            designer.decisions.converters[key].surface[1,:] .= designer.converters[key].surface
-            designer.decisions.converters[key].N_cell[1,:] .= designer.converters[key].N_cell
-        elseif mg.converters[k] isa Electrolyzer
-            key = "Electrolyzer"
-            designer.decisions.converters[key].surface[1,:] .= designer.converters[key].surface
-            designer.decisions.converters[key].N_cell[1,:] .= designer.converters[key].N_cell
-        elseif mg.converters[k] isa Heater
-            key = "Heater"
-            designer.decisions.converters[key][1,:] .= designer.converters[key]
-        end
-    end
+    # for k in 1:length(mg.converters)
+    #     if mg.converters[k] isa FuelCell
+    #         key = "FuelCell"
+    #         designer.decisions.converters[key].surface[1,:] .= designer.converters[key].surface
+    #         designer.decisions.converters[key].N_cell[1,:] .= designer.converters[key].N_cell
+    #     elseif mg.converters[k] isa Electrolyzer
+    #         key = "Electrolyzer"
+    #         designer.decisions.converters[key].surface[1,:] .= designer.converters[key].surface
+    #         designer.decisions.converters[key].N_cell[1,:] .= designer.converters[key].N_cell
+    #     elseif mg.converters[k] isa Heater
+    #         key = "Heater"
+    #         designer.decisions.converters[key][1,:] .= designer.converters[key]
+    #     end
+    # end
 
     #The value is the same for all years
     for k in 1:length(mg.grids)

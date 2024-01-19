@@ -17,29 +17,20 @@ end
 function compute_investment_dynamics!(y::Int64, s::Int64, mg::Microgrid, designer::AbstractDesigner)
      # Generations
      for (k, a) in enumerate(mg.generations)
-        if a isa Solar
-            compute_investment_dynamics!(y, s, a, designer.decisions.generations["PV"][y,s])
-        end
+        compute_investment_dynamics!(y, s, a, designer.decisions.generations[string(typeof(a))][y,s])
      end
      # Storages
      for (k, a) in enumerate(mg.storages)
-        if typeof(a) <: AbstractLiion
-            compute_investment_dynamics!(y, s, a, designer.decisions.storages["Liion"][y,s])
-        elseif a isa H2Tank
-            compute_investment_dynamics!(y, s, a, designer.decisions.storages["H2Tank"][y,s])
-        end
+        compute_investment_dynamics!(y, s, a, designer.decisions.storages[string(typeof(a))][y,s])
      end
      # Converters
      for (k, a) in enumerate(mg.converters)
 
-        if a isa FuelCell
-            compute_investment_dynamics!(y, s, a, (surface = designer.decisions.converters["FuelCell"].surface[y,s], N_cell = Int(designer.decisions.converters["FuelCell"].N_cell[y,s])) )
-        elseif a isa Electrolyzer
-            compute_investment_dynamics!(y, s, a, (surface = designer.decisions.converters["Electrolyzer"].surface[y,s], N_cell = Int(designer.decisions.converters["Electrolyzer"].N_cell[y,s])) )
+        if a isa FuelCell || a isa Electrolyzer
+           compute_investment_dynamics!(y, s, a, (surface = designer.decisions.converters[string(typeof(a))].surface[y,s], N_cell = Int(designer.decisions.converters[string(typeof(a))].N_cell[y,s])) )
         elseif a isa Heater
-            compute_investment_dynamics!(y, s, a, designer.decisions.converters["Heater"][y,s])
+            compute_investment_dynamics!(y, s, a, designer.decisions.converters[string(typeof(a))][y,s])
         end
-
      end
 end
 
@@ -47,29 +38,19 @@ end
 function initialize_investments!(s::Int64, mg::Microgrid, designer::AbstractDesigner)
     # Generations
     for a in mg.generations
-        if a isa Solar
-            initialize_investments!(s, a, designer.generations["PV"])
-        end
+        initialize_investments!(s, a, designer.generations[string(typeof(a))])
     end
 
     # Storages
     for a in mg.storages
-        if typeof(a) <: AbstractLiion
-            initialize_investments!(s, a, designer.storages["Liion"])
-        elseif a isa H2Tank
-            initialize_investments!(s, a, designer.storages["H2Tank"])
-        end
+        initialize_investments!(s, a, designer.storages[string(typeof(a))])
     end
     # Converters
     for a in mg.converters
-        if a isa FuelCell
-            initialize_investments!(s, a, (surface = designer.converters["FuelCell"].surface, N_cell = designer.converters["FuelCell"].N_cell))
-        elseif a isa Electrolyzer
-            
-            initialize_investments!(s, a, (surface = designer.converters["Electrolyzer"].surface, N_cell = designer.converters["Electrolyzer"].N_cell))
-            
+        if a isa FuelCell || a isa Electrolyzer
+            initialize_investments!(s, a, (surface = designer.converters[string(typeof(a))].surface, N_cell = designer.converters[string(typeof(a))].N_cell))            
         elseif a isa Heater
-            initialize_investments!(s, a, designer.converters["Heater"])
+            initialize_investments!(s, a, designer.converters[string(typeof(a))])
         end
     end
 end

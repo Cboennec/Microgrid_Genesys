@@ -18,7 +18,6 @@ A mutable struct representing a fixed efficiency fuel cell model.
 - `η_H2_H::Float64`: Efficiency from DiHydrogen to Heat (default: 0.4)
 - `k_aux::Float64`: Auxiliary power coefficient (default: 0.15)
 - `powerMax_ini::Float64`: Initial maximum power (default: 0.00001)
-- `couplage::Bool`: Boolean indicating if there is coupling between parameters (default: false)
 
 # Arrays:
 - `powerMax::AbstractArray{Float64,3}`: The maximum power that can be demanded from the fuel cell
@@ -37,7 +36,6 @@ mutable struct FixedFuelCellEfficiency <: AbstractFuelCellEffModel
   η_H2_H::Float64 #The efficiency from DiHydrogen to Heat
   k_aux::Float64
   powerMax_ini::Float64
-  couplage::Bool 
 
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the FuelCell
   powerMin::AbstractArray{Float64,3} #The minimum power that can be demanded to the FuelCell
@@ -50,8 +48,7 @@ mutable struct FixedFuelCellEfficiency <: AbstractFuelCellEffModel
     η_H2_H = 0.4,
     k_aux = 0.15,
     powerMax_ini =.00001,
-    couplage = false
-    ) = new(α_p, η_H2_E, η_H2_H, k_aux, powerMax_ini, couplage)
+    ) = new(α_p, η_H2_E, η_H2_H, k_aux, powerMax_ini)
 end
 
 
@@ -62,7 +59,6 @@ A mutable struct representing a fuel cell efficiency model based on polarization
 
 # Parameters:
 - `k_aux::Float64`: Share of the power used by auxiliaries (default: 0.15)
-- `couplage::Bool`: Boolean indicating if there is coupling between parameters (default: true)
 - `K::Float64`: Constant value calculated as Latent Heat Value * molar mass * stoichiometric coefficient / (2 * Faraday constant) (default: (33.33 *  2.016 * 1.2 * 3600)  / (2*96485.3321))
 - `powerMax_ini::Float64`: Initial maximum power (default: 0.00001)
 - `V_max::Float64`: Maximum voltage (default: 0.8 V)
@@ -79,7 +75,6 @@ PolarizationFuelCellEfficiency()
 """
 mutable struct PolarizationFuelCellEfficiency <: AbstractFuelCellEffModel
   k_aux::Float64 # Share of the power used by the auxiliaries
-  couplage::Bool
   K::Float64 # Defined as a constant Latent Heat Value * masse molaire * stoechiometric coefficient / 2Faraday constant  
   powerMax_ini::Float64
   V_max::Float64
@@ -92,11 +87,10 @@ mutable struct PolarizationFuelCellEfficiency <: AbstractFuelCellEffModel
 
 
   PolarizationFuelCellEfficiency(; k_aux = 0.15,
-  couplage = true,
   K = (33.33 *  2.016 * 1.2 * 3600)  / (2*96485.3321),  #PCI * M_H2 * λ * 3600/(2*F)
   powerMax_ini = .00001,
   V_max = 0.8
-  ) = new(k_aux, couplage, K, powerMax_ini, V_max)
+  ) = new(k_aux, K, powerMax_ini, V_max)
 end
 
 """
@@ -106,7 +100,6 @@ A mutable struct representing a linear fuel cell efficiency model.
 
 # Parameters:
 - `k_aux::Float64`: Share of the power used by auxiliaries (default: 0.15)
-- `couplage::Bool`: Boolean indicating if there is coupling between parameters (default: true)
 - `K::Float64`: Constant value calculated as Latent Heat Value * molar mass * stoichiometric coefficient / (2 * Faraday constant) (default: (33.33 *  2.016 * 1.2 * 3600)  / (2*96485.3321))
 - `powerMax_ini::Float64`: Initial maximum power (default: 0.00001)
 - `V_max::Float64`: Maximum voltage (default: 0.8)
@@ -125,7 +118,6 @@ LinearFuelCellEfficiency()
 """
 mutable struct LinearFuelCellEfficiency <: AbstractFuelCellEffModel
   k_aux::Float64 # Share of the power used by the auxiliaries
-  couplage::Bool
   K::Float64 # Defined as a constant Latent Heat Value * masse molaire * stoechiometric coefficient / 2Faraday constant  
   powerMax_ini::Float64
   V_max::Float64
@@ -140,11 +132,10 @@ mutable struct LinearFuelCellEfficiency <: AbstractFuelCellEffModel
 
 
   LinearFuelCellEfficiency(; k_aux = 0.15,
-  couplage = true,
   K = (33.33 *  2.016 * 1.2 * 3600)  / (2*96485.3321),  #PCI * M_H2 * λ * 3600/(2*F)
   powerMax_ini = .00001,
   V_max = 0.8
-  ) = new(k_aux, couplage, K, powerMax_ini, V_max)
+  ) = new(k_aux, K, powerMax_ini, V_max)
 end
 
 
@@ -252,10 +243,11 @@ mutable struct FuelCell <: AbstractFuelCell
 
   EffModel::AbstractFuelCellEffModel
 	SoH_model::AbstractFuelCellAgingModel
+  couplage::Bool  #a boolean tuple to tell wether or not the soh should influence the other parameters.
+
 	
 	bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}
 	SoH_threshold::Float64 # SoH level to replace battery
-	couplage::Bool  #a boolean tuple to tell wether or not the soh should influence the other parameters.
   V_J_ini::AbstractArray{Float64,2}
 
 	# Initial conditions
@@ -275,12 +267,12 @@ mutable struct FuelCell <: AbstractFuelCell
 
 	FuelCell(;EffModel = PolarizationFuelCellEfficiency(),
     SoH_model = PowerAgingFuelCell(),
+    couplage = true,
     bounds = (lb = 0., ub = 50.),
     SoH_threshold = 0.9,
-    couplage = true,
     V_J_ini = nothing,
     soh_ini = 1. 
-  ) = new(EffModel, SoH_model, bounds, SoH_threshold, couplage, V_J_ini, soh_ini)
+  ) = new(EffModel, SoH_model, couplage, bounds, SoH_threshold, V_J_ini, soh_ini)
 
 end
 
@@ -387,8 +379,9 @@ function compute_operation_efficiency(fc::FuelCell, model::LinearFuelCellEfficie
  
       η_E = model.a_η * P_tot + model.b_η 
       
-      if η_E >= 0.45 && y==9 && h < 1000
+      if η_E >= 0.46
         println("y,h = ", y, ", ", h, "   a_η = ", model.a_η, " , P_tot = ", P_tot, ", b_η = ",  model.b_η )
+        println("configuration = ",typeof(fc.EffModel) , ", ", typeof(fc.SoH_model), ", surface = ", fc.surface, ", Ncell = ", fc.N_cell, ", couple = ", fc.couplage )
       end
 
 
@@ -424,7 +417,13 @@ function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64
     # get the sequence of intensities
     for p in powers
         if p .> 1e-6
-            push!(current_densities, interpolation(model.V_J[3,:], model.V_J[1,:], p, true))
+          if p > maximum(fc.EffModel.V_J[3,:])
+            println("Power = ", p, " > ", "max P(J) = ", maximum(fc.EffModel.V_J[3,:]), " h, y, s = ", h, ", " , y, ", ", s)
+            println("configuration = ",typeof(fc.EffModel) , ", ", typeof(fc.SoH_model), ", surface = ", fc.surface, ", Ncell = ", fc.N_cell, ", couplage = ", fc.couplage )
+
+            p = floor(maximum(model.V_J[3,:]), digits =2)
+          end
+            push!(current_densities, interpolation(fc.EffModel.V_J[3,:], fc.EffModel.V_J[1,:], p, true))
         end
     end
 
@@ -464,14 +463,14 @@ function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64
 
     nextSoH = V_nom/V_nom_ini  
 
-    if fc.EffModel.couplage
+    if fc.couplage
       nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
       nextPowerMin = compute_min_power(fc)
       fc.EffModel.V_J = model.V_J
 
-        if fc.EffModel isa LinearFuelCellEfficiency 
-          update_η_lin(fc, fc.EffModel)
-        end
+      if fc.EffModel isa LinearFuelCellEfficiency 
+        update_η_lin(fc, fc.EffModel)
+      end
 
     else
       nextPowerMax = fc.EffModel.powerMax[h,y,s] 
@@ -530,7 +529,7 @@ function compute_operation_soh(fc::FuelCell, model::FunctHoursAgingFuelCell, h::
 
     nextSoH = V_nom/V_nom_ini  
 
-      if fc.EffModel.couplage
+      if fc.couplage
         nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
         nextPowerMin = compute_min_power(fc)
         fc.EffModel.V_J = model.V_J
@@ -577,7 +576,7 @@ function compute_operation_soh(fc::FuelCell, model::FixedLifetimeFuelCell, h::In
     end
 
 
-      if fc.EffModel.couplage
+      if fc.couplage
         nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
         nextPowerMin = compute_min_power(fc)
         fc.EffModel.V_J = model.V_J
@@ -607,8 +606,8 @@ function initialize_investments!(s::Int64, fc::FuelCell, decision::NamedTuple{(:
   fc.soh[1,1,s] = fc.soh_ini
 
 
-  fc.EffModel.V_J[1,:] = fc.V_J_ini[1,:] 
-  fc.EffModel.V_J[2,:] = fc.V_J_ini[2,:]
+  fc.EffModel.V_J[1,:] = copy(fc.V_J_ini[1,:]) 
+  fc.EffModel.V_J[2,:] = copy(fc.V_J_ini[2,:])
   fc.EffModel.V_J[3,:] = fc.V_J_ini[2,:] .* fc.V_J_ini[1,:] * fc.surface * fc.N_cell
   fc.EffModel.powerMax[1,1,s] = maximum(fc.EffModel.V_J[3,:]) * (1-fc.EffModel.k_aux)
   fc.EffModel.powerMin[1,1,s] = compute_min_power(fc)
@@ -618,8 +617,8 @@ function initialize_investments!(s::Int64, fc::FuelCell, decision::NamedTuple{(:
   end
 
   #Initialization of V(J)
-    fc.SoH_model.V_J_ini[1,:] = fc.V_J_ini[1,:] 
-    fc.SoH_model.V_J_ini[2,:] = fc.V_J_ini[2,:]
+    fc.SoH_model.V_J_ini[1,:] = copy(fc.V_J_ini[1,:]) 
+    fc.SoH_model.V_J_ini[2,:] = copy(fc.V_J_ini[2,:])
     fc.SoH_model.V_J_ini[3,:] = fc.V_J_ini[2,:] .* fc.V_J_ini[1,:] * fc.surface * fc.N_cell
     fc.SoH_model.V_J = copy(fc.SoH_model.V_J_ini)
 
@@ -656,15 +655,15 @@ end
         
 
         for (i,a) in enumerate([fc.V_J_ini[1,:], fc.V_J_ini[2,:], fc.V_J_ini[2,:] .* fc.V_J_ini[1,:] * fc.surface * fc.N_cell])
-            V_J[i,:] = a 
+            V_J[i,:] = copy(a) 
         end
 
         fc.SoH_model.J_ref = 0.62
 
         soh_next = fc.soh_ini
 
-        fc.SoH_model.V_J = V_J
-        fc.EffModel.V_J = V_J
+        fc.SoH_model.V_J = copy(V_J)
+        fc.EffModel.V_J = copy(V_J)
 
         powerMax_next = maximum(V_J[3,:]) * (1-fc.EffModel.k_aux)
 

@@ -139,12 +139,9 @@ complex_grid_cost(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Ab
 function complex_grid_cost(years::Union{Int64, UnitRange{Int64}}, scenarios::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
 
     nh = mg.parameters.nh
-    hour_factor = ones(size(mg.grids[1].cost_in))
-    creuse = (1:nh)[((1:nh).%24 .- 6 .< 0) .| ((1:nh).%24 .- 22 .>= 0)]
-    hour_factor[creuse,:,:] = hour_factor[creuse,:,:] .* 0.75   #heure pleine . #Informations comes from https://www.kelwatt.fr/guide/heures-creuses#:~:text=La%20p%C3%A9riode%20des%20heures%20creuses,et%20entre%2020h%20et%208h.
-
+   
     #Energy buying cost
-    net_energy_cost = sum(sum(max.(0., a.carrier.power[:,years,scenarios]) .* a.cost_in[:,years,scenarios] .* hour_factor[:,years,scenarios] .+ min.(0., a.carrier.power[:,years,scenarios]) .* a.cost_out[:,years,scenarios], dims = 1) * mg.parameters.Δh for a in mg.grids)
+    net_energy_cost = sum(sum(max.(0., a.carrier.power[:,years,scenarios]) .* a.cost_in[:,years,scenarios] .+ min.(0., a.carrier.power[:,years,scenarios]) .* a.cost_out[:,years,scenarios], dims = 1) * mg.parameters.Δh for a in mg.grids)
 
     #overcome cost by year
     overcome_cost = zeros(1,length(years),length(scenarios))
@@ -176,29 +173,17 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
     capex = 0.
     # Generations
     for (k, a) in enumerate(mg.generations)
-        if a isa Solar
-            capex = capex .+ designer.decisions.generations["PV"][:,s] .* a.cost[:,s]
-            capex[1,s] = capex[1,s] + designer.generations["PV"] * a.cost[1,s]
-
-        end
+        capex = capex .+ designer.decisions.generations[string(typeof(a))][:,s] .* a.cost[:,s]
     end
     # Storages
     for (k, a) in enumerate(mg.storages)
-        if typeof(a) <: AbstractLiion
-            capex[1,s] = capex[1,s] + designer.storages["Liion"] * a.cost[1,s]
-            capex = capex .+ designer.decisions.storages["Liion"][:,s] .* a.cost[:,s]
-        elseif a isa H2Tank
-            capex[1,s] = capex[1,s] + designer.storages["H2Tank"] * a.cost[1,s]
-            capex = capex .+ designer.decisions.storages["H2Tank"][:,s] .* a.cost[:,s]
-        elseif a isa ThermalStorage
-            capex[1,s] = capex[1,s] + designer.storages["ThermalStorage"] * a.cost[1,s]
-            capex = capex .+ designer.decisions.storages["ThermalStorage"][:,s] .* a.cost[:,s]
-        end
+        capex[1,s] = capex[1,s] + designer.storages[string(typeof(a))] * a.cost[1,s]
+        capex = capex .+ designer.decisions.storages[string(typeof(a))][:,s] .* a.cost[:,s]
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
-        if a isa FuelCell
-            key = "FuelCell"
+        if a isa FuelCell || a isa Electrolyzer
+            key = string(typeof(a))
            
             P_nom_replacement = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
             P_nom_ini = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.converters[key].surface .* designer.converters[key].N_cell
@@ -208,20 +193,9 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
             #Each replacement
             capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
             
-        elseif a isa Electrolyzer
-            key = "Electrolyzer"
-
-            P_nom_replacement = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.decisions.converters[key].surface .* designer.decisions.converters[key].N_cell
-            P_nom_ini = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.converters[key].surface .* designer.converters[key].N_cell
-
-            #Initial installation
-            capex[1,s] = capex[1,s] .+ P_nom_ini .* a.cost[1,s]
-            #Each replacement
-            capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
-               
         elseif a isa Heater
-            capex[1,s] = capex[1,s] + designer.converters["Heater"] * a.cost[1,s]
-            capex = capex .+ designer.decisions.converters["Heater"][:,s] .* a.cost[:,s]
+            capex[1,s] = capex[1,s] + designer.converters[string(typeof(a))] * a.cost[1,s]
+            capex = capex .+ designer.decisions.converters[string(typeof(a))][:,s] .* a.cost[:,s]
         end
 
 
@@ -230,17 +204,10 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
 
     # Subscribtion grid
     for a in mg.grids
-        if a.carrier isa Electricity
-            key = "Electricity"
-        elseif a.carrier isa Heat
-            key = "Heat"
-        elseif a.carrier isa hydrogen
-            key = "Hydrogen"
-        end
-        subscribtion = zeros(size(designer.decisions.subscribed_power[key][:,s]))
-        for i in 1:size(designer.decisions.subscribed_power[key][:,s], 1)
+        subscribtion = zeros(size(designer.decisions.subscribed_power[string(typeof(a.carrier))][:,s]))
+        for i in 1:size(designer.decisions.subscribed_power[string(typeof(a.carrier))][:,s], 1)
             for j in s
-                subscribtion[i,j] = interp_linear_extrap_sub_prices(designer.decisions.subscribed_power[key][i,j])
+                subscribtion[i,j] = interp_linear_extrap_sub_prices(designer.decisions.subscribed_power[string(typeof(a.carrier))][i,j])
             end
         end
         capex = capex .+ subscribtion  #abonnement
@@ -300,23 +267,20 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
     capex = 0.
     # Generations
     for (k, a) in enumerate(mg.generations)
-        if a isa Solar
-            Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)            
-            capex = capex .+ Γ .* designer.decisions.generations["PV"][y,s] .* a.cost[y,s]
-            capex[1,s] = capex[1,s] + Γ[1] .* designer.generations["PV"] * a.cost[1,s]
-        end
+    
+        Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)            
+        capex = capex .+ Γ .* designer.decisions.generations[string(typeof(a))][y,s] .* a.cost[y,s]
+        capex[1,s] = capex[1,s] + Γ[1] .* designer.generations[string(typeof(a))] * a.cost[1,s]
+
     end
     # Storages
     for (k, a) in enumerate(mg.storages)
         if typeof(a) <: AbstractLiion
-            key = "Liion" 
+            key = string(typeof(a))
             id = findfirst(a.soh[:,:,s] .<= a.SoH_threshold) 
             lifetime = id[2] + id[1]/8760
-        elseif a isa H2Tank
-            key = "H2Tank"
-            lifetime = a.lifetime
-        elseif a isa ThermalStorage
-            key = "ThermalStorage"
+        elseif a isa H2Tank || a isa ThermalStorage
+            key = string(typeof(a))
             lifetime = a.lifetime
         end
         Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ lifetime) / ((mg.parameters.τ + 1.) ^  lifetime - 1.)

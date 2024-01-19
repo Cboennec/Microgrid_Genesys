@@ -21,7 +21,7 @@ mutable struct FixedElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
   V_J::AbstractArray{Float64,2}
 
 
-  FixedElectrolyzerEfficiency(;α_p = 0.08,
+  FixedElectrolyzerEfficiency(;α_p = 0.05,
     η_E_H2 = 0.7,
     η_E_H = 0.,
     k_aux = 0.15,
@@ -31,11 +31,11 @@ mutable struct FixedElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
 end
 
 mutable struct PolarizationElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
+  α_p::Float64 #Minimum power defined as a share of the maximum Power
   k_aux::Float64 # Share of the power used by the auxiliaries
   couplage::Bool
   K::Float64 # Defined as a constant Latent Heat Value * masse molaire * stoechiometric coefficient / 2Faraday constant  
   powerMax_ini::Float64
-  J_min::Float64
 
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the Electrolyzer
 
@@ -43,21 +43,21 @@ mutable struct PolarizationElectrolyzerEfficiency <: AbstractElectrolyzerEffMode
 
 
 
-  PolarizationElectrolyzerEfficiency(; k_aux = 0.15,
+  PolarizationElectrolyzerEfficiency(; α_p = 0.05,
+   k_aux = 0.15,
   couplage = true,
   K = (33.33 *  2.016 * 3600)  / (2*96485.3321),  #LHV * M_H2 * λ * 3600/(2*F)
   powerMax_ini = .00001,
-  J_min = 0.1
-  ) = new(k_aux, couplage, K, powerMax_ini, J_min)
+  ) = new(α_p, k_aux, couplage, K, powerMax_ini)
 end
 
 
 mutable struct LinearElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
+  α_p::Float64 #Minimum power defined as a share of the maximum Power
   k_aux::Float64 # Share of the power used by the auxiliaries
   couplage::Bool
   K::Float64 # Defined as a constant Latent Heat Value * masse molaire * stoechiometric coefficient / 2Faraday constant  
   powerMax_ini::Float64
-  J_min::Float64
 
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the Electrolyzer
 
@@ -67,12 +67,12 @@ mutable struct LinearElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
   V_J::AbstractArray{Float64,2}
 
 
-  LinearElectrolyzerEfficiency(; k_aux = 0.15,
+  LinearElectrolyzerEfficiency(; α_p = 0.05,
+   k_aux = 0.15,
   couplage = true,
   K = (33.33 *  2.016 * 3600)  / (2*96485.3321),  #PCI * M_H2 * 3600/(2*F)
   powerMax_ini = .00001,
-  J_min = 0.1
-  ) = new(k_aux, couplage, K, powerMax_ini, J_min)
+  ) = new(α_p, k_aux, couplage, K, powerMax_ini)
 end
 
 
@@ -130,10 +130,11 @@ mutable struct Electrolyzer <: AbstractElectrolyzer
 
   EffModel::AbstractElectrolyzerEffModel
 	SoH_model::AbstractElectrolyzerAgingModel
+  couplage::Bool  #a boolean tuple to tell wether or not the soh should influence the other parameters.
+
 	
 	bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}
 	SoH_threshold::Float64 # SoH level to replace battery
-	couplage::Bool  #a boolean tuple to tell wether or not the soh should influence the other parameters.
   V_J_ini::AbstractArray{Float64,2}
 
   min_part_load::Float64 #Minimum share of the nominal power to be activated
@@ -155,13 +156,13 @@ mutable struct Electrolyzer <: AbstractElectrolyzer
 
 	Electrolyzer(;EffModel = PolarizationElectrolyzerEfficiency(),
     SoH_model = FunctHoursAgingElectrolyzer(),
+    couplage = true,
     bounds = (lb = 0., ub = 50.),
     SoH_threshold = 0.8,
-    couplage = true,
     V_J_ini = nothing,
     min_part_load = 0.05,
     soh_ini = 1. 
-  ) = new(EffModel, SoH_model, bounds, SoH_threshold, couplage, V_J_ini, min_part_load, soh_ini)
+  ) = new(EffModel, SoH_model, couplage, bounds, SoH_threshold, V_J_ini, min_part_load, soh_ini)
 
 end
 
@@ -453,11 +454,9 @@ end
 
 #compute the power that correpond to the maximum allowed tension
 function compute_min_power(elyz::AbstractElectrolyzer)
-  if elyz.EffModel isa FixedElectrolyzerEfficiency
+  
     P_min = elyz.EffModel.α_p * maximum(elyz.EffModel.V_J[3,:])
-  else
-    P_min = interpolation(elyz.EffModel.V_J[1,:], elyz.EffModel.V_J[3,:], elyz.EffModel.J_min, true )
-  end
+  
     P_min_tot = P_min * (1 + elyz.EffModel.k_aux)
   
   return P_min_tot

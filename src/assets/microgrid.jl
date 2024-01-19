@@ -108,40 +108,27 @@ function preallocate!(mg::Microgrid, designer::AbstractDesigner)
     subscribed_power_dict = Dict()
 
     for a in mg.generations
-        if a isa Solar
-            generations_dict["PV"] = zeros(mg.parameters.ny, mg.parameters.ns)
-        end
+        generations_dict[string(typeof(a))] = zeros(mg.parameters.ny, mg.parameters.ns)
     end
 
     for a in mg.storages
-        if a isa Liion
-            storages_dict["Liion"] = zeros(mg.parameters.ny, mg.parameters.ns)
-        elseif a isa H2Tank
-            storages_dict["H2Tank"] = zeros(mg.parameters.ny, mg.parameters.ns)
-        elseif a isa ThermalStorage
-            storages_dict["ThermalStorage"] = zeros(mg.parameters.ny, mg.parameters.ns)
-        end
+        storages_dict[string(typeof(a))] = zeros(mg.parameters.ny, mg.parameters.ns)
     end
 
+    #Different decision type for FuelCells and Electrolyzer
     for a in mg.converters
         if a isa FuelCell
-            converter_dict["FuelCell"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
+            converter_dict[string(typeof(a))] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
         elseif a isa Electrolyzer
-            converter_dict["Electrolyzer"] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
+            converter_dict[string(typeof(a))] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
         elseif a isa Heater
-            converter_dict["Heater"] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
+            converter_dict[string(typeof(a))] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
         end
     end
 
     
     for a in mg.grids
-        if a.carrier isa Electricity
-            subscribed_power_dict["Electricity"] = zeros(mg.parameters.ny, mg.parameters.ns)
-        elseif a.carrier isa Heat
-            subscribed_power_dict["Heat"] = zeros(mg.parameters.ny, mg.parameters.ns)
-        elseif a.carrier isa Hydrogen
-            subscribed_power_dict["Hydrogen"] = zeros(mg.parameters.ny, mg.parameters.ns)
-        end
+        subscribed_power_dict[string(typeof(a.carrier))] = zeros(mg.parameters.ny, mg.parameters.ns)
     end
 
     designer.decisions = (generations = generations_dict,
@@ -197,6 +184,12 @@ function interpolation(serie_a::Vector{Float64}, serie_b::Vector{Float64}, a::Fl
     else
         id = findfirst(serie_a .<= a)
     end
+
+    if isnothing(id) 
+        println("serie_a = ", serie_a)
+        println("a = ", a)
+    end 
+    
     frac = (a - serie_a[id-1]) / (serie_a[id] - serie_a[id-1])
     b = frac * (serie_b[id] - serie_b[id-1]) + serie_b[id-1]
     return b

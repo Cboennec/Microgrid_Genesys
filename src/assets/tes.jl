@@ -106,7 +106,7 @@ end
 
 
 
-function initialize_investments!(s::Int64, liion::ThermalStorage, decision::Union{Float64, Int64})
+function initialize_investments!(s::Int64, tes::ThermalStorage, decision::Union{Float64, Int64})
 	tes.Erated[1,s] = decision
 	tes.soc[1,1,s] = tes.soc_ini
 end

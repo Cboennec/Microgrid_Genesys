@@ -274,7 +274,7 @@ function π_7(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
     p_net_E = mg.demands[1].carrier.power[h,y,s] - mg.generations[1].carrier.power[h,y,s]
 
     # priority to the battery
-    u_liion = compute_operation_dynamics(liion, h, y, s, p_net_E, Δh)
+    u_liion, _ = compute_operation_dynamics(liion, h, y, s, p_net_E, Δh)
 
     if p_net_E < 0.
 

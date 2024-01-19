@@ -47,7 +47,7 @@ mutable struct LinearLiionEfficiency <: AbstractLiionEffModel
 end
 
 """
-polynomialLiionEfficiency <: AbstractLiionEffModel
+PolynomialLiionEfficiency <: AbstractLiionEffModel
 
 A mutable struct that represents a Li-ion battery efficiency model with polynomial efficiency characteristics for SoC computation.
 This model implements an efficiency model based on polynomial coefficients of the form `ax² + bx + c`  that can be used to calculate efficiency.
@@ -67,10 +67,10 @@ This model implements an efficiency model based on polynomial coefficients of th
 
 ## Example 
 ```julia
-polynomialLiionEfficiency()
+PolynomialLiionEfficiency()
 ```
 """
-mutable struct polynomialLiionEfficiency <: AbstractLiionEffModel
+mutable struct PolynomialLiionEfficiency <: AbstractLiionEffModel
 
 	#Polynom coefficients for the computation of efficiency
 	a_η_ch::Float64
@@ -87,7 +87,7 @@ mutable struct polynomialLiionEfficiency <: AbstractLiionEffModel
 	η_self::Float64 #Auto discarge factor
 	
 	
-	polynomialLiionEfficiency(;a_η_ch=	0.0033,
+	PolynomialLiionEfficiency(;a_η_ch=	0.0033,
 	b_η_ch = 0.0297, 
 	c_η_ch = 0.99814,
 	a_η_dch = 0.002232, 
@@ -277,7 +277,7 @@ A mutable struct representing a Li-ion battery model with state of charge (SoC) 
 
 ## Example 
 ```julia
-Liion(SoC_model = polynomialLiionEfficiency(), SoH_model = FixedLifetimeLiion())```
+Liion(SoC_model = PolynomialLiionEfficiency(), SoH_model = FixedLifetimeLiion())```
 
 """
 mutable struct Liion <: AbstractLiion
@@ -471,12 +471,12 @@ end
 """
 # compute_operation_soc
 
-Compute and update the state of charge (SoC) dynamics based on the input decisions using the polynomialLiionEfficiency model.
+Compute and update the state of charge (SoC) dynamics based on the input decisions using the PolynomialLiionEfficiency model.
 
 ## Arguments
 
 - `liion::Liion`: Li-ion battery model.
-- `model::polynomialLiionEfficiency`: Polynomial efficiency model.
+- `model::PolynomialLiionEfficiency`: Polynomial efficiency model.
 - `h::Int64`: Operation time step index.
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
@@ -485,7 +485,7 @@ Compute and update the state of charge (SoC) dynamics based on the input decisio
 
 ## Description
 
-This function computes and updates the state of charge (SoC) dynamics of the Liion battery model based on the input decisions and the polynomialLiionEfficiency model. It considers efficiency, capacity coupling, and efficiency coupling according to the model parameters.
+This function computes and updates the state of charge (SoC) dynamics of the Liion battery model based on the input decisions and the PolynomialLiionEfficiency model. It considers efficiency, capacity coupling, and efficiency coupling according to the model parameters.
 
 ## Example
 
@@ -498,7 +498,7 @@ decision = 0.5
 compute_operation_soc(liion, model, h, y, s, decision, Δh)
 ```
 """
-function compute_operation_soc(liion::Liion, model::polynomialLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_soc(liion::Liion, model::PolynomialLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
 	
 	if liion.Erated[y,s] == 0
 		return 0,0,0
@@ -745,6 +745,7 @@ compute_operation_soh_rainflow(liion, model, Δh, soc_profile, Sum_fd)
 function compute_operation_soh_rainflow(liion::Liion, model::SemiEmpiricalLiion, Δh::Int64, soc::Vector{Float64}, Sum_fd::Float64)
 
 	soc_peak, soc_peak_id = get_soc_peaks(soc)
+
 	#Then compute the DoD sequence by extracting the subcycles DoD
 
 	DoD_seq = Float64[] #Sequence of all the charging and decharging half cycles DoDs
@@ -765,7 +766,7 @@ function compute_operation_soh_rainflow(liion::Liion, model::SemiEmpiricalLiion,
 			push!(DoD_seq, delta2) #1 half cycle
 			push!(mean_Soc_seq, (soc[soc_peak_id[i+2]] + soc[soc_peak_id[i+1]]) /2 ) #SoC mean
 			push!(mean_Soc_seq, (soc[soc_peak_id[i+2]] + soc[soc_peak_id[i+1]]) /2 ) #SoC mean
-			push!(delta_t_seq, soc_peak_id[i+2] - soc_peak_id[i+1])#delta_t
+			push!(delta_t_seq, soc_peak_id[i+2] - soc_peak_id[i+1])#delta_t = soc_peak_id[i+2] - soc_peak_id[i+1] but we dont want to count the time twice
 			push!(delta_t_seq, soc_peak_id[i+2] - soc_peak_id[i+1])#delta_t, we use the time of the second half cycle because the first one is altered by the algorithme.
 
 
@@ -781,14 +782,18 @@ function compute_operation_soh_rainflow(liion::Liion, model::SemiEmpiricalLiion,
 	for i in 1:(length(soc_peak_id)-1)
 		push!(DoD_seq, abs( soc[soc_peak_id[i+1]] - soc[soc_peak_id[i]] )) #DoD
 		push!(mean_Soc_seq, (soc[soc_peak_id[i+1]] + soc[soc_peak_id[i]]) /2 ) #SoC mean
-		push!(delta_t_seq, 0)#soc_peak_id[i+1] - soc_peak_id[i])
+		if length(soc_peak_id) <= 3 #If there is no inner cycles we need to count the time here
+			push!(delta_t_seq, soc_peak_id[i+1] - soc_peak_id[i])
+		else
+			push!(delta_t_seq, 0)
+		end
 	end
-
 
 
 	for i in 1:length(DoD_seq)
 		Sum_fd += compute_fd(model,  DoD_seq[i] , model.temperature, mean_Soc_seq[i], delta_t_seq[i])
 	end
+
 
 	L = 1 - ( model.alpha_sei * exp(-model.beta_sei * Sum_fd) ) - ( (1 - model.alpha_sei) * exp(-Sum_fd ))
 
@@ -905,7 +910,7 @@ function compute_operation_dynamics(liion::Liion, h::Int64, y::Int64, s::Int64, 
 	 
 	soc_next, power_ch, power_dch = compute_operation_soc(liion, liion.SoC_model, h, y, s, decision, Δh)
 	
-	return power_dch + power_ch
+	return power_dch + power_ch, soc_next
  end
  
  """
@@ -934,7 +939,7 @@ function compute_operation_dynamics(liion::Liion, h::Int64, y::Int64, s::Int64, 
 ```
 """
  function compute_investment_dynamics!(y::Int64, s::Int64, liion::Liion, decision::Union{Float64, Int64})
-	liion.Erated[y+1,s], liion.soc[1,y+1,s], liion.soh[1,y+1,s] = compute_investment_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[end,y,s], soh = liion.soh[end,y,s]), decision)
+	liion.Erated[y+1,s], liion.soc[1,y+1,s], liion.soh[1,y+1,s] = compute_investment_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[end,y,s], soh = liion.soh[end,y,s]), decision, s)
  end
 
 
@@ -965,6 +970,10 @@ initialize_investments!(s, liion, decision)
    liion.Erated[1,s] = decision
    liion.soc[1,1,s] = liion.soc_ini
    liion.soh[1,1,s] = liion.soh_ini
+
+   if liion.SoH_model isa SemiEmpiricalLiion
+	liion.SoH_model.Sum_fd[s] = 0.
+   end
 end
 
 
@@ -997,7 +1006,7 @@ decision = 50.0
 Erated_next, soc_next, soh_next = compute_investment_dynamics(liion, state, decision)
 ```
 """
- function compute_investment_dynamics(liion::Liion, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Union{Float64, Int64})
+ function compute_investment_dynamics(liion::Liion, state::NamedTuple{(:Erated, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Union{Float64, Int64}, s::Int64)
 	 if decision > 1e-2
 		 Erated_next = decision
 		 soc_next = liion.soc_ini
@@ -1215,6 +1224,7 @@ damage = compute_fd(params, 0.2, 298, 0.5, 1)
 ```
 """
 function compute_fd(params::SemiEmpiricalLiion, DoD::Float64, T::Float64, mean_SoC::Float64, t::Int64)
+
 	return (0.5 * S_delta(params, DoD) + S_t(params, t)) * S_sigma(params, mean_SoC) * S_T(params, T)
 end
 
@@ -1255,7 +1265,7 @@ function toStringShort(liion::Liion)
 
 	if liion.SoC_model isa LinearLiionEfficiency
 		efficiency = "x"
-	elseif liion.SoC_model isa polynomialLiionEfficiency
+	elseif liion.SoC_model isa PolynomialLiionEfficiency
 		efficiency = "x²"
 	end
 

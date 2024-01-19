@@ -154,15 +154,15 @@ function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; mult
         # Assign values
         for (k,a) in enumerate(mg.generations)
             if a isa Solar
-                designer.decisions.generations["PV"][1,:] .= value(designer.model[:r_g][k])
+                designer.decisions.generations[string(typeof(a))][1,:] .= value(designer.model[:r_g][k])
             end
         end
         for (k,a) in enumerate(mg.storages)
             for y in 1:mg.parameters.ny
                 if typeof(a) <: AbstractLiion
-                    designer.decisions.storages["Liion"][y,:] .= value(designer.model[:r_sto][y,k])
+                    designer.decisions.storages[string(typeof(a))][y,:] .= value(designer.model[:r_sto][y,k])
                 elseif a isa H2Tank
-                    designer.decisions.storages["H2Tank"][y,:] .= value(designer.model[:r_sto][y,k])
+                    designer.decisions.storages[string(typeof(a))][y,:] .= value(designer.model[:r_sto][y,k])
                 end
             end
         end
@@ -330,9 +330,7 @@ function initialize_designer_my!(mg::Microgrid, designer::MILP, ω::Scenarios; m
     if multiyear
         # Assign values
         for (k,a) in enumerate(mg.generations)
-            if a isa Solar
-                designer.decisions.generations["PV"][1,:] .= value(designer.model[:r_g][k])
-            end
+            designer.decisions.generations[string(typeof(a))][1,:] .= value(designer.model[:r_g][k])
         end
         for (k,a) in enumerate(mg.storages)
             for y in 1:mg.parameters.ny
@@ -365,14 +363,14 @@ function initialize_designer_my!(mg::Microgrid, designer::MILP, ω::Scenarios; m
         # Assign values
         for (k,a) in enumerate(mg.generations)
             if a isa Solar
-                designer.decisions.generations["PV"][1,:] .= value(designer.model[:r_g][k])
+                designer.decisions.generations[string(typeof(a))][1,:] .= value(designer.model[:r_g][k])
             end
         end
         for (k,a) in enumerate(mg.storages)
             if typeof(a) <: AbstractLiion
-                designer.decisions.storages["Liion"][1,:] .= value(designer.model[:r_sto][k])
+                designer.decisions.storages[string(typeof(a))][1,:] .= value(designer.model[:r_sto][k])
             elseif a isa H2Tank
-                designer.decisions.storages["H2Tank"][1,:] .= value(designer.model[:r_sto][k])
+                designer.decisions.storages[string(typeof(a))][1,:] .= value(designer.model[:r_sto][k])
             end
         end
 

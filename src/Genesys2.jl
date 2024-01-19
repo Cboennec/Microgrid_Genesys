@@ -38,7 +38,7 @@ include(joinpath("optimization","designer", "metaheuristic","clearing","utils.jl
 
 
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP, Gurobi, Ipopt
+using JuMP, Cbc, Metaheuristics, SDDP, Ipopt#, Gurobi
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others

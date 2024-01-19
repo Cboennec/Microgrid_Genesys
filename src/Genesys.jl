@@ -24,7 +24,7 @@ abstract type AbstractController end
 
 
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP, Gurobi, Juniper, Alpine, Ipopt, HiGHS
+using JuMP, Cbc, Metaheuristics, SDDP, Juniper, Alpine, Ipopt, HiGHS#, Gurobi
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
