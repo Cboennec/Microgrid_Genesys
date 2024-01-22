@@ -64,15 +64,16 @@ end
 ### Online
 function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, designer::Manual)
 
-    for k in 1:length(mg.storages)
-        if typeof(mg.storages[k]) <: AbstractLiion
-            if mg.storages[k].soh[end,y,s] <= mg.storages[k].SoH_threshold
-                designer.decisions.storages["Liion"][y,s] = designer.storages["Liion"]
+    
+    for (k,a) in enumerate(mg.storages)
+        if hasproperty(a, :soh)
+            if a.soh[end,y,s] <= a.SoH_threshold
+                designer.decisions.storages[string(typeof(a))][y,s] = designer.storages[string(typeof(a))]
             else 
-                designer.decisions.storages["Liion"][y,s] = 0.
+                designer.decisions.storages[string(typeof(a))][y,s] = 0.
             end
         else
-            designer.decisions.storages["H2Tank"][y,s] = 0.
+            designer.decisions.storages[string(typeof(a))][y,s] = 0.
         end
     end
    

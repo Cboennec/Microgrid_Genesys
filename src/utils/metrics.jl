@@ -275,17 +275,15 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
     end
     # Storages
     for (k, a) in enumerate(mg.storages)
-        if typeof(a) <: AbstractLiion
-            key = string(typeof(a))
+        if hasproperty(a, :soh)
             id = findfirst(a.soh[:,:,s] .<= a.SoH_threshold) 
             lifetime = id[2] + id[1]/8760
-        elseif a isa H2Tank || a isa ThermalStorage
-            key = string(typeof(a))
+        else
             lifetime = a.lifetime
         end
         Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ lifetime) / ((mg.parameters.τ + 1.) ^  lifetime - 1.)
-        capex = capex .+ Γ .* designer.decisions.storages[key][y,s] .* a.cost[y,s]
-        capex[1,s] = capex[1,s] + Γ[1] .* designer.storages[key] * a.cost[1,s]
+        capex = capex .+ Γ .* designer.decisions.storages[string(typeof(a))][y,s] .* a.cost[y,s]
+        capex[1,s] = capex[1,s] + Γ[1] .* designer.storages[string(typeof(a))] * a.cost[1,s]
 
     end
     # Converters
