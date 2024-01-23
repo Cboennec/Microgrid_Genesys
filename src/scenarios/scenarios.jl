@@ -418,6 +418,32 @@ function Scenarios(mg::Microgrid, d::Dict{}, nweeks::Int64; seed = []) # repeat 
 end
 
 
+
+"""
+    function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = [])
+
+Constructor function for creating a new `Scenarios` instance based on a given `Microgrid` and a `Dict` containing scenario data. It allows for repetitive years for longer scenarios.
+
+# Arguments
+- `mg::Microgrid`: A Microgrid instance.
+- `d::Dict{}`: A dictionary containing scenario data.
+
+# Keyword Arguments
+- `same_year::Bool=false`: If `true`, the function repeats the same year for all years in the microgrid.
+- `seed::Array=[]`: An array specifying the seed for selecting the scenario number and offer reproductivity.
+
+# Returns
+- `Scenarios`: A Scenarios instance with the specified data.
+
+## Example
+
+```julia
+microgrid = ...
+scenario_data = ...
+
+scenarios = Scenarios(microgrid, scenario_data; same_year = true, seed = [1, 2, 3])
+```
+"""
 function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # repeat make every year the same, seed decide with year to use.
     # Utils to simplify the writting
 
@@ -433,18 +459,44 @@ function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # rep
     converters = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.converters))
     grids = Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}(undef, length(mg.grids))
     # Demands
+
+    if !isempty(seed) && same_year # Si rep et seed
+        @assert(length(seed) == ns, "When you use seed with rep, the seeds for the scenarios must be of length ns")
+    elseif !isempty(seed) && same_year # Si seed mais pas rep
+        @assert(size(seed) == (ny,ns), "When you use seed without rep, the seeds for the scenarios must be of size (ny, ns)")
+    end
+
+    r = convert.(Int64, ones(ny,ns))
+    for s in 1:ns
+        for y in 1:ny
+            if !isempty(seed) 
+                if same_year 
+                    r[y,s] = seed[s]
+                else
+                    r[y,s] = seed[y,s]
+                end
+            else
+                if same_year && y == 1
+                    r[y,s] = convert(Int64, floor(rand() * ns)+1)
+                else 
+                    r[y,s] = convert(Int64, floor(rand() * ns)+1)
+                end
+            end
+        end
+    end
+
     for (k, a) in enumerate(mg.demands)
         if a.carrier isa Electricity
-            demands[k] = (t = repeat(d["ld_E"].t[h, y, s], outer = (1,rep_time,1)), power = compose(d["ld_E"].power, rep_time, mg, 3; rep = same_year, s_num = seed))
+            demands[k] = (t = repeat(d["ld_E"].t[h, y, s], outer = (1,rep_time,1)), power = compose3D(d["ld_E"].power, mg, r))
         elseif a.carrier isa Heat
-            demands[k] = (t = repeat(d["ld_H"].t[h, y, s], outer = (1,rep_time,1)), power = compose(d["ld_H"].power, rep_time, mg, 3; rep = same_year, s_num = seed))
+            demands[k] = (t = repeat(d["ld_H"].t[h, y, s], outer = (1,rep_time,1)), power = compose3D(d["ld_H"].power, mg, r))
         end
     end
     # Generation
     for (k, a) in enumerate(mg.generations)
         if a isa Solar
             #generations[k] = (t = d["pv"].t[h, y, s], power = d["pv"].power[h, y, s], cost = d["pv"].cost[y, s])
-            generations[k] = (t = repeat(d["pv"].t[h, y, s], outer = (1,rep_time,1)), power = compose( d["pv"].power, rep_time, mg, 3; rep = same_year, s_num = seed), cost = compose(d["pv"].cost, rep_time, mg, 2;  rep = same_year, s_num = seed))
+            generations[k] = (t = repeat(d["pv"].t[h, y, s], outer = (1,rep_time,1)), power = compose3D(d["pv"].power, mg, r), cost =  compose2D(d["pv"].cost, mg, r))
         end
     end
     # Storages
@@ -452,100 +504,80 @@ function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # rep
 
         if typeof(a) <: AbstractLiion
         #    storages[k] = (cost = d["liion"].cost[y, s],)
-             storages[k] = (cost = compose(d["liion"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
+             storages[k] = (cost = compose2D(d["liion"].cost, mg, r),)
         elseif a isa ThermalStorage
         #    storages[k] = (cost = d["tes"].cost[y, s],)
-            storages[k] = (cost = compose(d["tes"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
+            storages[k] = (cost = compose2D(d["tes"].cost, mg, r),)
         elseif a isa H2Tank
         #    storages[k] = (cost = d["h2tank"].cost[y, s],)
-            storages[k] = (cost = compose(d["h2tank"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
+            storages[k] = (cost = compose2D(d["h2tank"].cost, mg, r),)
         end
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
         if typeof(a) <: AbstractElectrolyzer
             #converters[k] = (cost = d["elyz"].cost[y, s],)
-            converters[k] = (cost = compose(d["elyz"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
+            converters[k] = (cost = compose2D(d["elyz"].cost, mg, r),)
         elseif a isa FuelCell
             #converters[k] = (cost = d["fc"].cost[y, s],)
-            converters[k] = (cost = compose(d["fc"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
+            converters[k] = (cost = compose2D(d["fc"].cost, mg, r),)
 
         elseif a isa Heater
             #converters[k] = (cost = d["heater"].cost[y, s],)
-            converters[k] = (cost = compose(d["heater"].cost, rep_time, mg, 2; rep = same_year, s_num = seed),)
+            converters[k] = (cost = compose2D(d["heater"].cost, mg, r),)
         end
     end
     # Grids
     for (k, a) in enumerate(mg.grids)
         if a.carrier isa Electricity
             #grids[k] = (cost_in = d["grid"].cost_in[h, y, s], cost_out = d["grid"].cost_out[h, y, s])
-            grids[k] = (cost_in = compose(d["grid_Elec"].cost_in, rep_time, mg, 3; rep = same_year, s_num = seed), cost_out = compose(d["grid_Elec"].cost_out, rep_time, mg, 3; rep = same_year, s_num = seed), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) .+ 10.2)#TODO this price should come from the scenarios
+            grids[k] = (cost_in =  compose3D(d["grid_Elec"].cost_in, mg, r), cost_out = compose3D(d["grid_Elec"].cost_out, mg, r), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) .+ 10.2)#TODO this price should come from the scenarios
         elseif a.carrier isa Hydrogen
-            grids[k] = (cost_in = compose(d["grid_Hydrogen"].cost_in, rep_time, mg, 3; rep = same_year, s_num = seed), cost_out = compose(d["grid_Hydrogen"].cost_out, rep_time, mg, 3; rep = same_year, s_num = seed), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) )
+            grids[k] = (cost_in = compose3D(d["grid_Hydrogen"].cost_in, mg, r), cost_out = compose3D(d["grid_Hydrogen"].cost_out, mg, r), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) )
         elseif a.carrier isa Heat
-            print("ERROR Heat grid not coded yet")
+            print("ERROR Heat grid not implemented yet")
         end
     end
+    
 
     return Scenarios(demands, generations, storages, converters, grids)
 end
 
 
-#Compose the data for a longer scenario based on existing scenario of 1 year
-#The dim parameter defines the number of dimension on which this data is represented
-#optionnal
-#The rep parameter defines wether or not every year have to be the same
-#s_num defines the id of the scenarios we are going to use, very useful for reproductivity of the results
-# If no seed is provided, the scenario IDs will  be randomly selected.
-function compose(array, rep_time::Int64, mg::Microgrid, dim::Int64; rep = false, s_num = [] )
+
+
+function compose3D(array, mg::Microgrid, seq::Matrix{Int64})
     nh = mg.parameters.nh
     ny = mg.parameters.ny
     ns = mg.parameters.ns
 
-    hours = 1:nh
-    years = 1:ny
-    scenarios = 1:ns
+    
+    result = zeros(nh, ny, ns)
 
-    r = 0
-
-    if dim == 3
-        result = repeat(array[hours, 2:2, scenarios], outer = (1,rep_time,1)) # instantiate an array of the right size.
-
-        for s in scenarios
-            if !isempty(s_num)
-                r =  s_num[s]
-            else
-                r = convert(Int64, floor(rand() * 1000)+1)
-            end
-
-            for y in years
-                if !rep #On refait un tirage
-                    r = convert(Int64, floor(rand() * 1000)+1)
-                end
-                result[:,y,s] = array[:,2,r] # Get the  whole second year of a random scenario and plug in the selected year
-            end
-        end
-    elseif dim == 2
-        result = repeat(array[2:2, scenarios], outer = (rep_time,1))
-
-        for s in scenarios
-            if !isempty(s_num)
-                r =  s_num[s]
-            else
-                r = convert(Int64, floor(rand() * 1000)+1)
-            end
-
-            for y in years
-                if !rep #On refait un tirage
-                    r = convert(Int64, floor(rand() * 1000)+1)
-                end
-                result[y,s] = array[2,r] #Get the  whole second year of a random scenario
-            end
+    for s in 1:ns
+        for y in 1:ny
+            result[:,y,s] = array[:,2,seq[y,s]] # Get the  whole second year of a random scenario and plug in the selected year
         end
     end
 
     return result
 
+end
+
+function compose2D(array, mg::Microgrid, seq::Matrix{Int64})
+    ny = mg.parameters.ny
+    ns = mg.parameters.ns
+
+    
+    result = zeros(ny, ns)
+
+    for s in 1:ns
+        for y in 1:ny
+            result[y,s] = array[2,seq[y,s]] # Get the  whole second year of a random scenario and plug in the selected year
+        end
+    end
+
+    return result
 end
 
 

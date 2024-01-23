@@ -15,7 +15,6 @@ function simulate!(mg::Microgrid,
                    options::Options = Options())
 
 
-    #TODO Maybe need to reset some parameters like calendar aging on electochimical batteries
     # Parameters
     ns = mg.parameters.ns
 
@@ -70,8 +69,6 @@ function simulate!(s::Int64,
     nh = mg.parameters.nh
     ny = mg.parameters.ny
 
-
-
     # We simulate over the horizon for a single scenario
     for y in 1:ny
         simulate!(y, s, mg, controller, designer, ω_simu, options)
@@ -87,7 +84,6 @@ function simulate!(y::Int64,
 
     # Parameters
     nh = mg.parameters.nh
-
 
     if y == 1 
     
@@ -124,8 +120,6 @@ function simulate!(y::Int64,
     #update grid prices
     update_grid_cost_informations!(y, s, mg, ω_simu)
 
-
-    
 end
 
 
