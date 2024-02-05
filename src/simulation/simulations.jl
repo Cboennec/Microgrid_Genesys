@@ -145,3 +145,4 @@ function simulate!(h::Int64,
     #Si désactivé rien n'est puisé sur la grid 
     compute_power_balances!(h, y, s, mg)
 end
+

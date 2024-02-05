@@ -44,6 +44,75 @@ function powerPlot(energy_carriers::Vector{DataType}, mg::Microgrid, y::UnitRang
     end
 end
 
+
+function powerPlot2(energy_carriers::Vector{DataType}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64}; name = "")
+   
+    
+    x= hours
+    p = []
+    data = [] 
+
+    for (i, type) in enumerate(energy_carriers)
+
+        labels = []
+
+        for s_id in s
+            # Demands
+            for (k, a) in enumerate(mg.demands)
+                if a.carrier isa type
+                    push!(data,-vec(a.carrier.power[:,y,s_id]))
+                    push!(labels, string("Demand : ",  typeof(a.carrier)))
+                end
+            end
+            # Generations
+            for (k, a) in enumerate(mg.generations)
+                if a.carrier isa type
+                    push!(data,vec(a.carrier.power[:,y,s_id]))
+                    push!(labels, string("Generation : ", typeof(a)))
+                end
+            end
+            # Storages
+            for (k, a) in enumerate(mg.storages)
+                if a.carrier isa type
+                    push!(data,vec(a.carrier.power[:,y,s_id]))
+                    push!(labels, string("Storage : ", typeof(a)))
+                end
+            end
+            # Converters
+            for (k, a) in enumerate(mg.converters)
+                for c in a.carrier
+                    if c isa type
+                        push!(data,vec(c.power[:,y,s_id]))
+                        push!(labels, string("Converter : ", typeof(a)))
+                    end
+                end
+            end
+            for (k, a) in enumerate(mg.grids)
+                if a.carrier isa type
+                    push!(data,vec(a.carrier.power[:,y,s_id]))
+                    push!(labels, string("Grids : ", typeof(a)))
+                end
+            end
+
+       
+        end
+
+        p = push!(p, Plots.plot(x, data, label =  reshape(labels, 1, length(labels)), linewidth=2))
+
+    end
+
+    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true)
+
+    display(p_final)
+    
+    if name != ""
+        Plots.savefig(p_final, string(name,"_PowerPlot.pdf"))
+    end
+end
+
+
+
+
 function powerBalancePlot(energy_carriers::Vector{DataType}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
     f = figure("Power Balances")
     f.subplotpars.hspace = 0.32
@@ -88,6 +157,74 @@ function powerBalancePlot(energy_carriers::Vector{DataType}, mg::Microgrid, y::U
         end
     end
 
+end
+
+
+
+function powerBalancePlot2(energy_carriers::Vector{DataType}, mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64}; name = "")
+  
+
+    sum = zeros(length(energy_carriers), nh , length(y), length(s))
+
+    x= hours
+    p = []
+    data = [] 
+   
+    for (i, type) in enumerate(energy_carriers)
+        labels = Matrix{String}(undef, 1, length(s))
+
+        for s_id in s
+
+            # Demands
+            for (k, a) in enumerate(mg.demands)
+                if a.carrier isa type
+                    sum[i,:,:,s_id] .+= -a.carrier.power[:,y,s_id]
+                end
+            end
+            # Generations
+            for (k, a) in enumerate(mg.generations)
+                if a.carrier isa type
+                    sum[i,:,:,s_id] .+= a.carrier.power[:,y,s_id]
+                end
+            end
+            # Storages
+            for (k, a) in enumerate(mg.storages)
+                if a.carrier isa type
+                    sum[i,:,:,s_id] .+= a.carrier.power[:,y,s_id]
+                end
+            end
+            # Converters
+            for (k, a) in enumerate(mg.converters)
+                for c in a.carrier
+                    if c isa type
+                        sum[i,:,:,s_id] .+= c.power[:,y,s_id]
+                    end
+                end
+            end
+            for (k, a) in enumerate(mg.grids)
+                if a.carrier isa type
+                    sum[i,:,:,s_id] .+= a.carrier.power[:,y,s_id]
+                end
+            end
+
+
+            push!(data, vec(sum[i,:,1:length(y),s_id]))
+            labels[s_id] = string("Net sum")
+
+           
+        end
+
+        p = push!(p, Plots.plot(x, data, label = labels, linewidth=2))
+
+    end
+
+    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true)
+
+    display(p_final)
+    
+    if name != ""
+        Plots.savefig(p_final, string(name,"_NetSum.pdf"))
+    end
 end
 
 function SoCPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
@@ -167,6 +304,43 @@ function SoHPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours:
         end
     end
 end
+
+
+function SoHPlot2(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64}; name = "")
+    #State of health 
+
+    assets = vcat(mg.converters,mg.storages, mg.generations)
+    #How many of the storages + converters + generators have a SoH field, we keep only those ones
+    assets = assets[hasproperty.(assets, :soh)]
+
+    x= hours
+    p = []
+    data = [] 
+
+    for (k, a) in enumerate(assets)
+        labels = Matrix{String}(undef, 1, length(s))
+
+        for s_id in s
+            push!(data,vec(a.soh[1:end-1, y, s_id]))
+            labels[s_id] =  string("Storage : ", typeof(a))
+        end
+
+        p = push!(p, Plots.plot(x, data, label = labels, linewidth=2))
+
+    end
+
+    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true)
+
+    display(p_final)
+
+    if name != ""
+        Plots.savefig(p_final, string(name,"_SoH.pdf"))
+    end
+
+end
+
+
+
 
 function plot_operation(mg::Microgrid ; y=2, s=1)
     # Seaborn configuration
@@ -285,6 +459,7 @@ function plot_operation(mg::Microgrid, controller::AbstractController; y=2, s=1)
         legend()
     end
 end
+
 # Statistics
 function plot_metrics(metrics::Metrics; type = "hist")
     # Seaborn configuration
@@ -347,4 +522,101 @@ function plot_metrics(metrics::Metrics; type = "hist")
     else
         println("Only 'hist' or 'violin' type accepted")
     end
+end
+
+
+
+
+function SoCPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
+    # State of charge
+    f = figure("State-of-charge")
+
+   
+    for s_id in s
+        for (k, a) in enumerate(mg.storages)
+            
+            k == 1 ? subplot(length(mg.storages), 1, k) : subplot(length(mg.storages), 1, k, sharex = f.axes[1])
+            Seaborn.lineplot(x= hours, y=vec(a.soc[1:end-1, y, s_id]), label = string("Storage : ", typeof(a)))
+            legend()
+
+        end
+    end
+end
+
+
+
+# With a diffferent plotting librairy (plots, with plotlyjs)
+function SoCPlot2(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64}; name = "")
+    # State of charge
+   
+    x= hours
+
+    p = []
+    data = [] 
+
+    for (k, a) in enumerate(mg.storages)
+        labels = Matrix{String}(undef, 1, length(s))
+        for s_id in s
+            push!(data,vec(a.soc[1:end-1, y, s_id]))
+            labels[s_id] =  string("Storage : ", typeof(a))
+        end
+
+        p = push!(p, Plots.plot(x, data, label = labels, linewidth=2))
+
+    end
+
+    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true)
+    
+    display(p_final)
+
+    if name != ""
+        Plots.savefig(p_final, string(name,"_SoC.pdf"))
+    end
+end
+
+
+
+
+
+
+function plot_operation2(mg::Microgrid ; y=2, s=1, fileprefix = "")
+    # Seaborn configuration
+    Seaborn.set_theme(context="notebook", style="ticks", palette="muted", font="serif", font_scale=1.5)
+
+    # Parameters
+    nh = mg.parameters.nh
+    Δh = mg.parameters.Δh
+    #Hours range starting from the first year of the interval 
+    start =  Int64((y[1]-1) * nh +1 / Δh)
+    len = Int64(nh * length(y) / Δh)
+    hours = (start:(start+len-1))
+
+    # we enumerate what type of carrier we have in the converters
+    energy_carriers_list = []
+    for conv in mg.converters
+        for carrier in conv.carrier
+            push!(energy_carriers_list, carrier)
+        end
+    end
+    for demand in mg.demands
+        push!(energy_carriers_list,  demand.carrier)
+    end
+
+    energy_carriers = unique((typeof(a) for a in energy_carriers_list))
+
+    
+    
+    # Plots
+    # Powers
+    powerPlot2(energy_carriers, mg, y, s, hours; name = fileprefix)
+
+    #Power balance to check Electricity and hydrogen perfect balance and heat positivity.
+    powerBalancePlot2(energy_carriers, mg, y, s, hours;  name = fileprefix)
+    
+    #State of charge for every storage
+    SoCPlot2(mg, y, s, hours; name = fileprefix)
+
+    #State of health for every concerned component
+    SoHPlot2(mg, y ,s, hours;  name = fileprefix)
+   
 end
