@@ -101,7 +101,7 @@ function powerPlot2(energy_carriers::Vector{DataType}, mg::Microgrid, y::UnitRan
 
     end
 
-    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true)
+    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true, title ="Powers")
 
     display(p_final)
     
@@ -218,7 +218,9 @@ function powerBalancePlot2(energy_carriers::Vector{DataType}, mg::Microgrid, y::
 
     end
 
-    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true)
+    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true, title ="Power Balances")
+    xlabel!("Hours")
+    ylabel!("Power (W)")
 
     display(p_final)
     
@@ -329,7 +331,7 @@ function SoHPlot2(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours
 
     end
 
-    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true)
+    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true, title ="State-of-health")
 
     display(p_final)
 
@@ -565,7 +567,7 @@ function SoCPlot2(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours
 
     end
 
-    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true)
+    p_final = Plots.plot(p..., layout=(length(mg.storages),1), legend=true, title="State-of-charge")
     
     display(p_final)
 
