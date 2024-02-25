@@ -37,4 +37,6 @@ docs/site/
 # environment.
 Manifest.toml
 
-Cours/
+# Classes 
+Cours/Pre-cours
+Cours/Cours1
