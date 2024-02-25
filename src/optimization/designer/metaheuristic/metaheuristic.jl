@@ -369,6 +369,11 @@ function initialize_designer!(mg::Microgrid, designer::Metaheuristic, ω::Scenar
             designer.converters[string(typeof(a))] = designer.results.minimizer[varID[string(typeof(a))]]
         end
     end
+    for a in mg_m.grids
+        designer.subscribed_power[string(typeof(a.carrier))] = designer.results.minimizer[varID[string(typeof(a.carrier))]] 
+        designer.decisions.subscribed_power[string(typeof(a.carrier))][:,:] .= designer.results.minimizer[varID[string(typeof(a.carrier))]] 
+    end
+    
 
     # Save history for online optimization
     designer.history = ω

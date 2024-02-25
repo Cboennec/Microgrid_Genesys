@@ -18,7 +18,7 @@ mutable struct FixedElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
 
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the FuelCell
 
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
 
   FixedElectrolyzerEfficiency(;α_p = 0.05,
@@ -39,7 +39,7 @@ mutable struct PolarizationElectrolyzerEfficiency <: AbstractElectrolyzerEffMode
 
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the Electrolyzer
 
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
 
 
@@ -61,10 +61,10 @@ mutable struct LinearElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
 
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the Electrolyzer
 
-  a_η::Float64 # the slope for the fucntion η(P)
-  b_η::Float64 # the ordinate at the origin for the function η(P)
+  a_η::Vector{Float64} # the slope for the fucntion η(P)
+  b_η::Vector{Float64} # the ordinate at the origin for the function η(P)
 
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3} # Polarization curve, One by scénario
 
 
   LinearElectrolyzerEfficiency(; α_p = 0.05,
@@ -86,8 +86,8 @@ mutable struct FunctHoursAgingElectrolyzer <: AbstractElectrolyzerAgingModel
   J_ref::Float64 # The nominal current density
   J_base::Float64 # The current density used for degradation
 
-  V_J_ini::AbstractArray{Float64,2}
-  V_J::AbstractArray{Float64,2}
+  V_J_ini::AbstractArray{Float64,2} #Initial polarization curve
+  V_J::AbstractArray{Float64,3} #  polarization curve updated, one per scénario
 
   coef_a::Float64 #The slope of voltage degradation for each functioning hour
   coef_b::Float64 #The ordinate at origin of voltage degradation for each functioning hour
@@ -111,7 +111,7 @@ mutable struct FixedLifetimeElectrolyzer <: AbstractElectrolyzerAgingModel
   nHourMax::Int64
 
   V_J_ini::AbstractArray{Float64,2}
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
   V_nom_ini::Float64
 
@@ -184,8 +184,8 @@ function preallocate!(elyz::Electrolyzer, nh::Int64, ny::Int64, ns::Int64)
   elyz.cost = convert(SharedArray,zeros(ny, ns))
 
   elyz.SoH_model.V_J_ini = zeros(3, length(elyz.V_J_ini[1,:])) #J, V, P
-  elyz.SoH_model.V_J = zeros(3, length(elyz.V_J_ini[1,:])) #J, V, P
-  elyz.EffModel.V_J = zeros(3, length(elyz.V_J_ini[1,:])) #J, V, P
+  elyz.SoH_model.V_J = zeros(3, length(elyz.V_J_ini[1,:]), ns) #J, V, P
+  elyz.EffModel.V_J = zeros(3, length(elyz.V_J_ini[1,:]), ns) #J, V, P
 
   return elyz
 end
@@ -238,7 +238,7 @@ function compute_operation_efficiency(elyz::Electrolyzer, model::PolarizationEle
 
     P_elyz = ceil(power_E / (1 + model.k_aux); digits=6)
 
-    j = interpolation(model.V_J[3,:], model.V_J[1, :], -P_elyz, true)
+    j = interpolation(model.V_J[3,:,s], model.V_J[1,:,s], -P_elyz, true)
     
     i = j * elyz.surface
 
@@ -295,17 +295,17 @@ function compute_operation_soh(elyz::Electrolyzer, model::FunctHoursAgingElectro
 
     ΔV = hours_funct * model.deg_per_hour * Δh
        
-    model.V_J[2,:] .-= ΔV
+    model.V_J[2,:,s] .-= ΔV
   
-    V_nom = interpolation(model.V_J[1,:], model.V_J[2,:], model.J_ref, true)
+    V_nom = interpolation(model.V_J[1,:,s], model.V_J[2,:,s], model.J_ref, true)
 
-    model.V_J[3,:] = model.V_J[2,:] .* (model.V_J[1,:] * elyz.surface * elyz.N_cell) 
+    model.V_J[3,:,s] = model.V_J[2,:,s] .* (model.V_J[1,:,s] * elyz.surface * elyz.N_cell) 
 
     V_nom_ini = interpolation(model.V_J_ini[1,:], model.V_J_ini[2,:], model.J_ref, true)
 
     if model.plot
       plt = PyPlot.subplot()
-      PyPlot.plot(model.V_J[1,:], model.V_J[2,:])
+      PyPlot.plot(model.V_J[1,:,s], model.V_J[2,:,s])
       plt.set_ylabel("Tension (V)")
       plt.set_xlabel("Current density (A/cm²)")
     end
@@ -313,11 +313,11 @@ function compute_operation_soh(elyz::Electrolyzer, model::FunctHoursAgingElectro
     nextSoH = V_nom/V_nom_ini  
 
       if elyz.EffModel.couplage
-        nextPowerMax = maximum(model.V_J[3,:]) * (1-elyz.EffModel.k_aux)
-        elyz.EffModel.V_J = model.V_J
+        nextPowerMax = maximum(model.V_J[3,:,s]) * (1-elyz.EffModel.k_aux)
+        elyz.EffModel.V_J[:,:,s] = model.V_J[:,:,s]
 
           if elyz.EffModel isa LinearFuelCellEfficiency 
-            update_η_lin(elyz, elyz.EffModel)
+            update_η_lin(elyz, elyz.EffModel, s)
           end
 
       else
@@ -343,27 +343,27 @@ function compute_operation_soh(elyz::Electrolyzer, model::FixedLifetimeElectroly
   
     ΔV = frac * model.V_nom_ini * (1-elyz.SoH_threshold)
        
-    model.V_J[2,:] .-= ΔV
+    model.V_J[2,:,s] .-= ΔV
     
-    model.V_J[3,:] = model.V_J[2,:] .* (model.V_J[1,:] * elyz.surface * elyz.N_cell) 
+    model.V_J[3,:,s] = model.V_J[2,:,s] .* (model.V_J[1,:,s] * elyz.surface * elyz.N_cell) 
 
     nextSoH = elyz.soh[h,y,s] - (frac * (1-elyz.SoH_threshold))
 
     if model.plot
       plt = PyPlot.subplot()
-      PyPlot.plot(model.V_J[1,:], model.V_J[2,:])
+      PyPlot.plot(model.V_J[1,:,s], model.V_J[2,:,s])
       plt.set_ylabel("Tension (V)")
       plt.set_xlabel("Current density (A/cm²)")
     end
 
 
       if elyz.EffModel.couplage
-        nextPowerMax = maximum(model.V_J[3,:]) * (1-elyz.EffModel.k_aux)
-        nextPowerMin = compute_min_power(elyz)
+        nextPowerMax = maximum(model.V_J[3,:,s]) * (1-elyz.EffModel.k_aux)
+        nextPowerMin = compute_min_power(elyz, s)
         elyz.EffModel.V_J = model.V_J
 
           if elyz.EffModel isa LinearElectrolyzerEfficiency 
-            update_η_lin(elyz, elyz.EffModel)
+            update_η_lin(elyz, elyz.EffModel, s)
           end
 
       else
@@ -384,20 +384,20 @@ function initialize_investments!(s::Int64, elyz::Electrolyzer, decision::NamedTu
   elyz.soh[1,1,s] = elyz.soh_ini
 
 
-  elyz.EffModel.V_J[1,:] = elyz.V_J_ini[1,:] 
-  elyz.EffModel.V_J[2,:] = elyz.V_J_ini[2,:]
-  elyz.EffModel.V_J[3,:] = elyz.V_J_ini[2,:] .* elyz.V_J_ini[1,:] * elyz.surface * elyz.N_cell
-  elyz.EffModel.powerMax[1,1,s] = maximum(elyz.EffModel.V_J[3,:]) * (1-elyz.EffModel.k_aux)
+  elyz.EffModel.V_J[1,:,:] .= elyz.V_J_ini[1,:] 
+  elyz.EffModel.V_J[2,:,:] .= elyz.V_J_ini[2,:]
+  elyz.EffModel.V_J[3,:,:] .= elyz.V_J_ini[2,:] .* elyz.V_J_ini[1,:] * elyz.surface * elyz.N_cell
+  elyz.EffModel.powerMax[1,1,:] .= maximum(elyz.EffModel.V_J[3,:,:]) * (1-elyz.EffModel.k_aux)
 
   if elyz.EffModel isa LinearElectrolyzerEfficiency 
-    update_η_lin(elyz, elyz.EffModel)
+    update_η_lin(elyz, elyz.EffModel, s)
   end
 
   #Initialization of V(J)
     elyz.SoH_model.V_J_ini[1,:] = elyz.V_J_ini[1,:] 
     elyz.SoH_model.V_J_ini[2,:] = elyz.V_J_ini[2,:]
     elyz.SoH_model.V_J_ini[3,:] = elyz.V_J_ini[2,:] .* elyz.V_J_ini[1,:] * elyz.surface * elyz.N_cell
-    elyz.SoH_model.V_J = copy(elyz.SoH_model.V_J_ini)
+    elyz.SoH_model.V_J .= copy(elyz.SoH_model.V_J_ini)
 
   if elyz.SoH_model isa FixedLifetimeElectrolyzer
 
@@ -411,11 +411,11 @@ end
 
 ### Investment dynamic
 function compute_investment_dynamics!(y::Int64, s::Int64, elyz::Electrolyzer,  decision::NamedTuple{(:surface, :N_cell), Tuple{Float64, Int64}})    
-  elyz.EffModel.powerMax[1,y+1,s], elyz.soh[1,y+1,s] = compute_investment_dynamics(elyz, (powerMax = elyz.EffModel.powerMax[end,y,s], soh = elyz.soh[end,y,s]), decision)
+  elyz.EffModel.powerMax[1,y+1,s], elyz.soh[1,y+1,s] = compute_investment_dynamics(elyz, (powerMax = elyz.EffModel.powerMax[end,y,s], soh = elyz.soh[end,y,s]), decision, s)
 end
 
 
-function compute_investment_dynamics(elyz::Electrolyzer, state::NamedTuple{(:powerMax, :soh), Tuple{Float64, Float64}},  decision::NamedTuple{(:surface, :N_cell), Tuple{Float64, Int64}})
+function compute_investment_dynamics(elyz::Electrolyzer, state::NamedTuple{(:powerMax, :soh), Tuple{Float64, Float64}},  decision::NamedTuple{(:surface, :N_cell), Tuple{Float64, Int64}}, s::Int64)
   if decision.N_cell > 1e-2 
 
       V_J = zeros(3, length(elyz.V_J_ini[1,:])) #J, V, P
@@ -432,13 +432,13 @@ function compute_investment_dynamics(elyz::Electrolyzer, state::NamedTuple{(:pow
 
       soh_next = elyz.soh_ini
 
-      elyz.SoH_model.V_J = V_J
-      elyz.EffModel.V_J = V_J
+      elyz.SoH_model.V_J[:,:,s] = V_J
+      elyz.EffModel.V_J[:,:,s] = V_J
 
       powerMax_next = maximum(V_J[3,:]) * (1-elyz.EffModel.k_aux)
 
       if elyz.EffModel isa LinearFuelCellEfficiency 
-        update_η_lin(elyz, elyz.EffModel)
+        update_η_lin(elyz, elyz.EffModel, s)
       end
 
   else
@@ -453,9 +453,9 @@ end
 
 
 #compute the power that correpond to the maximum allowed tension
-function compute_min_power(elyz::AbstractElectrolyzer)
+function compute_min_power(elyz::AbstractElectrolyzer, s::Int64)
   
-    P_min = elyz.EffModel.α_p * maximum(elyz.EffModel.V_J[3,:])
+    P_min = elyz.EffModel.α_p * maximum(elyz.EffModel.V_J[3,:,s])
   
     P_min_tot = P_min * (1 + elyz.EffModel.k_aux)
   
@@ -463,11 +463,11 @@ function compute_min_power(elyz::AbstractElectrolyzer)
 end
 
 
-function get_η_E(P_brut::Float64, elyz::AbstractElectrolyzer)
+function get_η_E(P_brut::Float64, elyz::AbstractElectrolyzer, s::Int64)
   P_net = ceil(P_brut / (1 + elyz.EffModel.k_aux); digits=6)
   
   #Find the corresponding current from an interpolation from P(I) curve 
-  j = interpolation(elyz.EffModel.V_J[3,:], elyz.EffModel.V_J[1,:], P_net, true)
+  j = interpolation(elyz.EffModel.V_J[3,:,s], elyz.EffModel.V_J[1,:,s], P_net, true)
   i = j * elyz.surface * elyz.N_cell
 
   return elyz.EffModel.K * i / (P_brut)
@@ -475,19 +475,19 @@ function get_η_E(P_brut::Float64, elyz::AbstractElectrolyzer)
 end
 
 
-function update_η_lin(elyz::Electrolyzer, model::LinearElectrolyzerEfficiency)
-  P_max = maximum(model.V_J[3,:]) * (1-model.k_aux)
+function update_η_lin(elyz::Electrolyzer, model::LinearElectrolyzerEfficiency, s::Int64)
+  P_max = maximum(model.V_J[3,:,s]) * (1-model.k_aux)
   P_min = compute_min_power(elyz)
   
-  η_P_min = get_η_E(P_min, elyz)
-  η_P_max = get_η_E(P_max, elyz)
+  η_P_min = get_η_E(P_min, elyz, s)
+  η_P_max = get_η_E(P_max, elyz, s)
   
   a_η = (η_P_max - η_P_min) / (P_max - P_min)
   b_η = η_P_min - a_η * P_min
 
 
-  elyz.EffModel.a_η = a_η
-  elyz.EffModel.b_η = b_η
+  elyz.EffModel.a_η[s] = a_η
+  elyz.EffModel.b_η[s] = b_η
 
 end
 

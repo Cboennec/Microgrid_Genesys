@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 AmplNLWriter = "7c4d4715-977e-5154-bfe0-e096adeac482"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Bonmin_jll = "29cba6d7-6840-5cf2-a2fa-9bdfccfe29ea"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 Cbc = "9961bab8-2fa3-5c5a-9d89-47fab24efd76"

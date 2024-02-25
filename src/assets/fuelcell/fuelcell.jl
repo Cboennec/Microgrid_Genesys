@@ -22,7 +22,7 @@ A mutable struct representing a fixed efficiency fuel cell model.
 # Arrays:
 - `powerMax::AbstractArray{Float64,3}`: The maximum power that can be demanded from the fuel cell
 - `powerMin::AbstractArray{Float64,3}`: The minimum power that can be demanded from the fuel cell
-- `V_J::AbstractArray{Float64,2}`: polarization curve (voltage as a function of current density)
+- `V_J::AbstractArray{Float64,3}`: polarization curve (voltage as a function of current density) for each scenario
 
 ## Example 
 ```julia
@@ -40,7 +40,7 @@ mutable struct FixedFuelCellEfficiency <: AbstractFuelCellEffModel
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the FuelCell
   powerMin::AbstractArray{Float64,3} #The minimum power that can be demanded to the FuelCell
 
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
 
   FixedFuelCellEfficiency(;α_p = 0.08,
@@ -66,7 +66,7 @@ A mutable struct representing a fuel cell efficiency model based on polarization
 # Arrays:
 - `powerMax::AbstractArray{Float64,3}`: The maximum power that can be demanded from the fuel cell
 - `powerMin::AbstractArray{Float64,3}`: The minimum power that can be demanded from the fuel cell
-- `V_J::AbstractArray{Float64,2}`: Polarization curve (voltage as a function of current density)
+- `V_J::AbstractArray{Float64,3}`: Polarization curve (voltage as a function of current density) for each scenario
 
 ## Example 
 ```julia
@@ -82,7 +82,7 @@ mutable struct PolarizationFuelCellEfficiency <: AbstractFuelCellEffModel
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the FuelCell
   powerMin::AbstractArray{Float64,3} #The minimum power that can be demanded to the FuelCell
 
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
 
 
@@ -103,13 +103,13 @@ A mutable struct representing a linear fuel cell efficiency model.
 - `K::Float64`: Constant value calculated as Latent Heat Value * molar mass * stoichiometric coefficient / (2 * Faraday constant) (default: (33.33 *  2.016 * 1.2 * 3600)  / (2*96485.3321))
 - `powerMax_ini::Float64`: Initial maximum power (default: 0.00001)
 - `V_max::Float64`: Maximum voltage (default: 0.8)
-- `a_η::Float64`: Slope for the function η(P) 
-- `b_η::Float64`: Ordinate at the origin for the function η(P) 
+- `a_η::Vector{Float64}`: Slope for the function η(P) 
+- `b_η::Vector{Float64}`: Ordinate at the origin for the function η(P) 
 
 # Arrays:
 - `powerMax::AbstractArray{Float64,3}`: The maximum power that can be demanded from the fuel cell
 - `powerMin::AbstractArray{Float64,3}`: The minimum power that can be demanded from the fuel cell
-- `V_J::AbstractArray{Float64,2}`: Polarization curve (voltage as a function of current density)
+- `V_J::AbstractArray{Float64,3}`: Polarization curve (voltage as a function of current density) for each scénario
 
 ## Example 
 ```julia
@@ -125,10 +125,10 @@ mutable struct LinearFuelCellEfficiency <: AbstractFuelCellEffModel
   powerMax::AbstractArray{Float64,3} #The maximum power that can be demanded to the FuelCell
   powerMin::AbstractArray{Float64,3} #The minimum power that can be demanded to the FuelCell
 
-  a_η::Float64 # the slope for the fucntion η(P)
-  b_η::Float64 # the ordinate at the origin for the function η(P)
+  a_η::Vector{Float64} # the slope for the fucntion η(P)
+  b_η::Vector{Float64} # the ordinate at the origin for the function η(P)
 
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
 
   LinearFuelCellEfficiency(; k_aux = 0.15,
@@ -179,7 +179,7 @@ mutable struct PowerAgingFuelCell <: AbstractFuelCellAgingModel
   J_ref::Float64 # The nominal current
 
   V_J_ini::AbstractArray{Float64,2}
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
   PowerAgingFuelCell(;plot = false,
     StartStop = true,
@@ -201,7 +201,7 @@ mutable struct FunctHoursAgingFuelCell <: AbstractFuelCellAgingModel
   J_base::Float64 # The current density used for degradation
 
   V_J_ini::AbstractArray{Float64,2}
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
   coef_a::Float64 #The slope of voltage degradation for each functioning hour
   coef_b::Float64 #The ordinate at origin of voltage degradation for each functioning hour
@@ -225,7 +225,7 @@ mutable struct FixedLifetimeFuelCell <: AbstractFuelCellAgingModel
   nHourMax::Int64
 
   V_J_ini::AbstractArray{Float64,2}
-  V_J::AbstractArray{Float64,2}
+  V_J::AbstractArray{Float64,3}
 
   V_nom_ini::Float64
 
@@ -293,8 +293,8 @@ end
     fc.cost = convert(SharedArray,zeros(ny, ns))
 
     fc.SoH_model.V_J_ini = zeros(3, length(fc.V_J_ini[1,:])) #J, V, P
-    fc.SoH_model.V_J = zeros(3, length(fc.V_J_ini[1,:])) #J, V, P
-    fc.EffModel.V_J = zeros(3, length(fc.V_J_ini[1,:])) #J, V, P
+    fc.SoH_model.V_J = zeros(3, length(fc.V_J_ini[1,:]), ns) #J, V, P
+    fc.EffModel.V_J = zeros(3, length(fc.V_J_ini[1,:]), ns) #J, V, P
 
     return fc
 end
@@ -328,7 +328,7 @@ function compute_operation_efficiency(fc::FuelCell, model::PolarizationFuelCellE
       P_tot = floor(power_E / (1 - model.k_aux); digits=6)
 
       #Find the corresponding current from an interpolation from P(I) curve 
-      j = interpolation(model.V_J[3,:], model.V_J[1, :], P_tot, true)
+      j = interpolation(model.V_J[3,:,s], model.V_J[1,:,s], P_tot, true)
      
       i = j * fc.surface
       
@@ -417,46 +417,46 @@ function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64
     # get the sequence of intensities
     for p in powers
         if p .> 1e-6
-          if p > maximum(fc.EffModel.V_J[3,:])
-            println("Power = ", p, " > ", "max P(J) = ", maximum(fc.EffModel.V_J[3,:]), " h, y, s = ", h, ", " , y, ", ", s)
+          if p > maximum(fc.EffModel.V_J[3,:,s])
+            println("Power = ", p, " > ", "max P(J) = ", maximum(fc.EffModel.V_J[3,:,s]), " h, y, s = ", h, ", " , y, ", ", s)
             println("configuration = ",typeof(fc.EffModel) , ", ", typeof(fc.SoH_model), ", surface = ", fc.surface, ", Ncell = ", fc.N_cell, ", couplage = ", fc.couplage )
 
-            p = floor(maximum(model.V_J[3,:]), digits =2)
+            p = floor(maximum(model.V_J[3,:,s]), digits =2)
           end
-            push!(current_densities, interpolation(fc.EffModel.V_J[3,:], fc.EffModel.V_J[1,:], p, true))
+            push!(current_densities, interpolation(fc.EffModel.V_J[3,:,s], fc.EffModel.V_J[1,:,s], p, true))
         end
     end
 
     for j in current_densities
        coef_a = get_slope_deg(j, model.deg_params.power_slope, model.deg_params.a_slope, model.deg_params.b_slope, model.deg_params.c_slope)
  
-       ΔV = (model.V_J[1,:] * coef_a).+coef_b 
+       ΔV = (model.V_J[1,:,s] * coef_a).+coef_b 
 
        ΔV *= model.deg_params.adjustment_coef 
 
        #Adjust with time spent (ref time is 1 hour)
        ΔV *= Δh
 
-       model.V_J[2,:] .-= ΔV
+       model.V_J[2,:,s] .-= ΔV
     end
 
 
-    V_nom = interpolation(model.V_J[1,:], model.V_J[2,:], model.J_ref, true)
+    V_nom = interpolation(model.V_J[1,:,s], model.V_J[2,:,s], model.J_ref, true)
 
     if model.StartStop
       start_stop_count = get_start_stops(powers)
-      model.V_J[2,:] .-= model.deg_params.start_stop_coef * V_nom * start_stop_count
+      model.V_J[2,:,s] .-= model.deg_params.start_stop_coef * V_nom * start_stop_count
     end 
 
-    model.V_J[3,:] = model.V_J[2,:] .* (model.V_J[1,:] * fc.surface * fc.N_cell) 
+    model.V_J[3,:,s] = model.V_J[2,:,s] .* (model.V_J[1,:,s] * fc.surface * fc.N_cell) 
 
     V_nom_ini = interpolation(model.V_J_ini[1,:], model.V_J_ini[2,:], model.J_ref, true)
-    V_nom = interpolation(model.V_J[1,:], model.V_J[2,:], model.J_ref, true)
+    V_nom = interpolation(model.V_J[1,:,s], model.V_J[2,:,s], model.J_ref, true)
 
 
     if model.plot
       plt = PyPlot.subplot()
-      PyPlot.plot(model.V_J[1,:], model.V_J[2,:])
+      PyPlot.plot(model.V_J[1,:,s], model.V_J[2,:,s])
       plt.set_ylabel("Tension (V)")
       plt.set_xlabel("Current density (A/cm²)")
     end
@@ -464,12 +464,12 @@ function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64
     nextSoH = V_nom/V_nom_ini  
 
     if fc.couplage
-      nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
-      nextPowerMin = compute_min_power(fc)
-      fc.EffModel.V_J = model.V_J
+      nextPowerMax = maximum(model.V_J[3,:,s]) * (1-fc.EffModel.k_aux)
+      nextPowerMin = compute_min_power(fc, s)
+      fc.EffModel.V_J[:,:,s] = model.V_J[:,:,s]
 
       if fc.EffModel isa LinearFuelCellEfficiency 
-        update_η_lin(fc, fc.EffModel)
+        update_η_lin(fc, fc.EffModel, s)
       end
 
     else
@@ -496,33 +496,33 @@ function compute_operation_soh(fc::FuelCell, model::FunctHoursAgingFuelCell, h::
     n_hours_active = sum(powers .> 1e-6)
 
     #Base degradation considered at nominal current density
-    ΔV = (model.V_J[1,:] * model.coef_a) .+ model.coef_b
+    ΔV = (model.V_J[1,:,s] * model.coef_a) .+ model.coef_b
 
     ΔV *= model.deg_params.adjustment_coef
 
     #Adjust with time spent (ref time is 1 hour)
     ΔV *= n_hours_active * Δh
        
-    model.V_J[2,:] .-= ΔV
+    model.V_J[2,:,s] .-= ΔV
   
   
 
-    V_nom = interpolation(model.V_J[1,:], model.V_J[2,:], model.J_ref, true)
+    V_nom = interpolation(model.V_J[1,:,s], model.V_J[2,:,s], model.J_ref, true)
 
     if model.StartStop
       start_stop_count = get_start_stops(powers)
-      model.V_J[2,:] .-= model.deg_params.start_stop_coef * V_nom * start_stop_count
+      model.V_J[2,:,s] .-= model.deg_params.start_stop_coef * V_nom * start_stop_count
     end 
 
-    model.V_J[3,:] = model.V_J[2,:] .* (model.V_J[1,:] * fc.surface * fc.N_cell) 
+    model.V_J[3,:,s] = model.V_J[2,:,s] .* (model.V_J[1,:,s] * fc.surface * fc.N_cell) 
 
     V_nom_ini = interpolation(model.V_J_ini[1,:], model.V_J_ini[2,:], model.J_ref, true)
-    V_nom = interpolation(model.V_J[1,:], model.V_J[2,:], model.J_ref, true)
+    V_nom = interpolation(model.V_J[1,:,s], model.V_J[2,:,s], model.J_ref, true)
 
 
     if model.plot
       plt = PyPlot.subplot()
-      PyPlot.plot(model.V_J[1,:], model.V_J[2,:])
+      PyPlot.plot(model.V_J[1,:,s], model.V_J[2,:,s])
       plt.set_ylabel("Tension (V)")
       plt.set_xlabel("Current density (A/cm²)")
     end
@@ -530,12 +530,12 @@ function compute_operation_soh(fc::FuelCell, model::FunctHoursAgingFuelCell, h::
     nextSoH = V_nom/V_nom_ini  
 
       if fc.couplage
-        nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
-        nextPowerMin = compute_min_power(fc)
+        nextPowerMax = maximum(model.V_J[3,:,s]) * (1-fc.EffModel.k_aux)
+        nextPowerMin = compute_min_power(fc, s)
         fc.EffModel.V_J = model.V_J
 
           if fc.EffModel isa LinearFuelCellEfficiency 
-            update_η_lin(fc, fc.EffModel)
+            update_η_lin(fc, fc.EffModel, s)
           end
 
       else
@@ -562,27 +562,27 @@ function compute_operation_soh(fc::FuelCell, model::FixedLifetimeFuelCell, h::In
   
     ΔV = frac * model.V_nom_ini * (1-fc.SoH_threshold)
        
-    model.V_J[2,:] .-= ΔV
+    model.V_J[2,:,s] .-= ΔV
     
-    model.V_J[3,:] = model.V_J[2,:] .* (model.V_J[1,:] * fc.surface * fc.N_cell) 
+    model.V_J[3,:,s] = model.V_J[2,:,s] .* (model.V_J[1,:,s] * fc.surface * fc.N_cell) 
 
     nextSoH = fc.soh[h,y,s] - (frac * (1-fc.SoH_threshold))
 
     if model.plot
       plt = PyPlot.subplot()
-      PyPlot.plot(model.V_J[1,:], model.V_J[2,:])
+      PyPlot.plot(model.V_J[1,:,s], model.V_J[2,:,s])
       plt.set_ylabel("Tension (V)")
       plt.set_xlabel("Current density (A/cm²)")
     end
 
 
       if fc.couplage
-        nextPowerMax = maximum(model.V_J[3,:]) * (1-fc.EffModel.k_aux)
-        nextPowerMin = compute_min_power(fc)
-        fc.EffModel.V_J = model.V_J
+        nextPowerMax = maximum(model.V_J[3,:,s]) * (1-fc.EffModel.k_aux)
+        nextPowerMin = compute_min_power(fc, s)
+        fc.EffModel.V_J[:,:,s] = model.V_J[:,:,s]
 
           if fc.EffModel isa LinearFuelCellEfficiency 
-            update_η_lin(fc, fc.EffModel)
+            update_η_lin(fc, fc.EffModel, s)
           end
 
       else
@@ -606,21 +606,21 @@ function initialize_investments!(s::Int64, fc::FuelCell, decision::NamedTuple{(:
   fc.soh[1,1,s] = fc.soh_ini
 
 
-  fc.EffModel.V_J[1,:] = copy(fc.V_J_ini[1,:]) 
-  fc.EffModel.V_J[2,:] = copy(fc.V_J_ini[2,:])
-  fc.EffModel.V_J[3,:] = fc.V_J_ini[2,:] .* fc.V_J_ini[1,:] * fc.surface * fc.N_cell
-  fc.EffModel.powerMax[1,1,s] = maximum(fc.EffModel.V_J[3,:]) * (1-fc.EffModel.k_aux)
-  fc.EffModel.powerMin[1,1,s] = compute_min_power(fc)
+  fc.EffModel.V_J[1,:,s] = copy(fc.V_J_ini[1,:]) 
+  fc.EffModel.V_J[2,:,s] = copy(fc.V_J_ini[2,:])
+  fc.EffModel.V_J[3,:,s] = fc.V_J_ini[2,:] .* fc.V_J_ini[1,:] * fc.surface * fc.N_cell
+  fc.EffModel.powerMax[1,1,s] = maximum(fc.EffModel.V_J[3,:,s]) * (1-fc.EffModel.k_aux)
+  fc.EffModel.powerMin[1,1,s] = compute_min_power(fc, s)
 
   if fc.EffModel isa LinearFuelCellEfficiency 
-    update_η_lin(fc, fc.EffModel)
+    update_η_lin(fc, fc.EffModel, s)
   end
 
   #Initialization of V(J)
     fc.SoH_model.V_J_ini[1,:] = copy(fc.V_J_ini[1,:]) 
     fc.SoH_model.V_J_ini[2,:] = copy(fc.V_J_ini[2,:])
     fc.SoH_model.V_J_ini[3,:] = fc.V_J_ini[2,:] .* fc.V_J_ini[1,:] * fc.surface * fc.N_cell
-    fc.SoH_model.V_J = copy(fc.SoH_model.V_J_ini)
+    fc.SoH_model.V_J .= copy(fc.SoH_model.V_J_ini)
 
   if fc.SoH_model isa FunctHoursAgingFuelCell
 
@@ -641,11 +641,11 @@ end
 
   ### Investment dynamic
   function compute_investment_dynamics!(y::Int64, s::Int64, fc::FuelCell,  decision::NamedTuple{(:surface, :N_cell), Tuple{Float64, Int64}})    
-    fc.EffModel.powerMax[1,y+1,s], fc.EffModel.powerMin[1,y+1,s], fc.soh[1,y+1,s] = compute_investment_dynamics(fc, (powerMax = fc.EffModel.powerMax[end,y,s], powerMin = fc.EffModel.powerMin[end,y,s], soh = fc.soh[end,y,s]), decision)
+    fc.EffModel.powerMax[1,y+1,s], fc.EffModel.powerMin[1,y+1,s], fc.soh[1,y+1,s] = compute_investment_dynamics(fc, (powerMax = fc.EffModel.powerMax[end,y,s], powerMin = fc.EffModel.powerMin[end,y,s], soh = fc.soh[end,y,s]), decision, s)
   end
 
   
-  function compute_investment_dynamics(fc::FuelCell, state::NamedTuple{(:powerMax, :powerMin, :soh), Tuple{Float64, Float64, Float64}},  decision::NamedTuple{(:surface, :N_cell), Tuple{Float64, Int64}})
+  function compute_investment_dynamics(fc::FuelCell, state::NamedTuple{(:powerMax, :powerMin, :soh), Tuple{Float64, Float64, Float64}},  decision::NamedTuple{(:surface, :N_cell), Tuple{Float64, Int64}}, s::Int64)
     if decision.N_cell > 1e-2 
 
         V_J = zeros(3, length(fc.V_J_ini[1,:])) #J, V, P
@@ -662,15 +662,15 @@ end
 
         soh_next = fc.soh_ini
 
-        fc.SoH_model.V_J = copy(V_J)
-        fc.EffModel.V_J = copy(V_J)
+        fc.SoH_model.V_J[:,:,s] = copy(V_J)
+        fc.EffModel.V_J[:,:,s] = copy(V_J)
 
         powerMax_next = maximum(V_J[3,:]) * (1-fc.EffModel.k_aux)
 
-        powerMin_next = compute_min_power(fc)
+        powerMin_next = compute_min_power(fc, s)
 
         if fc.EffModel isa LinearFuelCellEfficiency 
-          update_η_lin(fc, fc.EffModel)
+          update_η_lin(fc, fc.EffModel, s)
         end
 
     else
@@ -708,14 +708,14 @@ end
 
 
 
-function get_η_E(P_net::Float64, fc::FuelCell)
+function get_η_E(P_net::Float64, fc::FuelCell, s::Int64)
 
   
   P_tot = floor(P_net / (1 - fc.EffModel.k_aux); digits=6)
 
   
   #Find the corresponding current from an interpolation from P(I) curve 
-  j = interpolation(fc.EffModel.V_J[3,:], fc.EffModel.V_J[1,:], P_tot, true )
+  j = interpolation(fc.EffModel.V_J[3,:,s], fc.EffModel.V_J[1,:,s], P_tot, true )
   i = j * fc.surface
 
   return P_net / (fc.EffModel.K * i * fc.N_cell)
@@ -726,11 +726,11 @@ end
 
 
 #compute the power that correpond to the maximum allowed tension
-function compute_min_power(fc::FuelCell)
+function compute_min_power(fc::FuelCell, s::Int64)
   if fc.EffModel isa FixedFuelCellEfficiency
-    P_min = fc.EffModel.α_p * maximum(fc.EffModel.V_J[3,:])
+    P_min = fc.EffModel.α_p * maximum(fc.EffModel.V_J[3,:,s])
   else
-    P_min_tot = interpolation(fc.EffModel.V_J[2,:], fc.EffModel.V_J[3,:], fc.EffModel.V_max, false )
+    P_min_tot = interpolation(fc.EffModel.V_J[2,:,s], fc.EffModel.V_J[3,:,s], fc.EffModel.V_max, false )
     P_min = P_min_tot / (1 + fc.EffModel.k_aux)
   end
   return P_min
@@ -753,24 +753,28 @@ function get_start_stops(powers::Vector{Float64})
 end
 
 
-function update_η_lin(fc::FuelCell, model::LinearFuelCellEfficiency)
-  P_max = maximum(model.V_J[3,:]) * (1-model.k_aux)
-  P_min = compute_min_power(fc)
+function update_η_lin(fc::FuelCell, model::LinearFuelCellEfficiency, s::Int64)
+
+    
+  P_max = maximum(model.V_J[3,:,s]) * (1-model.k_aux)
+  P_min = compute_min_power(fc, s)
 
 
   if P_max == 0.
     η_P_min, η_P_max = 0., 0.
   else
-    η_P_min = get_η_E(P_min, fc)
-    η_P_max = get_η_E(P_max, fc)
+    η_P_min = get_η_E(P_min, fc, s)
+    η_P_max = get_η_E(P_max, fc, s)
   end
   
+
   a_η = (η_P_max - η_P_min) / (P_max - P_min)
   b_η = η_P_min - a_η * P_min
+ 
 
 
-  fc.EffModel.a_η = a_η
-  fc.EffModel.b_η = b_η
+  fc.EffModel.a_η[s] = a_η
+  fc.EffModel.b_η[s] = b_η
 
 end
 
@@ -797,16 +801,16 @@ function toStringShort(fc::FuelCell)
 end
 
 
-function create_deg_params(datas::Vector{DataFrames.DataFrame}, Js::Vector{Float64}, V_J::Matrix{Float64}, J_ref::Float64, objective_lifetime::Float64; power = 1/2)
+function create_deg_params(datas::Vector{DataFrames.DataFrame}, Js::Vector{Float64}, V_J::Matrix{Float64}, J_ref::Float64, objective_lifetime::Float64; power = 1/2, plot = false)
 
   #Maximum deg profil in Alexandra Pessot thesis
   P_max = datas[3]
 
   #Get affine coef from input data
-  as, b = fit_all_curves(datas, Js)
+  as, b = fit_all_curves(datas, Js; plot = plot)
 
   #get a,b,c coef to be able to write the degradation as ax^power + bx + c
-  a_slope, b_slope, c_slope = fit_dot(Js, as, power)
+  a_slope, b_slope, c_slope = fit_dot(Js, as, power; plot = plot)
 
   #initial voltage at ref current density
   V_ini_ref =  interpolation(V_J[1,:],  V_J[2,:], J_ref, true)
@@ -834,7 +838,7 @@ end
   
 
 
-function fit_all_curves(data, Js)
+function fit_all_curves(data, Js; plot = false)
 
   n_data = length(data)
   n_data_point = [length(data[i].J) for i in 1:n_data]
@@ -854,20 +858,22 @@ function fit_all_curves(data, Js)
 
 
   JuMP.optimize!(m2)
-  plt = PyPlot.subplot()
-  for d in 1:n_data
-      PyPlot.scatter(data[d].J, data[d].V, label = string(Js[d] , " A/cm² : data"))
-      PyPlot.plot(data[d].J, data[d].J .* value.(m2[:a])[d] .+ value(m2[:b]), label = string(Js[d] , " A/cm² : model"))
+  if plot
+    plt = PyPlot.subplot()
+    for d in 1:n_data
+        PyPlot.scatter(data[d].J, data[d].V, label = string(Js[d] , " A/cm² : data"))
+        PyPlot.plot(data[d].J, data[d].J .* value.(m2[:a])[d] .+ value(m2[:b]), label = string(Js[d] , " A/cm² : model"))
+    end
+    plt.set_xlabel("Current density (A/cm²)", fontsize=20)
+    plt.set_ylabel("μV/h", fontsize=20)
+    PyPlot.legend(fontsize = 15)
   end
-  plt.set_xlabel("Current density (A/cm²)", fontsize=20)
-  plt.set_ylabel("μV/h", fontsize=20)
-  PyPlot.legend(fontsize = 15)
 
   return value.(m2[:a]), value(m2[:b])
 end
 
 
-function fit_dot(Js, as, power)
+function fit_dot(Js, as, power; plot = false)
 
   n_data_point = length(Js)
 
@@ -888,21 +894,22 @@ function fit_dot(Js, as, power)
 
   JuMP.optimize!(m2)
 
-  p = PyPlot.subplot()
+  if plot 
+    p = PyPlot.subplot()
 
- 
+    interval =0:0.01:1
+    PyPlot.plot(interval, [value(m2[:a])*x^(power)+(value(m2[:b]) * x) + value(m2[:c]) for x in interval], label = string("ax^", power, " + bx + c"))
 
-  interval =0:0.01:1
-  PyPlot.plot(interval, [value(m2[:a])*x^(power)+(value(m2[:b]) * x) + value(m2[:c]) for x in interval], label = string("ax^", power, " + bx + c"))
-
-  p.set_xlabel("Current density (A/cm²)", fontsize=20)
-  p.set_ylabel("Slope", fontsize=20)
-  PyPlot.legend(fontsize = 15)
-   
+    p.set_xlabel("Current density (A/cm²)", fontsize=20)
+    p.set_ylabel("Slope", fontsize=20)
+    PyPlot.legend(fontsize = 15)
+    
+    
+    PyPlot.scatter(Js, as, label = "Fitted slopes coefficients")
+    PyPlot.legend(fontsize = 15)
   
-      PyPlot.scatter(Js, as, label = "Fitted slopes coefficients")
-      PyPlot.legend(fontsize = 15)
-  
+  end
+
 
   return value(m2[:a]), value(m2[:b]), value(m2[:c])
 end

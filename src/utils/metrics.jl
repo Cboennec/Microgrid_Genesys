@@ -170,15 +170,17 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
 
 
 
-    capex = 0.
+    capexx = 0.
     # Generations
     for (k, a) in enumerate(mg.generations)
-        capex = capex .+ designer.decisions.generations[string(typeof(a))][:,s] .* a.cost[:,s]
+        capexx = capexx .+ designer.decisions.generations[string(typeof(a))][:,s] .* a.cost[:,s]
+        capexx[1,s] = capexx[1,s] + designer.generations[string(typeof(a))] * a.cost[1,s]
+
     end
     # Storages
     for (k, a) in enumerate(mg.storages)
-        capex[1,s] = capex[1,s] + designer.storages[string(typeof(a))] * a.cost[1,s]
-        capex = capex .+ designer.decisions.storages[string(typeof(a))][:,s] .* a.cost[:,s]
+        capexx[1,s] = capexx[1,s] + designer.storages[string(typeof(a))] * a.cost[1,s]
+        capexx = capexx .+ designer.decisions.storages[string(typeof(a))][:,s] .* a.cost[:,s]
     end
     # Converters
     for (k, a) in enumerate(mg.converters)
@@ -189,13 +191,13 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
             P_nom_ini = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) * designer.converters[key].surface .* designer.converters[key].N_cell
 
             #Initial installation
-            capex[1,s] = capex[1,s] .+ P_nom_ini .* a.cost[1,s]
+            capexx[1,s] = capexx[1,s] .+ P_nom_ini .* a.cost[1,s]
             #Each replacement
-            capex = capex .+ P_nom_replacement[:,s] .* a.cost[:,s]
+            capexx = capexx .+ P_nom_replacement[:,s] .* a.cost[:,s]
             
         elseif a isa Heater
-            capex[1,s] = capex[1,s] + designer.converters[string(typeof(a))] * a.cost[1,s]
-            capex = capex .+ designer.decisions.converters[string(typeof(a))][:,s] .* a.cost[:,s]
+            capexx[1,s] = capexx[1,s] + designer.converters[string(typeof(a))] * a.cost[1,s]
+            capexx = capexx .+ designer.decisions.converters[string(typeof(a))][:,s] .* a.cost[:,s]
         end
 
 
@@ -210,9 +212,9 @@ function capex(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstr
                 subscribtion[i,j] = interp_linear_extrap_sub_prices(designer.decisions.subscribed_power[string(typeof(a.carrier))][i,j])
             end
         end
-        capex = capex .+ subscribtion  #abonnement
+        capexx = capexx .+ subscribtion  #abonnement
     end
-    return capex
+    return capexx
 end
 
 # Salvage value
