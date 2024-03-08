@@ -451,6 +451,10 @@ function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # rep
     h, y, s = 1:mg.parameters.nh, 2:2, 1:mg.parameters.ns
     T, O, I = Array{DateTime,3}, Array{Float64, 3}, Array{Float64, 2}
 
+    ny = mg.parameters.ny
+    ns = mg.parameters.ns
+
+
     rep_time = convert(Int64,  mg.parameters.ny)
     # Initialize
     demands = Vector{NamedTuple{(:t, :power),Tuple{T,O}}}(undef, length(mg.demands))
@@ -468,18 +472,18 @@ function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # rep
 
     r = convert.(Int64, ones(ny,ns))
     for s in 1:ns
-        for y in 1:ny
+        for year in 1:ny
             if !isempty(seed) 
                 if same_year 
-                    r[y,s] = seed[s]
+                    r[year,s] = seed[s]
                 else
-                    r[y,s] = seed[y,s]
+                    r[year,s] = seed[year,s]
                 end
             else
                 if same_year && y == 1
-                    r[y,s] = convert(Int64, floor(rand() * ns)+1)
+                    r[year,s] = convert(Int64, floor(rand() * ns)+1)
                 else 
-                    r[y,s] = convert(Int64, floor(rand() * ns)+1)
+                    r[year,s] = convert(Int64, floor(rand() * ns)+1)
                 end
             end
         end

@@ -14,7 +14,6 @@ function simulate!(mg::Microgrid,
                    ω_simu::AbstractScenarios;
                    options::Options = Options())
 
-
     # Parameters
     ns = mg.parameters.ns
 

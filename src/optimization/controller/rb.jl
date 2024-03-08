@@ -299,7 +299,7 @@ function π_7(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
        
     else
          # If there is a rest but its not enough to activate the fc
-         if p_net_E - u_liion < fc.EffModel.powerMin[h,y,s] && p_net_E - u_liion > 0 && p_net_E >= fc.EffModel.powerMin[h,y,s]
+        if p_net_E - u_liion < fc.EffModel.powerMin[h,y,s] && p_net_E - u_liion > 0 && p_net_E >= fc.EffModel.powerMin[h,y,s]
             p_adjust_E = fc.EffModel.powerMin[h,y,s]
             u_liion = p_net_E - p_adjust_E
         else
@@ -325,6 +325,69 @@ function π_7(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
     controller.decisions.converters[2][h,y,s] = u_fc_E
 end
 
+
+### PV, 
+# Bat, tank
+# FC, ELYZ 
+function π_8(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
+    # Utils to simplify the writting
+    Δh = mg.parameters.Δh
+    liion, h2tank = mg.storages[1], mg.storages[2]
+    elyz, fc = mg.converters[1], mg.converters[2]
+
+    # Net power elec
+    p_net_E = mg.demands[1].carrier.power[h,y,s] - mg.generations[1].carrier.power[h,y,s]
+
+    # priority to the battery
+    u_liion, _ = compute_operation_dynamics(liion, h, y, s, p_net_E, Δh)
+
+    rest_after_bat = p_net_E - u_liion
+
+    if rest_after_bat > 0 # Il manque de l'energie à fournir
+        u_fc_E, _, u_fc_H2 = compute_operation_dynamics(fc, h, y, s, rest_after_bat, Δh)
+        rest_after_fc = rest_after_bat - u_fc_E
+
+        if u_fc_E == 0
+            # La pile ne peut pas prendre le reste alors on lui donne son min 
+            u_fc_E = fc.EffModel.powerMin[h,y,s] 
+            u_liion = p_net_E - u_fc_E
+        end
+
+        _, u_h2tank = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), -u_fc_H2, Δh)
+        # Test H2
+        u_fc_H2 == - u_h2tank ? nothing : u_fc_E = fc_H = u_fc_H2 = u_h2tank = 0.
+        # Elyz
+        u_elyz_E, elyz_H, elyz_H2 = 0., 0., 0.
+       
+    else # Il y'a un surplus d'énergie
+        u_elyz_E, _, u_elyz_H2 = compute_operation_dynamics(elyz, h, y, s, rest_after_bat, Δh)
+        rest_after_fc = rest_after_bat - u_elyz_E
+
+        if u_elyz_E == 0
+            # L'electrolyzer ne peut pas prendre le reste alors on lui donne son min 
+            min_elyz = ceil(elyz.EffModel.powerMax[h,y,s] * elyz.min_part_load, digits = 6)
+
+            u_elyz_E, _, u_elyz_H2 = compute_operation_dynamics(elyz, h, y, s, -min_elyz, Δh)
+
+            u_liion = p_net_E + min_elyz
+        end
+
+        # H2 tank
+        _, u_h2tank = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), -u_elyz_H2, Δh)
+        # Did we charge the H2Tank
+        u_elyz_H2 == - u_h2tank ? nothing : u_elyz_E = elyz_H = elyz_H2 = u_h2tank = 0.
+        u_fc_E, fc_H, u_fc_H2 = 0., 0., 0.
+
+    end
+
+
+      
+    # Store values
+    controller.decisions.storages[1][h,y,s] = u_liion
+    controller.decisions.storages[2][h,y,s] = u_h2tank
+    controller.decisions.converters[1][h,y,s] = u_elyz_E
+    controller.decisions.converters[2][h,y,s] = u_fc_E
+end
 
 
 ### Offline
@@ -352,6 +415,8 @@ function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgri
         return π_6(h, y, s, mg, controller)
     elseif controller.options.policy_selection == 7
         return π_7(h, y, s, mg, controller)
+    elseif controller.options.policy_selection == 8
+        return π_8(h, y, s, mg, controller)
     else
         println("Policy not defined !")
     end

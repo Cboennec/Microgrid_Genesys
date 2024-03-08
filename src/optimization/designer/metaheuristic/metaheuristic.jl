@@ -160,7 +160,8 @@ end
 function fobj2(decisions::Array{Float64,1}, mg::Microgrid, designer::Metaheuristic, ω::Scenarios, varID::Dict)
     # Paramters
     nh, ny, ns = size(ω.demands[1].power)
-    λ1 = λ2 = 1e6
+    λ_eq = 1e6
+    λ_res = 1e8
 
 
     # Initialize mg
@@ -199,11 +200,15 @@ function fobj2(decisions::Array{Float64,1}, mg::Microgrid, designer::Metaheurist
     # Metrics
     metrics = Metrics(mg_m, designer_m)
 
-    δ_res = mean(mean(metrics.renewable_share, dims = 2) .< mg.parameters.renewable_share)
-       
-    δ_eq = get_δ_eq(mg_m)    
+
     
-    return metrics.npv.total[1,1] - λ1 * δ_res - λ2 * δ_eq 
+
+    δ_res = mean(min.(metrics.renewable_share .- mg_m.parameters.renewable_share, 0.))
+
+    δ_eq = get_δ_eq(mg_m)/(ny*ns)   
+
+    
+    return metrics.npv.total[1,1] - λ_res * δ_res - λ_eq * δ_eq 
     
 end
 
@@ -369,7 +374,7 @@ function initialize_designer!(mg::Microgrid, designer::Metaheuristic, ω::Scenar
             designer.converters[string(typeof(a))] = designer.results.minimizer[varID[string(typeof(a))]]
         end
     end
-    for a in mg_m.grids
+    for a in mg.grids
         designer.subscribed_power[string(typeof(a.carrier))] = designer.results.minimizer[varID[string(typeof(a.carrier))]] 
         designer.decisions.subscribed_power[string(typeof(a.carrier))][:,:] .= designer.results.minimizer[varID[string(typeof(a.carrier))]] 
     end

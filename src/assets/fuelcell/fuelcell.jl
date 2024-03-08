@@ -466,7 +466,7 @@ function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64
     if fc.couplage
       nextPowerMax = maximum(model.V_J[3,:,s]) * (1-fc.EffModel.k_aux)
       nextPowerMin = compute_min_power(fc, s)
-      fc.EffModel.V_J[:,:,s] = model.V_J[:,:,s]
+      fc.EffModel.V_J[:,:,s] = copy(model.V_J[:,:,s])
 
       if fc.EffModel isa LinearFuelCellEfficiency 
         update_η_lin(fc, fc.EffModel, s)
@@ -532,7 +532,7 @@ function compute_operation_soh(fc::FuelCell, model::FunctHoursAgingFuelCell, h::
       if fc.couplage
         nextPowerMax = maximum(model.V_J[3,:,s]) * (1-fc.EffModel.k_aux)
         nextPowerMin = compute_min_power(fc, s)
-        fc.EffModel.V_J = model.V_J
+        fc.EffModel.V_J[:,:,s] = copy(model.V_J[:,:,s])
 
           if fc.EffModel isa LinearFuelCellEfficiency 
             update_η_lin(fc, fc.EffModel, s)
@@ -579,7 +579,7 @@ function compute_operation_soh(fc::FuelCell, model::FixedLifetimeFuelCell, h::In
       if fc.couplage
         nextPowerMax = maximum(model.V_J[3,:,s]) * (1-fc.EffModel.k_aux)
         nextPowerMin = compute_min_power(fc, s)
-        fc.EffModel.V_J[:,:,s] = model.V_J[:,:,s]
+        fc.EffModel.V_J[:,:,s] = copy(model.V_J[:,:,s])
 
           if fc.EffModel isa LinearFuelCellEfficiency 
             update_η_lin(fc, fc.EffModel, s)
