@@ -338,9 +338,29 @@ function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, design
 end
 
 
+function get_decision_keys_name(mg::Microgrid)
+    assets = Dict()
+    # Assign values
+    for a in mg.generations
+        assets[string(typeof(a))] = ""
+    end
+    for a in mg.storages
+        assets[string(typeof(a))] = ""
+    end
+    for a in mg.converters
+        assets[string(typeof(a))] = ""
+    end
+    for a in mg.grids
+        assets[string(typeof(a.carrier))] = ""
+    end
+
+    return keys(assets)
+end
 
 ### Offline
 function initialize_designer!(mg::Microgrid, designer::Metaheuristic, ω::Scenarios, ub::Vector{Float64}, lb::Vector{Float64}, varID::Dict; f_obj = fobj2)
+    
+    @assert(get_decision_keys_name(mg) == keys(varID), string("VarID keys doesnt correspond to asset list \n", get_decision_keys_name(mg), " != ",  keys(varID) ))
     # Preallocate and assigned values
     preallocate!(mg, designer)
 

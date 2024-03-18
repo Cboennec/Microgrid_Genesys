@@ -17,12 +17,20 @@ A mutable struct representing Scenarios, which is a subtype of `AbstractScenario
 
 
 """
-mutable struct Scenarios{T, O, I} <: AbstractScenarios
-    demands::Vector{NamedTuple{(:t, :power),Tuple{T,O}}}
-    generations::Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}
-    storages::Vector{NamedTuple{(:cost,), Tuple{I}}}
-    converters::Vector{NamedTuple{(:cost,), Tuple{I}}}
-    grids::Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}
+# mutable struct Scenarios{T, O, I} <: AbstractScenarios
+#     demands::Vector{NamedTuple{(:t, :power),Tuple{T,O}}}
+#     generations::Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}
+#     storages::Vector{NamedTuple{(:cost,), Tuple{I}}}
+#     converters::Vector{NamedTuple{(:cost,), Tuple{I}}}
+#     grids::Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}
+# end
+
+mutable struct Scenarios <: AbstractScenarios
+    demands::Vector{NamedTuple}
+    generations::Vector{NamedTuple}
+    storages::Vector{NamedTuple}
+    converters::Vector{NamedTuple}
+    grids::Vector{NamedTuple}
 end
 
 
@@ -444,123 +452,141 @@ scenario_data = ...
 scenarios = Scenarios(microgrid, scenario_data; same_year = true, seed = [1, 2, 3])
 ```
 """
+namedtuple(x) = x
+namedtuple(d::Dict) = (; (Symbol(k) => namedtuple(v) for (k,v) in d)...)
+
 function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # repeat make every year the same, seed decide with year to use.
     # Utils to simplify the writting
-
-
-    h, y, s = 1:mg.parameters.nh, 2:2, 1:mg.parameters.ns
-    T, O, I = Array{DateTime,3}, Array{Float64, 3}, Array{Float64, 2}
-
+    nh = mg.parameters.nh
     ny = mg.parameters.ny
     ns = mg.parameters.ns
 
+    h, y, s = 1:nh, 1:1, 1:ns
 
-    rep_time = convert(Int64,  mg.parameters.ny)
     # Initialize
-    demands = Vector{NamedTuple{(:t, :power),Tuple{T,O}}}(undef, length(mg.demands))
-    generations = Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}(undef, length(mg.generations))
-    storages = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.storages))
-    converters = Vector{NamedTuple{(:cost,), Tuple{I}}}(undef, length(mg.converters))
-    grids = Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}}(undef, length(mg.grids))
+    demands = []
+    generations = []
+    storages = []
+    converters = []
+    grids = []
     # Demands
 
     if !isempty(seed) && same_year # Si rep et seed
         @assert(length(seed) == ns, "When you use seed with rep, the seeds for the scenarios must be of length ns")
-    elseif !isempty(seed) && same_year # Si seed mais pas rep
+    elseif !isempty(seed) && !same_year # Si seed mais pas rep
         @assert(size(seed) == (ny,ns), "When you use seed without rep, the seeds for the scenarios must be of size (ny, ns)")
     end
 
+    #Indices of one year scenarios to use.
     r = convert.(Int64, ones(ny,ns))
-    for s in 1:ns
-        for year in 1:ny
+    for sc in 1:ns
+        for ye in 1:ny
             if !isempty(seed) 
                 if same_year 
-                    r[year,s] = seed[s]
+                    r[ye,sc] = seed[sc]
                 else
-                    r[year,s] = seed[year,s]
+                    r[ye,sc] = seed[ye,sc]
                 end
             else
-                if same_year && y == 1
-                    r[year,s] = convert(Int64, floor(rand() * ns)+1)
+                if same_year && ny == 1
+                    r[ye,sc] = convert(Int64, floor(rand() * ns)+1)
                 else 
-                    r[year,s] = convert(Int64, floor(rand() * ns)+1)
+                    r[ye,sc] = convert(Int64, floor(rand() * ns)+1)
                 end
             end
         end
     end
 
-    for (k, a) in enumerate(mg.demands)
+
+    for a in mg.demands
         if a.carrier isa Electricity
-            demands[k] = (t = repeat(d["ld_E"].t[h, y, s], outer = (1,rep_time,1)), power = compose3D(d["ld_E"].power, mg, r))
+            push!(demands, Dict("t" => repeat(d["ld_E"]["t"][h, y, s], outer = (1,ny,1)), "power" => compose3D(d["ld_E"]["power"], mg, r)))
         elseif a.carrier isa Heat
-            demands[k] = (t = repeat(d["ld_H"].t[h, y, s], outer = (1,rep_time,1)), power = compose3D(d["ld_H"].power, mg, r))
+            push!(demands, Dict("t" => repeat(d["ld_H"]["t"][h, y, s], outer = (1,ny,1)), "power" => compose3D(d["ld_H"]["power"], mg, r)))
         end
     end
     # Generation
-    for (k, a) in enumerate(mg.generations)
+    for a in mg.generations
         if a isa Solar
-            #generations[k] = (t = d["pv"].t[h, y, s], power = d["pv"].power[h, y, s], cost = d["pv"].cost[y, s])
-            generations[k] = (t = repeat(d["pv"].t[h, y, s], outer = (1,rep_time,1)), power = compose3D(d["pv"].power, mg, r), cost =  compose2D(d["pv"].cost, mg, r))
+            push!(generations, Dict("t" => repeat(d["pv"]["t"][h, y, s], outer = (1,ny,1)), "power" => compose3D(d["pv"]["power"], mg, r), "cost" =>  compose2D(d["pv"]["cost"], mg, r)))
         end
     end
     # Storages
-    for (k, a) in enumerate(mg.storages)
+    for a in mg.storages
 
         if typeof(a) <: AbstractLiion
-        #    storages[k] = (cost = d["liion"].cost[y, s],)
-             storages[k] = (cost = compose2D(d["liion"].cost, mg, r),)
+            key = "liion"
+             #push!(storages, Dict("cost" => compose2D(d["liion"]["cost"], mg, r)))
         elseif a isa ThermalStorage
-        #    storages[k] = (cost = d["tes"].cost[y, s],)
-            storages[k] = (cost = compose2D(d["tes"].cost, mg, r),)
+            key = "tes"
+            #push!(storages, Dict("cost" => compose2D(d["tes"]["cost"], mg, r)))
         elseif a isa H2Tank
-        #    storages[k] = (cost = d["h2tank"].cost[y, s],)
-            storages[k] = (cost = compose2D(d["h2tank"].cost, mg, r),)
+            key = "h2tank"
+            #push!(storages, Dict("cost" => compose2D(d["h2tank"]["cost"], mg, r)))
+        elseif a isa Barrage
+            key = "dam"
+            #push!(storages, Dict("cost" => compose2D(d["dam"]["cost"], mg, r),  "irradiance" => compose3D(d["dam"]["irradiance"], mg, r),  "rain" => compose3D(d["dam"]["rain"], mg, r)))
         end
-    end
-    # Converters
-    for (k, a) in enumerate(mg.converters)
-        if typeof(a) <: AbstractElectrolyzer
-            #converters[k] = (cost = d["elyz"].cost[y, s],)
-            converters[k] = (cost = compose2D(d["elyz"].cost, mg, r),)
-        elseif a isa FuelCell
-            #converters[k] = (cost = d["fc"].cost[y, s],)
-            converters[k] = (cost = compose2D(d["fc"].cost, mg, r),)
 
+        tmp = Dict()
+        for (k,v) in d[key]
+            tmp[k] = length(size(v)) == 2 ? compose2D(v, mg, r) : compose3D(v, mg, r)
+        end
+
+        push!(storages, tmp)
+
+    end
+
+    # Converters
+    for a in mg.converters
+        if a isa Electrolyzer
+            push!(converters, Dict("cost" => compose2D(d["elyz"]["cost"], mg, r)))
+        elseif a isa FuelCell
+            push!(converters, Dict("cost" => compose2D(d["fc"]["cost"], mg, r)))
         elseif a isa Heater
-            #converters[k] = (cost = d["heater"].cost[y, s],)
-            converters[k] = (cost = compose2D(d["heater"].cost, mg, r),)
+            push!(converters, Dict("cost" => compose2D(d["heater"]["cost"], mg, r)))
         end
     end
     # Grids
-    for (k, a) in enumerate(mg.grids)
+    for a in mg.grids
         if a.carrier isa Electricity
-            #grids[k] = (cost_in = d["grid"].cost_in[h, y, s], cost_out = d["grid"].cost_out[h, y, s])
-            grids[k] = (cost_in =  compose3D(d["grid_Elec"].cost_in, mg, r), cost_out = compose3D(d["grid_Elec"].cost_out, mg, r), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) .+ 10.2)#TODO this price should come from the scenarios
-        elseif a.carrier isa Hydrogen
-            grids[k] = (cost_in = compose3D(d["grid_Hydrogen"].cost_in, mg, r), cost_out = compose3D(d["grid_Hydrogen"].cost_out, mg, r), cost_exceed = zeros( mg.parameters.ny,  mg.parameters.ns) )
+            push!(grids, Dict("cost_in" => compose3D(d["grid_Elec"]["cost_in"], mg, r), "cost_out" => compose3D(d["grid_Elec"]["cost_out"], mg, r), "cost_exceed" => compose2D(d["grid_Elec"]["cost_exceed"], mg, r)))
         elseif a.carrier isa Heat
-            print("ERROR Heat grid not implemented yet")
+            push!(grids, Dict("cost_in" => compose3D(d["grid_Heat"]["cost_in"], mg, r), "cost_out" => compose3D(d["grid_Heat"]["cost_out"], mg, r), "cost_exceed" => compose2D(d["grid_Heat"]["cost_exceed"], mg, r)))
+        elseif a.carrier isa Hydrogen
+            push!(grids, Dict("cost_in" => compose3D(d["grid_Hydrogen"]["cost_in"], mg, r), "cost_out" => compose3D(d["grid_Hydrogen"]["cost_out"], mg, r), "cost_exceed" => compose2D(d["grid_Hydrogen"]["cost_exceed"], mg, r)))
+
         end
     end
     
 
-    return Scenarios(demands, generations, storages, converters, grids)
+    return Scenarios([namedtuple(x) for x in demands],
+        [namedtuple(x) for x in generations],
+        [namedtuple(x) for x in storages],
+        [namedtuple(x) for x in converters],
+        [namedtuple(x) for x in grids]
+    )
 end
 
 
 
 
 function compose3D(array, mg::Microgrid, seq::Matrix{Int64})
+
+
     nh = mg.parameters.nh
     ny = mg.parameters.ny
     ns = mg.parameters.ns
 
+    if typeof(array[1,1,1]) == DateTime
+        return repeat(array, outer = (1,ny,1))
+    end
     
     result = zeros(nh, ny, ns)
 
     for s in 1:ns
         for y in 1:ny
-            result[:,y,s] = array[:,2,seq[y,s]] # Get the  whole second year of a random scenario and plug in the selected year
+            result[:,y,s] = array[:,1,seq[y,s]] # Get the  whole second year of a random scenario and plug in the selected year
         end
     end
 
@@ -577,7 +603,7 @@ function compose2D(array, mg::Microgrid, seq::Matrix{Int64})
 
     for s in 1:ns
         for y in 1:ny
-            result[y,s] = array[2,seq[y,s]] # Get the  whole second year of a random scenario and plug in the selected year
+            result[y,s] = array[1,seq[y,s]] # Get the  whole second year of a random scenario and plug in the selected year
         end
     end
 

@@ -91,6 +91,7 @@ data_selected = data_HP_HC
 Plot_dayly_prices(ω_a; label = "HP HC")
 
 
+
 ############# Dimentionnement manuel du réseau #####################
 generations = Dict("Solar" => 10.)
 storages = Dict("Liion" => 20.)
@@ -101,21 +102,22 @@ designer = initialize_designer!(microgrid, Manual(generations = generations, sto
 
 
 ############# Controle du réseau ##################################
-RB_choisie = 103 # 101, 102 ou 103
+RB_choisie = 101 # 101, 102 ou 103
 
-controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = RB_choisie)), ω_a)
+controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = 2)), ω_a)
 ###################################################################
 
 ############## Evaluation, métriques et affichage ###############
-simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
+using BenchmarkTools
+@benchmark simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
 
 metrics = Metrics(microgrid, designer)
 # Cout d'operation
-println("Cout d'opération : ", round(metrics.cost.opex[1,1], digits=2), " €")
+println("Cout d'opération : ", round.(metrics.cost.opex[1,1:ns], digits=2), " €")
 # Part de renouvelable
-println("Part de renouvelable : ", round(metrics.renewable_share[1,1] * 100, digits=2), " %")
+println("Part de renouvelable : ", round.(metrics.renewable_share[1,1:ns] * 100, digits=2), " %")
 # Cout total (investissement compris)
-println("Cout total : ", round(sum(metrics.cost.total[:,1]), digits=2), " €")
+println("Cout total : ", round.(metrics.cost.total[:,1:ns], digits=2), " €")
 
     
 plot_operation2(microgrid, y=1:ny, s=1:1)
@@ -128,23 +130,6 @@ plot_operation2(microgrid, y=1:ny, s=1:1)
 ##########################################################################
 ##################### Les solutions du TP ###############################
 ##########################################################################
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
