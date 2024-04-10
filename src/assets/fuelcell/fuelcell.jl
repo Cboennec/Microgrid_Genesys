@@ -296,6 +296,13 @@ end
     fc.SoH_model.V_J = zeros(3, length(fc.V_J_ini[1,:]), ns) #J, V, P
     fc.EffModel.V_J = zeros(3, length(fc.V_J_ini[1,:]), ns) #J, V, P
 
+    
+    if fc.EffModel isa LinearFuelCellEfficiency
+      fc.EffModel.a_η =  convert(SharedArray, zeros(ns))
+      fc.EffModel.b_η = convert(SharedArray, zeros(ns))
+    end
+
+
     return fc
 end
   
@@ -377,10 +384,10 @@ function compute_operation_efficiency(fc::FuelCell, model::LinearFuelCellEfficie
       #Compute the power needed to feed the auxiliaries and deliver the right power
       P_tot = floor(power_E / (1 - model.k_aux); digits=6)
  
-      η_E = model.a_η * P_tot + model.b_η 
+      η_E = model.a_η[s] * P_tot + model.b_η[s]
       
       if η_E >= 0.46
-        println("y,h = ", y, ", ", h, "   a_η = ", model.a_η, " , P_tot = ", P_tot, ", b_η = ",  model.b_η )
+        println("y,h = ", y, ", ", h, "   a_η = ", model.a_η[s], " , P_tot = ", P_tot, ", b_η = ",  model.b_η[s] )
         println("configuration = ",typeof(fc.EffModel) , ", ", typeof(fc.SoH_model), ", surface = ", fc.surface, ", Ncell = ", fc.N_cell, ", couple = ", fc.couplage )
       end
 

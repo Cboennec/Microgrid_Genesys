@@ -1,6 +1,6 @@
 function optimizeMetaheuristic(f::Function,
 				  lb, ub,
-				  method::AbstractMetaheuristic;
+				  method::Clearing;
 				  options = MetaResultOptions())
 
     # Parameters
@@ -35,7 +35,7 @@ function optimizeMetaheuristic(f::Function,
     end
 
 	# Results
-	results = MetaheuristicResults(method,
+	results = ClearingResults(method,
 	get_status(it, it_unchanged, timedout, options),
 	method.population[1,1:length(lb)],
 	method.population[1,end],

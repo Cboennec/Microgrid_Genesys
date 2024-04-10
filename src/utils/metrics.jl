@@ -92,6 +92,7 @@ function NPV(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::Abstrac
 end
 
 # Baseline cost
+# The cost of fulfilling all demand with the grid.
 baseline_cost(mg::Microgrid) = baseline_cost(1:mg.parameters.ns, mg)
 baseline_cost(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid) = baseline_cost(1:mg.parameters.ny, s, mg)
 function baseline_cost(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
@@ -231,16 +232,23 @@ function salvage_value(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
     end
     # Storages
     for a in mg.storages
-        if a isa AbstractLiion
+        if hasproperty(a, :soh)
             salvage[ny,:] = salvage[ny,:] .+ ((a.soh[1,end,s] .- a.SoH_threshold) ./ (1 .-a.SoH_threshold)) .* a.cost[ny, s] .* a.Erated[ny,s] # 100% value at 100% SOH, 0% at EOL
             #salvage[ny,:] = salvage[ny,:] .+ a.soh[1,end,s] .* a.cost[ny, s] .* a.Erated[ny,s]
             #$a.soh[end,end,s]$ remplace ici $(a.lifetime .- ny) ./ a.lifetime$ comme indicateur de la fraction de vie restante
+        else
+            salvage[ny,:] = salvage[ny,:] .+ (a.lifetime .- ny) ./ a.lifetime .* a.cost[ny, s] .* a.Erated[ny,s]
         end
     end
     # Converters
     for a in mg.converters
-        if a isa FuelCell || a isa Electrolyzer
-            salvage[ny,:] = salvage[ny,:] .+ ((a.soh[1,end,s] .- a.SoH_threshold) ./ (1 .-a.SoH_threshold)) .* a.cost[ny, s]
+        
+        if hasproperty(a, :soh)
+            if a isa AbstractFuelCell || a isa AbstractElectrolyzer
+                P_nom = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) .* a.surface .* a.N_cell
+                # Erreur possible car on pourrait avoir soh et pas N_cell et surface
+                salvage[ny,:] = salvage[ny,:] .+ ((a.soh[1,end,s] .- a.SoH_threshold) ./ (1 .-a.SoH_threshold)) .* a.cost[ny, s]  .* P_nom
+            end
         else
             salvage[ny,:] = salvage[ny,:] .+ (a.lifetime .- ny) ./ a.lifetime .* a.cost[ny, s]
         end
@@ -347,20 +355,20 @@ end
 renewable_share(mg::Microgrid) = renewable_share(1:mg.parameters.ns, mg)
 # Share of renewables for a given scenario s
 renewable_share(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid) = renewable_share(1:mg.parameters.ny, s, mg)
-# Share of renewables for a given year y of a givn scenario s
+# Share of renewables for a given year y of a given scenario s
 function renewable_share(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
     # TODO to be changed if there is no grid...
     total = 0.
-    for (k,a) in enumerate(mg.demands)
-        if a.carrier isa Electricity
-            total = total .+ sum(a.carrier.power[:,y,s], dims = 1)
-        elseif a.carrier isa Heat
-            total = total .+ sum(a.carrier.power[:,y,s], dims = 1) ./ mg.converters[isin(mg.converters, Heater)[2]].η_E_H
+    for dem in mg.demands
+        if dem.carrier isa Electricity
+            total = total .+ sum(dem.carrier.power[:,y,s], dims = 1)
+        elseif dem.carrier isa Heat
+            total = total .+ sum(dem.carrier.power[:,y,s], dims = 1) ./ mg.converters[isin(mg.converters, Heater)[2]].η_E_H
         end
     end
-    for (k,a) in enumerate(mg.grids)
-        if a.carrier isa Electricity
-            return share = dropdims(1. .- sum(max.(0., a.carrier.power[:,y,s]), dims = 1) ./ total, dims=1)
+    for grid in mg.grids
+        if grid.carrier isa Electricity
+            return share = dropdims(1. .- sum(max.(0., grid.carrier.power[:,y,s]), dims = 1) ./ total, dims=1)
         else
             println("Renewable share not yet defined!")
             return nothing

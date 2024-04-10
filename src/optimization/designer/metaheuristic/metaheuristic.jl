@@ -2,6 +2,7 @@
     Designer based on a metaheuristic
 =#
 
+
 mutable struct MetaheuristicOptions
     method::AbstractMetaheuristic
     iterations::Int64
@@ -406,6 +407,71 @@ function initialize_designer!(mg::Microgrid, designer::Metaheuristic, ω::Scenar
     return designer
 end
 
+
+
+# Designer for multi objective (a vector of designer is returned) 
+# A selection is then needed (by ID or by using GraphicalDesignSelection )
+function generate_designers_MO(mg::Microgrid, designer::Metaheuristic, ω::Scenarios, ub::Vector{Float64}, lb::Vector{Float64}, varID::Dict; f_obj = fobj2)
+    
+    @assert(get_decision_keys_name(mg) == keys(varID), string("VarID keys doesnt correspond to asset list \n", get_decision_keys_name(mg), " != ",  keys(varID) ))
+    # Preallocate and assigned values
+    preallocate!(mg, designer)
+
+    #Scenarios reduction #Currently removed   
+
+    # Optimize
+    designer.results = optimizeMetaheuristic(lb, ub,
+                                               designer.options.method,
+                                               options = MetaResultOptions(iterations = designer.options.iterations, multithreads = designer.options.multithreads)
+    ) do decisions
+        f_obj(decisions, mg, designer, ω, varID)
+      end
+
+    return designer, designer.results.sensitivity
+end
+
+function initialize_designer_MO(mg::Microgrid, results::Metaheuristic, varID::Dict, index::Int)
+
+    designer = Metaheuristic(options = MetaheuristicOptions(;method = results.results.method))
+    preallocate!(mg, designer)
+
+
+    solution = results.results.population[index]
+    solution.val_param
+    # Assign values
+    for a in mg.generations
+        if a isa Solar
+            designer.generations[string(typeof(a))] = solution.val_param[varID[string(typeof(a))]]
+        end
+    end
+    for a in mg.storages
+            designer.storages[string(typeof(a))] = solution.val_param[varID[string(typeof(a))]]
+    end
+    for a in mg.converters
+        if a isa Electrolyzer
+            designer.converters[string(typeof(a))] = (N_cell = Int(round(solution.val_param[varID[string(typeof(a))].N_cell])), surface = solution.val_param[varID[string(typeof(a))].surface])
+        elseif a isa FuelCell
+            designer.converters[string(typeof(a))] = (N_cell = Int(round(solution.val_param[varID[string(typeof(a))].N_cell])), surface = solution.val_param[varID[string(typeof(a))].surface])
+        elseif a isa FuelCell
+            designer.converters[string(typeof(a))] = solution.val_param[varID[string(typeof(a))]]
+        end
+    end
+    for a in mg.grids
+        designer.subscribed_power[string(typeof(a.carrier))] = solution.val_param[varID[string(typeof(a.carrier))]] 
+        designer.decisions.subscribed_power[string(typeof(a.carrier))][:,:] .= solution.val_param[varID[string(typeof(a.carrier))]] 
+    end
+    
+
+    # Save history for online optimization
+    designer.history = ω
+
+    designer.results = results.results
+    
+    return designer
+
+
+end
+
 ### Online
 # Loi de gestion d'investissement dynamique
 # ex : remplacer la batterie par une equivalente à partir d'un seuil défini
@@ -470,7 +536,7 @@ end
 
 
 
-function get_δ_eq(mg::Microgrid)
+function get_δ_eq(mg::Microgrid, type::Type)
 
     δ_eq = 0
 
@@ -485,49 +551,48 @@ function get_δ_eq(mg::Microgrid)
         push!(energy_carriers_list,  demand.carrier)
     end
 
-    energy_carriers = unique((typeof(a) for a in energy_carriers_list))
 
-    tot = zeros(length(energy_carriers), nh , ny, ns)
-    for (i, type) in enumerate(energy_carriers)
-        # Demands
-        for (k, a) in enumerate(mg.demands)
-            if a.carrier isa type
-                tot[i,:,:,:] .+= -a.carrier.power[:,:,:]
-            end
-        end
-        # Generations
-        for (k, a) in enumerate(mg.generations)
-            if a.carrier isa type
-                tot[i,:,:,:] .+= a.carrier.power[:,:,:]
-            end
-        end
-        # Storages
-        for (k, a) in enumerate(mg.storages)
-            if a.carrier isa type
-                tot[i,:,:,:] .+= a.carrier.power[:,:,:]
-            end
-        end
-        # Converters
-        for (k, a) in enumerate(mg.converters)
-            for c in a.carrier
-                if c isa type
-                    tot[i,:,:,:] .+= c.power[:,:,:]
-                end
-            end
-        end
-        for (k, a) in enumerate(mg.grids)
-            if a.carrier isa type
-                tot[i,:,:,:] .+= a.carrier.power[:,:,:]
-            end
-        end
-        if type == Electricity
-            δ_eq += sum(tot[i,:,:,:] .!= 0)
-        elseif type == Heat 
-            δ_eq += sum(tot[i,:,:,:] .< 0)
-        elseif type == Hydrogen
-            δ_eq += sum(tot[i,:,:,:] .!= 0)
+    tot = zeros(nh , ny, ns)
+
+
+    for a in mg.demands
+        if a.carrier isa type
+            tot .+= -a.carrier.power
         end
     end
+    # Generations
+    for a in mg.generations
+        if a.carrier isa type
+            tot .+= a.carrier.power
+        end
+    end
+    # Storages
+    for a in mg.storages
+        if a.carrier isa type
+            tot .+= a.carrier.power
+        end
+    end
+    # Converters
+    for a in mg.converters
+        for c in a.carrier
+            if c isa type
+                tot .+= c.power
+            end
+        end
+    end
+    for a in mg.grids
+        if a.carrier isa type
+            tot  .+= a.carrier.power
+        end
+    end
+    if type == Electricity
+        δ_eq += sum(tot .!= 0)
+    elseif type == Heat 
+        δ_eq += sum(tot .< 0)
+    elseif type == Hydrogen
+        δ_eq += sum(tot .!= 0)
+    end
+    
     return δ_eq
 end
 

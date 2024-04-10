@@ -50,7 +50,7 @@ mutable struct MetaResultOptions
 end
 
 ### Results
-mutable struct MetaheuristicResults
+mutable struct ClearingResults <: MetaheuristicResults
 	method::AbstractMetaheuristic
 	status::String
 	minimizer::AbstractArray

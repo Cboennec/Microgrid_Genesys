@@ -53,5 +53,9 @@ function initialize_investments!(s::Int64, mg::Microgrid, designer::AbstractDesi
             initialize_investments!(s, a, designer.converters[string(typeof(a))])
         end
     end
+
+    for a in mg.grids
+        initialize_investments!(s, a, designer.subscribed_power[string(typeof(a.carrier))])
+    end
 end
 

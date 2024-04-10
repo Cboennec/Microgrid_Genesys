@@ -21,18 +21,26 @@ abstract type AbstractDesigner end
 abstract type AbstractDesignerNonFloat end
 abstract type AbstractController end
 
+abstract type MetaheuristicResults end
+
+
 abstract type EnergyCarrier end
 
 #Metaheuristic module part
 using Distributions, Random, LinearAlgebra, Statistics
 using Distributed
+using GlobalSensitivity, Test
 
 # Clearing
 include(joinpath("optimization","designer", "metaheuristic","clearing","struct.jl"))
 include(joinpath("optimization","designer", "metaheuristic","clearing","functions.jl"))
 include(joinpath("optimization","designer", "metaheuristic","clearing","optimize.jl"))
 include(joinpath("optimization","designer", "metaheuristic","clearing","utils.jl"))
-
+# NSGAII
+include(joinpath("optimization","designer", "metaheuristic","NSGAII","struct.jl"))
+include(joinpath("optimization","designer", "metaheuristic","NSGAII","functions.jl"))
+include(joinpath("optimization","designer", "metaheuristic","NSGAII","optimize.jl"))
+include(joinpath("optimization","designer", "metaheuristic","NSGAII","utils.jl"))
 
 #Genesys package part 
 

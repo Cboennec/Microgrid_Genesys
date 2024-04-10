@@ -189,6 +189,14 @@ function interpolation(serie_a::Vector{Float64}, serie_b::Vector{Float64}, a::Fl
         println("serie_a = ", serie_a)
         println("a = ", a)
     end 
+
+    if id == 1 
+        if a == serie_a[1]
+            return b[1]
+        end
+        println("serie_a = ", serie_a)
+        println("a = ", a)
+    end
     
     frac = (a - serie_a[id-1]) / (serie_a[id] - serie_a[id-1])
     b = frac * (serie_b[id] - serie_b[id-1]) + serie_b[id-1]

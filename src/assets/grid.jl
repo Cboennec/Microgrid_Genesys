@@ -43,3 +43,9 @@ function preallocate!(grid::Grid, nh::Int64, ny::Int64, ns::Int64)
   grid.cost_exceed = convert(SharedArray, ones(ny, ns) .* 10.2 ) # price from https://electricitedesavoie.fr/2017/05/09/3-points-comprendre-eviter-depassement-de-puissance-souscrite/#:~:text=Cette%20puissance%20est%20exprim%C3%A9e%20en,%2C11%E2%82%AC%2Fheure%20d%C3%A9pass%C3%A9e.
   return grid
 end
+
+
+
+function initialize_investments!(s::Int64, grid::Grid, decision::Union{Float64, Int64})
+	  grid.powerMax = decision
+end

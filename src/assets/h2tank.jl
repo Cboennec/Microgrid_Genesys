@@ -91,12 +91,17 @@ end
 Compute the operation dynamics of the hydrogen tank storage for the given state, decision, and time step (Δh).
 """
 function compute_operation_dynamics(h2tank::H2Tank, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
-   # Control power constraint and correction
-   power_dch = max(min(decision, h2tank.α_p_dch * state.Erated, h2tank.η_dch * (state.soc * (1. - h2tank.η_self * Δh) - h2tank.α_soc_min) * state.Erated / Δh), 0.)
-   power_ch = min(max(decision, -h2tank.α_p_ch * state.Erated, (state.soc * (1. - h2tank.η_self * Δh) - h2tank.α_soc_max) * state.Erated / Δh / h2tank.η_ch), 0.)
-   # SoC dynamic
-   soc_next = state.soc * (1. - h2tank.η_self * Δh) - (power_ch * h2tank.η_ch + power_dch / h2tank.η_dch) * Δh / state.Erated
-   return soc_next, power_dch + power_ch
+  # Control power constraint and correction
+  power_dch = max(min(decision, h2tank.α_p_dch * state.Erated, h2tank.η_dch * (state.soc * (1. - h2tank.η_self * Δh) - h2tank.α_soc_min) * state.Erated / Δh), 0.)
+  power_ch = min(max(decision, -h2tank.α_p_ch * state.Erated, (state.soc * (1. - h2tank.η_self * Δh) - h2tank.α_soc_max) * state.Erated / Δh / h2tank.η_ch), 0.)
+  # SoC dynamic
+  if state.Erated != 0
+    soc_next = state.soc * (1. - h2tank.η_self * Δh) - (power_ch * h2tank.η_ch + power_dch / h2tank.η_dch) * Δh / state.Erated
+  else
+    soc_next = 0
+  end
+  
+  return soc_next, power_dch + power_ch
 end
 
 """

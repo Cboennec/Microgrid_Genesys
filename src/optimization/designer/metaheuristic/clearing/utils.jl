@@ -26,7 +26,7 @@ function get_status(it::Int64, it_unchanged::Int64, timedout::Bool, options::Met
     return status
 end
 # Show results in REPL
-function show_results(results::MetaheuristicResults)
+function show_results(results::ClearingResults)
     if results.options.log
         # Summary
         println("___")

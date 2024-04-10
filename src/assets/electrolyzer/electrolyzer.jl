@@ -183,9 +183,14 @@ function preallocate!(elyz::Electrolyzer, nh::Int64, ny::Int64, ns::Int64)
   elyz.soh = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; elyz.soh[1,1,:] .= elyz.soh_ini
   elyz.cost = convert(SharedArray,zeros(ny, ns))
 
-  elyz.SoH_model.V_J_ini = zeros(3, length(elyz.V_J_ini[1,:])) #J, V, P
-  elyz.SoH_model.V_J = zeros(3, length(elyz.V_J_ini[1,:]), ns) #J, V, P
-  elyz.EffModel.V_J = zeros(3, length(elyz.V_J_ini[1,:]), ns) #J, V, P
+  elyz.SoH_model.V_J_ini = convert(SharedArray, zeros(3, length(elyz.V_J_ini[1,:]))) #J, V, P
+  elyz.SoH_model.V_J = convert(SharedArray, zeros(3, length(elyz.V_J_ini[1,:]), ns)) #J, V, P
+  elyz.EffModel.V_J = convert(SharedArray, zeros(3, length(elyz.V_J_ini[1,:]), ns)) #J, V, P
+
+  if elyz.EffModel isa LinearElectrolyzerEfficiency
+    elyz.EffModel.a_η =  convert(SharedArray, zeros(ns))
+    elyz.EffModel.b_η = convert(SharedArray, zeros(ns))
+  end
 
   return elyz
 end
@@ -267,7 +272,7 @@ function compute_operation_efficiency(elyz::Electrolyzer, model::LinearElectroly
   if power_E < 0
     #Compute the remaining power after feeding the auxiliaries 
 
-    η_E_H2 = model.a_η * -power_E + model.b_η
+    η_E_H2 = model.a_η[s] * -power_E + model.b_η[s]
 
     elyz.η[h,y,s] = η_E_H2
 
@@ -464,6 +469,10 @@ end
 
 
 function get_η_E(P_brut::Float64, elyz::AbstractElectrolyzer, s::Int64)
+
+  if P_brut == 0.
+    return 0.
+  end
   P_net = ceil(P_brut / (1 + elyz.EffModel.k_aux); digits=6)
   
   #Find the corresponding current from an interpolation from P(I) curve 
@@ -477,7 +486,7 @@ end
 
 function update_η_lin(elyz::Electrolyzer, model::LinearElectrolyzerEfficiency, s::Int64)
   P_max = maximum(model.V_J[3,:,s]) * (1-model.k_aux)
-  P_min = compute_min_power(elyz)
+  P_min = compute_min_power(elyz, s)
   
   η_P_min = get_η_E(P_min, elyz, s)
   η_P_max = get_η_E(P_max, elyz, s)
