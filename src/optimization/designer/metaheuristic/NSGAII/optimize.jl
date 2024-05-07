@@ -24,15 +24,17 @@ function optimizeMetaheuristic(f::Function,
         # Initialisation du generateur de nombres aleatoires
         Randomize()
         
-        println("generation = ", 0)  #  affichage des generations a l'ecran
+        println("Initialize population : ")  #  affichage des generations a l'ecran
 
         pop = Initialise_population!(param, nb_param, nb_pop, f)
 
         # On grade une trace de la population realisable
         real_track = []
 
-        for i in 1:nb_gene
-            println("generation = ",i)  #  affichage des generations a l'ecran
+        println("Start optimization : ")  
+
+        @showprogress for i in 1:nb_gene
+           # println("generation = ",i)  #  affichage des generations a l'ecran
 
             Calcule_dominance!(pop, nb_pop, nb_front, taille_front)
 
@@ -48,7 +50,8 @@ function optimizeMetaheuristic(f::Function,
             pop[(nb_ind+1):nb_pop] .= Croisement(pop[(nb_ind+1):nb_pop], nb_ind, param, nb_param, method.k, method.discrete, method.eta, method.dec, 4, cross, i) # 4 is for auto-adaptativ
 
             pop[(nb_ind+1):nb_pop] .= Mute_population(pop[(nb_ind+1):nb_pop], nb_ind, param, nb_param, method.k, method.discrete, method.pm, method.pm_cross)
-        
+            
+            #Threads.@threads :static for j in 1:nb_ind
             for j in 1:nb_ind
                 pop[nb_ind+j].critere , pop[nb_ind+j].contrainte, pop[nb_ind+j].realisable = Calcule_criteres(pop[nb_ind+j].val_param, f)   
             end

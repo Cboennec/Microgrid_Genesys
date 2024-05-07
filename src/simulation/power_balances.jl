@@ -3,9 +3,6 @@
     constraints
 =#
 
-
-#TODO Here is a sub optimal implementation with the types comparison it's too slow there must be a way to write a bit more code that go really faster.
-
 function compute_power_balances!(h::Int64, y::Int64, s::Int64, mg::Microgrid)
     # Hydrogen
     checking!(h, y, s, mg, Hydrogen)
@@ -17,30 +14,30 @@ end
 
 function power_balance(h::Union{Int64, UnitRange{Int64}}, y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, type::DataType)
     # Energy balance
-    balance = 0.
+    balance = zeros(length(h),length(y),length(s))
     # Demands
     if !isempty(mg.demands)
         for a in mg.demands
-            a.carrier isa type ? balance = balance .+ a.carrier.power[h,y,s] : nothing
+            a.carrier isa type ? balance .+= a.carrier.power[h,y,s] : nothing
         end
     end
     # Generations
     if !isempty(mg.generations)
         for a in mg.generations
-            a.carrier isa type ? balance = balance .- a.carrier.power[h,y,s] : nothing
+            a.carrier isa type ? balance .-= a.carrier.power[h,y,s] : nothing
         end
     end
     # Storages
     if !isempty(mg.storages)
         for a in mg.storages
-            a.carrier isa type ? balance = balance .- a.carrier.power[h,y,s] : nothing
+            a.carrier isa type ? balance .-= a.carrier.power[h,y,s] : nothing
         end
     end
     # Converters
     if !isempty(mg.converters)
         for a in mg.converters
             for c in a.carrier
-                c isa type ? balance = balance .- c.power[h,y,s] : nothing
+                c isa type ? balance .-= c.power[h,y,s] : nothing
             end
         end
     end

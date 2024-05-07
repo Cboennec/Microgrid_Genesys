@@ -6,11 +6,11 @@
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::AbstractController)
     # Converters
     for (k, a) in enumerate(mg.converters)
-        compute_operation_dynamics!(h, y, s, a, controller.decisions.converters[k][h,y,s], mg.parameters.Δh)
+        @inbounds compute_operation_dynamics!(h, y, s, a, controller.decisions.converters[k][h,y,s], mg.parameters.Δh)
     end
     # Storage
     for (k, a) in enumerate(mg.storages)
-        compute_operation_dynamics!(h, y, s, a, controller.decisions.storages[k][h,y,s], mg.parameters.Δh)
+        @inbounds compute_operation_dynamics!(h, y, s, a, controller.decisions.storages[k][h,y,s], mg.parameters.Δh)
     end
 end
 

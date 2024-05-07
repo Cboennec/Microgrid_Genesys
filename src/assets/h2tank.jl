@@ -27,6 +27,7 @@ A mutable struct representing a hydrogen tank storage model with various paramet
 """
 mutable struct H2Tank  <: AbstractStorage
    # Paramètres
+   pression_max::Float64 # Pression en Bar
    α_p_ch::Float64
    α_p_dch::Float64
    η_ch::Float64
@@ -47,7 +48,9 @@ mutable struct H2Tank  <: AbstractStorage
    # Eco
    cost::AbstractArray{Float64,2}
    # Inner constructor
-   H2Tank(; α_p_ch = 0.5,
+   H2Tank(;
+      pression_max = 150., # Pression en Bar,
+      α_p_ch = 0.5,
       α_p_dch = 0.5,
       η_ch = 1.,
       η_dch = 1.,
@@ -59,7 +62,7 @@ mutable struct H2Tank  <: AbstractStorage
       Erated_ini = 1e-6,
       soc_ini = 0.5,
       soh_ini = 1.) =
-      new(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, bounds, Erated_ini, soc_ini, soh_ini)
+      new(pression_max, α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, bounds, Erated_ini, soc_ini, soh_ini)
 end
 
 """

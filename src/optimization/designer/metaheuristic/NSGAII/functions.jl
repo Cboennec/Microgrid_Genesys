@@ -113,7 +113,13 @@ function Initialise_population!( param::Array{TypeParam}, nb_param::Int, nb_pop:
     val_param_ini = [Rrandom(param[j].pmin, param[j].pmax) for j in 1:nb_param]
     crit, cont, real = Calcule_criteres(val_param_ini, f_eval)
 
-    pop = [Individu(0, 0.0, zeros(Float64, nb_param), zeros(Float64, length(cont)), zeros(Float64, length(crit)), 0, false) for _ in 1:nb_pop]
+    pop = [Individu(0,
+     0.0, 
+     convert(SharedArray, zeros(Float64, nb_param)),
+     convert(SharedArray, zeros(Float64, length(cont))),
+     convert(SharedArray, zeros(Float64, length(crit))),
+     0,
+     false) for _ in 1:nb_pop]
     pop[1].critere = crit
     pop[1].contrainte = cont
     pop[1].realisable = real
@@ -121,7 +127,8 @@ function Initialise_population!( param::Array{TypeParam}, nb_param::Int, nb_pop:
     pop[1].val_param = val_param_ini
 
 
-    for i in 2:nb_pop
+    #@showprogress Threads.@threads :static
+    for i in 2:nb_pop # could be 2:nb_pop
         for j in 1:nb_param
             pop[i].val_param[j] = Rrandom(param[j].pmin, param[j].pmax)
             pop[i].type_cross = rand(1:3)

@@ -419,12 +419,37 @@ function generate_designers_MO(mg::Microgrid, designer::Metaheuristic, ω::Scena
 
     #Scenarios reduction #Currently removed   
 
+    #lk = ReentrantLock()
     # Optimize
     designer.results = optimizeMetaheuristic(lb, ub,
                                                designer.options.method,
                                                options = MetaResultOptions(iterations = designer.options.iterations, multithreads = designer.options.multithreads)
     ) do decisions
-        f_obj(decisions, mg, designer, ω, varID)
+        f_obj(decisions, mg, designer, ω, varID)#, lk)
+      end
+
+    return designer, designer.results.sensitivity
+end
+
+function generate_designers_MO(mg_vec::Vector{Microgrid}, designer::Metaheuristic, ω::Scenarios, ub::Vector{Float64}, lb::Vector{Float64}, varID::Dict; f_obj = fobj2)
+    
+    @assert(get_decision_keys_name(mg_vec[1]) == keys(varID), string("VarID keys doesnt correspond to asset list \n", get_decision_keys_name(mg), " != ",  keys(varID) ))
+    # Preallocate and assigned values
+    for i in 1:Threads.nthreads()
+        preallocate!(mg_vec[i], designer)
+    end
+
+    #Scenarios reduction #Currently removed   
+
+    locks = [ReentrantLock() for _ in 1:Threads.nthreads()]
+
+
+    # Optimize
+    designer.results = optimizeMetaheuristic(lb, ub,
+                                               designer.options.method,
+                                               options = MetaResultOptions(iterations = designer.options.iterations, multithreads = designer.options.multithreads)
+    ) do decisions
+        f_obj(decisions, mg_vec, designer, ω, varID; locks)
       end
 
     return designer, designer.results.sensitivity
@@ -540,6 +565,7 @@ function get_δ_eq(mg::Microgrid, type::Type)
 
     δ_eq = 0
 
+    nh, ny, ns = mg.parameters.nh, mg.parameters.ny, mg.parameters.ns
 
     energy_carriers_list = []
     for conv in mg.converters

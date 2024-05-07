@@ -450,9 +450,9 @@ function compute_operation_soc(liion::Liion, model::LinearLiionEfficiency, h::In
 	end
 
 	if model.couplage.E
-	 Erated = liion.Erated[y,s] * liion.soh[h,y,s]
+	    Erated = liion.Erated[y,s] * liion.soh[h,y,s]
 	else
-	 Erated = liion.Erated[y,s]
+	    Erated = liion.Erated[y,s]
 	end
 
 	if model.couplage.R
@@ -461,8 +461,8 @@ function compute_operation_soc(liion::Liion, model::LinearLiionEfficiency, h::In
 		η = η_ini
 	end
 
-	power_dch = max(min(decision, model.α_p_dch * Erated, liion.soh[h,y,s] * liion.Erated[y,s] / Δh, η * (liion.soc[h,y,s] - liion.α_soc_min) * Erated / Δh), 0.)
-	power_ch = min(max(decision, -model.α_p_ch * Erated, -liion.soh[h,y,s] * liion.Erated[y,s] / Δh, (liion.soc[h,y,s] - liion.α_soc_max) * Erated / Δh / η), 0.)
+	@inbounds power_dch = max(min(decision, model.α_p_dch * Erated, liion.soh[h,y,s] * liion.Erated[y,s] / Δh, η * (liion.soc[h,y,s] - liion.α_soc_min) * Erated / Δh), 0.)
+	@inbounds power_ch = min(max(decision, -model.α_p_ch * Erated, -liion.soh[h,y,s] * liion.Erated[y,s] / Δh, (liion.soc[h,y,s] - liion.α_soc_max) * Erated / Δh / η), 0.)
 
 	return (1-model.η_self) * liion.soc[h,y,s] - (power_ch * η + power_dch / η) * Δh / Erated, power_ch, power_dch
 
@@ -1010,7 +1010,7 @@ Erated_next, soc_next, soh_next = compute_investment_dynamics(liion, state, deci
 	 if decision > 1e-2
 		 Erated_next = decision
 		 soc_next = liion.soc_ini
-		 soh_next =  1.
+		 soh_next =  liion.soh_ini
 		 if liion.SoH_model isa SemiEmpiricalLiion
 			liion.SoH_model.Sum_fd[s] = 0.
 		 end

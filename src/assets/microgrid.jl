@@ -171,33 +171,38 @@ function isin(field::Vector, type::DataType)
     return bool, idx
 end
 
-
 # serie_a : the serie you know a value on
 # serie_b : the serie you want to find a value on
 # a : the value you have
 # b : the value you want
 # increasing : is serie a increasing ?
 function interpolation(serie_a::Vector{Float64}, serie_b::Vector{Float64}, a::Float64, serie_a_increasing::Bool)
-    
+   
+
     if serie_a_increasing
-        id = findfirst(serie_a .>= a)
+        if a <= serie_a[1]
+            return serie_b[1]
+        elseif a >= serie_a[end]
+            return serie_b[end]
+        else
+            id = findfirst(serie_a .>= a)
+        end
     else
-        id = findfirst(serie_a .<= a)
+        if a >= serie_a[1]
+            return serie_b[1]
+        elseif a <= serie_a[end]
+            return serie_b[end]
+        else
+            id = findfirst(serie_a .<= a)
+        end
     end
 
-    if isnothing(id) 
-        println("serie_a = ", serie_a)
-        println("a = ", a)
-    end 
-
-    if id == 1 
+    if id == 1
         if a == serie_a[1]
             return b[1]
         end
-        println("serie_a = ", serie_a)
-        println("a = ", a)
     end
-    
+   
     frac = (a - serie_a[id-1]) / (serie_a[id] - serie_a[id-1])
     b = frac * (serie_b[id] - serie_b[id-1]) + serie_b[id-1]
     return b

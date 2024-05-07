@@ -4,10 +4,10 @@ mutable struct Individu
     front::Int                     # front d'appartenance
     niche_count::Float64           # indice de densite
     val_param::Vector{Float64}     # parametres
-    contrainte::Vector{Float64}   # contraintes
-    critere::Vector{Float64}      # criteres
-    type_cross::Int               # X-gene : type de croisement
-    realisable::Bool             # = 1 si realisable
+    contrainte::Vector{Float64}    # contraintes
+    critere::Vector{Float64}       # criteres
+    type_cross::Int                # X-gene : type de croisement
+    realisable::Bool               # = 1 si realisable
 end
 
 

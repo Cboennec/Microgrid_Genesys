@@ -29,7 +29,7 @@ abstract type EnergyCarrier end
 #Metaheuristic module part
 using Distributions, Random, LinearAlgebra, Statistics
 using Distributed
-using GlobalSensitivity, Test
+using GlobalSensitivity, Test, ProgressMeter
 
 # Clearing
 include(joinpath("optimization","designer", "metaheuristic","clearing","struct.jl"))
@@ -50,7 +50,7 @@ using JuMP, Cbc, Metaheuristics, SDDP, Ipopt#, Gurobi
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
-using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD2, Pandas, Random, Plots
+using Seaborn, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD2, Pandas, Random, Plots
 # Assets
 include(joinpath("assets","microgrid.jl"))
 include(joinpath("assets","carriers.jl"))

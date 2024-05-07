@@ -73,6 +73,7 @@ function simulate!(s::Int64,
         simulate!(y, s, mg, controller, designer, ω_simu, options)
     end
 end
+
 function simulate!(y::Int64,
                    s::Int64,
                    mg::Microgrid,
@@ -85,12 +86,13 @@ function simulate!(y::Int64,
     nh = mg.parameters.nh
 
     if y == 1 
-    
+        
         # Update investment informations
         update_investment_informations!(y, s, mg, ω_simu)
 
         #Install component at the begining of the 1st year
         initialize_investments!(s, mg, designer)
+
 
         # Compute investment decision variables
         #compute_investment_decisions!(y, s, mg, designer)
@@ -120,6 +122,31 @@ function simulate!(y::Int64,
     update_grid_cost_informations!(y, s, mg, ω_simu)
 
 end
+
+
+function simulate!(h::Int64,
+                   y::Int64,
+                   s::Int64,
+                   mg::Microgrid,
+                   controller::AbstractController,
+                   designer::AbstractDesigner,
+                   ω_simu::AbstractScenarios,
+                   options::Options)
+
+    # Update operation informations
+    update_operation_informations!(h, y, s, mg, ω_simu)
+
+    # Compute operation decision variables
+    compute_operation_decisions!(h, y, s, mg, controller)
+
+    # Compute operation dynamics for each converter and storage in mg
+    compute_operation_dynamics!(h, y, s, mg, controller)
+
+    # Power balance constraint checked for each node
+    #Si désactivé rien n'est puisé sur la grid 
+    compute_power_balances!(h, y, s, mg)
+end
+
 
 
 function simulate!(h::Int64,

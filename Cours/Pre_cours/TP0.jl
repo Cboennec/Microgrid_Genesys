@@ -18,8 +18,8 @@ add!(microgrid, Demand(carrier = Electricity()),
 
 using JLD2, FileIO
 
-data_optim = JLD2.load(joinpath(pwd(),"data_light_4.jld2"))
-            
+data_optim = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4.jld2"))
+
 ω_a = Scenarios(microgrid, data_optim; same_year=true, seed=1:ns)
             
 generations = Dict("Solar" => 10.)
@@ -30,11 +30,12 @@ designer = initialize_designer!(microgrid, Manual(generations = generations, sto
 
 controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = 2)), ω_a)
 
-simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
-
+simulate!(microgrid, controller, designer, ω_a, options = (Options(mode = "serial")))
 
 metrics = Metrics(microgrid, designer)
 
     
 plot_operation2(microgrid, y=1:ny, s=1:1)
+
+
 
