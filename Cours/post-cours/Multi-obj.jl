@@ -107,7 +107,6 @@ function get_obj(decisions, mg, designer, ω, varID)
     results = []
 
 
-
     push!(results, -mean(sum(metrics.npv.total, dims = 1))) #NPV
     push!(results, -mean(metrics.renewable_share)) #RES dist
     
@@ -128,8 +127,8 @@ varID = Dict("Solar" => 1,
 ub_var = [80., 150., 2500., 5, 30., 5, 30., 36.]
 lb_var = [0., .1,   0.,  0,  0.,  0, 0., 0.] 
 
-NSGA_pop = 30 #100 recommended
-NSGA_gen = 30 #100 recommended
+NSGA_pop = 20 #100 recommended
+NSGA_gen = 20 #100 recommended
 
 # Les éléments importants :
 # Le microréseau : microgrid
@@ -144,7 +143,8 @@ NSGA_gen = 30 #100 recommended
     ω_opti,
     ub_var,
     lb_var,
-    varID, f_obj = get_obj) 
+    varID, 
+    f_obj = get_obj) 
 
     # Notez le changement de signe des objectif car notre problème est un problème de maximization (NPV et RES) et l'algorithme fonction avec des minimum 
 
@@ -180,6 +180,8 @@ PlotlyJS.plot(
 )
 
 
+# Dès lors on peut choisir la solution désirée, dont les critère nous satisfont, à l'indice correspondant dans le vecteur param_ordered
+# Une initialisation par un designer Manual permet d'en faire l'usage désiré.
 
 
 

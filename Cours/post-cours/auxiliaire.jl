@@ -300,7 +300,7 @@ fc = FuelCell(;V_J_ini = V_J_FC, SoH_model = PowerAgingFuelCell(;deg_params=deg)
 # Add the equipment to the microgrid
 add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),
-                Liion(), H2Tank(),
+                Liion(), H2Tank(α_soc_min=0.1),
                 elyz, fc,
                 Grid(carrier = Electricity()))
         
@@ -321,10 +321,8 @@ controller_rb = initialize_controller!(microgrid, controller_rb, ω_a)
 
 simulate!(microgrid, controller_rb, designer, ω_a, options = Options(mode = "serial"))
 
-
-
 plotlyjs()
-plot_operation2(microgrid, y=1:ny, s=1:ns)
+plot_operation2(microgrid, y=1:ny, s=1:1)
 
 # pygui(true)
 # plot_operation(microgrid, y=1:ny, s=1:ns)

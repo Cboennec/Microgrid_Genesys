@@ -139,7 +139,7 @@ Metaheuristic(options = MetaheuristicOptions(;method = Clearing(nind = 50), mult
   # Simulate 
   # Si vous utilisez le(s) scénario(s) de l'optim (ω_optim) vous retrouverez les même metrics.
   # Si vous utilisez des scénarios différents (ω_eval) pour l'évaluation vous obtiendrez des métriques différentes.
-  simulate!(microgrid, controller_eval, designer, ω_optim, options = Options(mode = "serial"))
+  simulate!(microgrid, controller_eval, designer, ω_eval, options = Options(mode = "serial"))
 
   # metrcis
   metrics = Metrics(microgrid, designer)
