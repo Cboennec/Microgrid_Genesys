@@ -4,6 +4,7 @@ data.jld
 Examples/
 stage_scenario/
 fonctionality_test/
+
 .CondaPkg/
 
 example/data/ausgrid_5_twostage.jld
