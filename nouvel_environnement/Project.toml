@@ -1,0 +1,6 @@
+[deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+FlameGraphs = "08572546-2f56-4bcf-ba4e-bab62c3a3f89"
+InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"

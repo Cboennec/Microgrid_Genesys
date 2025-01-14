@@ -1,3 +1,11 @@
+abstract type AbstractHeater <: AbstractConverter  end
+
+abstract type AbstractHeaterEffModel end
+
+abstract type AbstractHeaterAgingModel end
+
+
+
 #=
     Heater modelling
  =#
@@ -7,8 +15,8 @@
 A mutable struct representing a Heater, which is a subtype of `AbstractConverter`.
 
 # Parameters
-- `η_E_H::Float64`: The conversion efficiency of the heater.
-- `lifetime::Int64`: The expected lifetime of the heater (in years).
+- `eff_model::AbstractHeaterEffModel`: The model for conversion efficiency of the heater.
+- `SoH_model::AbstractHeaterAgingModel`: The aging model for the heater. The default model use a fixed expected lifetime for the heater (in years).
 - `bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}`: The lower and upper bounds of the heater's power.
 - `powerMax_ini::Float64`: The initial maximum power output of the heater.
 - `soh_ini::Float64`: The initial state of health of the heater.
@@ -22,13 +30,13 @@ A mutable struct representing a Heater, which is a subtype of `AbstractConverter
 ## Example
 
 ```julia
-heater = Heater(η_E_H=1.0, lifetime=25, bounds=(lb=30.0, ub=30.0), powerMax_ini=30.0, soh_ini=1.0)
+heater = Heater(eff_model=ConstEfficiencyHeater(η_E_H=1.0), SoH_model=FixedLifetimeHeater(lifetime=25), bounds=(lb=30.0, ub=30.0), powerMax_ini=30.0, soh_ini=1.0)
 ```
 """
-mutable struct Heater <: AbstractConverter
+mutable struct Heater <: AbstractHeater
   # Parameters
-  η_E_H::Float64
-  lifetime::Int64
+  eff_model::AbstractHeaterEffModel
+  SoH_model::AbstractHeaterAgingModel
   bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}
   # Initial conditions
   powerMax_ini::Float64
@@ -39,13 +47,29 @@ mutable struct Heater <: AbstractConverter
   # Eco
   cost::AbstractArray{Float64,2}
   # Inner constructor
-  Heater(; η_E_H = 1.,
-          lifetime = 25,
+  Heater(; eff_model = ConstEfficiencyHeater(),
+          SoH_model = FixedLifetimeHeater(),
           bounds = (lb = 30., ub = 30.),
           powerMax_ini = 30.,
           soh_ini = 1.) =
-          new(η_E_H, lifetime, bounds, powerMax_ini)
+          new(eff_model, SoH_model, bounds, powerMax_ini)
 end
+
+mutable struct ConstEfficiencyHeater <: AbstractHeaterEffModel
+
+  η_E_H::Float64
+
+  ConstEfficiencyHeater(;η_E_H = 1.) = new(η_E_H)
+end
+
+
+mutable struct FixedLifetimeHeater <: AbstractHeaterAgingModel
+
+  lifetime::Int64
+
+  FixedLifetimeHeater(;lifetime = 25) = new(lifetime)
+end
+
 
 ### Preallocation
 function preallocate!(heater::Heater, nh::Int64, ny::Int64, ns::Int64)
@@ -66,7 +90,7 @@ function compute_operation_dynamics(heater::Heater, state::NamedTuple{(:powerMax
  # Power constraint and correction
  power_E = min(max(decision, -state.powerMax), 0.)
  # Power computation
- power_H = - heater.η_E_H * power_E
+ power_H = - heater.eff_model.η_E_H * power_E
  return power_E, power_H
 end
 

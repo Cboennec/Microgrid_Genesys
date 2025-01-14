@@ -1,3 +1,5 @@
+abstract type AbstractPVAgingModel end
+
 #=
     Sources modelling
  =#
@@ -7,13 +9,13 @@
 A mutable struct representing a solar power generation source. It contains information about the lifetime, bounds, initial conditions, variables, and costs related to the solar generation.
 
 # Parameters
--`lifetime::Int64 (default: 25)`: The lifetime of the solar power generation system.
+-`SoH_model::AbstractPVAgingModel (default: FixedLifetimeSolar(25))`: The aging model with a fixed lifetime of the solar power generation system.
 -`bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}} (default: (lb = 0., ub = 1000.))`: The lower and upper bounds of the solar power generation system.
 -`powerMax_ini::Float64 (default: 0.)`: The initial maximum power output of the solar power generation system.
 -`soh_ini::Float64 (default: 1.)`: The initial state of health of the solar power generation system.
 """
 mutable struct Solar <: AbstractGeneration
-  lifetime::Int64
+  SoH_model::AbstractPVAgingModel
   bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}
   # Initial conditions
   powerMax_ini::Float64
@@ -25,7 +27,13 @@ mutable struct Solar <: AbstractGeneration
   # Eco
   cost::AbstractArray{Float64,2}
   # Inner constructor
-  Solar(;lifetime=25, bounds = (lb = 0., ub = 1000.), powerMax_ini = 0., soh_ini = 1.) = new(lifetime, bounds, powerMax_ini, soh_ini)
+  Solar(;SoH_model=FixedLifetimeSolar(), bounds = (lb = 0., ub = 1000.), powerMax_ini = 0., soh_ini = 1.) = new(SoH_model, bounds, powerMax_ini, soh_ini)
+end
+
+mutable struct FixedLifetimeSolar <: AbstractPVAgingModel
+  lifetime::Int64
+
+  FixedLifetimeSolar(;lifetime = 25) = new(lifetime)
 end
 
 """

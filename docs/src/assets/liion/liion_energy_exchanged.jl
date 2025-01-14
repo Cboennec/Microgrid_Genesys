@@ -18,14 +18,14 @@ The structure have a lot of parameters but most of them are set to default value
 - `nCycle::Float64`: Number of cycle before reaching EOL (should be found in the cycle to failure curve)
 - `SoH_threshold::Float64`: SoH level to replace the battery (default : 0.8)
 - `couplage::NamedTuple`: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
-- `soc_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
+- `eff_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
 - `calendar::Bool`: Whether to include calendar aging in the SoH computation  (default : true)
 - `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
 - `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
 
 ## Example 
 ```julia
-Liion_energy_exchanged(;calendar = true, nCycle = fatigue_data.cycle[findfirst(fatigue_data.DoD .> (0.6))], soc_model = "polynomial", couplage = (E=true, R=true))
+Liion_energy_exchanged(;calendar = true, nCycle = fatigue_data.cycle[findfirst(fatigue_data.DoD .> (0.6))], eff_model = "polynomial", couplage = (E=true, R=true))
 ```
 
 Here the `nCycle` is selected from the cycle to failure curve using 60% DoD.
@@ -48,7 +48,7 @@ Here the `nCycle` is selected from the cycle to failure curve using 60% DoD.
  	couplage::NamedTuple{(:E, :R), Tuple{Bool, Bool}}  #a boolean tuple to tell wether or not the soh should influence the other parameters.
 
  	#Model dynamics
- 	soc_model::String #model name
+ 	eff_model::String #model name
     calendar::Bool
 
  	# Initial conditions
@@ -85,15 +85,15 @@ Here the `nCycle` is selected from the cycle to failure curve using 60% DoD.
  		bounds = (lb = 0., ub = 1000.),
  		SoH_threshold = 0.8,
  		couplage = (E = true, R = false),
- 		soc_model = "linear",
+ 		eff_model = "linear",
         calendar = true,
  		Erated_ini = 1e-6,
  		soc_ini = 0.5,
  		soh_ini = 1.,
         artificial_soc_profil = zeros(8760,1)) =  verification_liion_params(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, nCycle, bounds,
-            SoH_threshold, couplage, soc_model, calendar, Erated_ini, soc_ini, soh_ini, artificial_soc_profil) ?
+            SoH_threshold, couplage, eff_model, calendar, Erated_ini, soc_ini, soh_ini, artificial_soc_profil) ?
  			new(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, nCycle, bounds,
- 			SoH_threshold, couplage, soc_model, calendar, Erated_ini, soc_ini, soh_ini, artificial_soc_profil) : nothing
+ 			SoH_threshold, couplage, eff_model, calendar, Erated_ini, soc_ini, soh_ini, artificial_soc_profil) : nothing
 
  end
 
@@ -102,7 +102,7 @@ function preallocate!(liion::Liion_energy_exchanged, nh::Int64, ny::Int64, ns::I
     liion.Erated = convert(SharedArray,zeros(ny+1, ns)) ; liion.Erated[1,:] .= liion.Erated_ini
     liion.carrier = Electricity()
     liion.carrier.power = convert(SharedArray,zeros(nh, ny, ns))
-    if liion.soc_model == "artificial"
+    if liion.eff_model == "artificial"
         liion.soc = convert(SharedArray,reshape(repeat(liion.artificial_soc_profil,ns), (nh+1,ny+1,ns)))
     else
         liion.soc = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; liion.soc[1,1,:] .= liion.soc_ini
@@ -122,7 +122,7 @@ end
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_energy_exchanged, decision::Float64, Δh::Int64)
 
     #Cycle part
-    if liion.soc_model == "artificial"
+    if liion.eff_model == "artificial"
         liion.soh[h+1,y,s] = liion.soh[h,y,s] - (liion.Erated[y,s] * (abs(liion.soc[h+1,y,s] - liion.soc[h,y,s])))  / (2. * liion.nCycle * liion.Erated[y,s] * (liion.α_soc_max - liion.α_soc_min) )
     else
         liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_linear(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
@@ -170,7 +170,7 @@ end
 
   ### Investment dynamic
   function compute_investment_dynamics!(y::Int64, s::Int64, liion::Liion_energy_exchanged, decision::Union{Float64, Int64})
-      if liion.soc_model == "artificial"
+      if liion.eff_model == "artificial"
           liion.Erated[y+1,s], _, liion.soh[1,y+1,s], liion.voltage[1,y+1,s] = compute_investment_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[end,y,s], soh = liion.soh[end,y,s], voltage = liion.voltage[end,y,s]), decision)
       else
           liion.Erated[y+1,s], liion.soc[1,y+1,s], liion.soh[1,y+1,s], liion.voltage[1,y+1,s] = compute_investment_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[end,y,s], soh = liion.soh[end,y,s], voltage = liion.voltage[end,y,s]), decision)
@@ -208,7 +208,7 @@ end
 
  function verification_liion_params(α_p_ch::Float64, α_p_dch::Float64, η_ch::Float64, η_dch::Float64, η_self::Float64,
  	α_soc_min::Float64, α_soc_max::Float64, lifetime::Int64, nCycle::Float64, bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}},
- 	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, soc_model::String, calendar::Bool, Erated_ini::Float64, soc_ini::Float64,
+ 	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, eff_model::String, calendar::Bool, Erated_ini::Float64, soc_ini::Float64,
  	soh_ini::Float64, artificial_soc_profil::Array{Float64,2})
 
  	validation = true
@@ -224,8 +224,8 @@ end
  		validation = false
  	end
 
- 	if !(soc_model in soc_model_names)
- 		error(soc_model ," is not an authorized Liion state of charge model. you need to pick one from the following list : ", soc_model_names)
+ 	if !(eff_model in eff_model_names)
+ 		error(eff_model ," is not an authorized Liion state of charge model. you need to pick one from the following list : ", eff_model_names)
  		validation = false
  	end
 

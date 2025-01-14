@@ -626,7 +626,7 @@ end
 function get_liion_model_config(decisions::NamedTuple{(:eff, :soh, :couplage), Tuple{Float64, Float64, Float64}})
 
     if Int(round(decisions.eff)) == 0 
-        eff_model = LinearLiionEfficiency()
+        eff_model = FixedLiionEfficiency()
     elseif  Int(round(decisions.eff)) == 1
         eff_model = PolynomialLiionEfficiency()
     else
@@ -655,7 +655,7 @@ function get_liion_model_config(decisions::NamedTuple{(:eff, :soh, :couplage), T
 
 
     
-    return Liion(SoC_model = eff_model, SoH_model = soh_model, couplage = coupl)
+    return Liion(eff_model = eff_model, SoH_model = soh_model, couplage = coupl)
 
 end
 
@@ -692,7 +692,7 @@ function get_electrolyer_model_config(decisions::NamedTuple{(:eff, :soh, :coupla
 
 
     
-    return Electrolyzer(;V_J_ini = V_J_Elyz, EffModel = eff_model, SoH_model = soh_model, couplage = coupl)
+    return Electrolyzer(;V_J_ini = V_J_Elyz, eff_model = eff_model, SoH_model = soh_model, couplage = coupl)
 
 end
 
@@ -716,9 +716,9 @@ function get_fuelcell_model_config(decisions::NamedTuple{(:eff, :soh, :couplage)
     elseif Int(round(decisions.soh)) == 1
         soh_model =  FunctHoursAgingFuelCell(;deg_params=deg, J_base = 0.1)
     elseif Int(round(decisions.soh)) == 2
-        soh_model =  PowerAgingFuelCell(;deg_params=deg, StartStop = false)
+        soh_model =  PowerAgingFuelCell(;deg_params=deg, start_stop = false)
     elseif Int(round(decisions.soh)) == 3
-        soh_model =  PowerAgingFuelCell(;deg_params=deg, StartStop = true)
+        soh_model =  PowerAgingFuelCell(;deg_params=deg, start_stop = true)
     else
         println("problem with var Fuel Cell soh model : ", decisions.soh)
     end
@@ -732,7 +732,7 @@ function get_fuelcell_model_config(decisions::NamedTuple{(:eff, :soh, :couplage)
     end
 
     
-    return FuelCell(;V_J_ini = V_J_FC, EffModel = eff_model, SoH_model = soh_model, couplage = coupl)
+    return FuelCell(;V_J_ini = V_J_FC, eff_model = eff_model, SoH_model = soh_model, couplage = coupl)
 
 end
 

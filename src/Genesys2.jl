@@ -29,7 +29,7 @@ abstract type EnergyCarrier end
 #Metaheuristic module part
 using Distributions, Random, LinearAlgebra, Statistics
 using Distributed
-using GlobalSensitivity, Test, ProgressMeter
+using Test, ProgressMeter #GlobalSensitivity
 
 # Clearing
 include(joinpath("optimization","designer", "metaheuristic","clearing","struct.jl"))
@@ -46,7 +46,7 @@ include(joinpath("optimization","designer", "metaheuristic","NSGAII","utils.jl")
 
 
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP, Ipopt#, Gurobi
+using JuMP, Cbc, Metaheuristics, SDDP, Ipopt, Gurobi
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others

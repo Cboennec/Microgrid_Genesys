@@ -89,7 +89,7 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
     for s in 1:mg.parameters.ns
         figure("State-of-health")
 
-        mg.storages[1].soc_model == "linear" ? soc = "lin" : (mg.storages[1].soc_model == "vermeer" ? soc = "ver" : soc = "t-d")
+        mg.storages[1].eff_model == "linear" ? soc = "lin" : (mg.storages[1].eff_model == "vermeer" ? soc = "ver" : soc = "t-d")
 
         if xdisplay == "years"
             y_values = vec(mg.storages[1].soh[:, y[1]:mg.parameters.ny, s])[1:24:((y[end] - y[1] +1) * (mg.parameters.nh+1) )]
@@ -146,7 +146,7 @@ function plot_operation(mg::Microgrid ; y=2, s=1, smooth = false, xdisplay = "ho
 
 
     #voltage
-    if mg.storages[1].soc_model == "tremblay_dessaint" 
+    if mg.storages[1].eff_model == "tremblay_dessaint" 
         figure("voltage")
         Seaborn.plot(1:((mg.parameters.ny -1) * (mg.parameters.nh+1) ), vec(mg.storages[1].voltage[:, 2:mg.parameters.ny, s]), label = string("voltage : ", typeof(mg.storages[1])))
         legend()

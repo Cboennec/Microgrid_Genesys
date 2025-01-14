@@ -20,13 +20,13 @@ The structure have a lot of parameters but most of them are set to default value
 - `α_soc_max::Float64`: Maximum threshold of charge (normalized) (default : 0.8)
 - `SoH_threshold::Float64`: SoH level to replace the battery (default : 0.8)
 - `couplage::NamedTuple`: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
-- `soc_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
+- `eff_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
 - `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
 - `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
 
 ## Example 
 ```julia
-Liion_fixed_lifetime(;soc_model = "polynomial", couplage = (E=true, R=true))
+Liion_fixed_lifetime(;eff_model = "polynomial", couplage = (E=true, R=true))
 ```
 
 """
@@ -48,7 +48,7 @@ Liion_fixed_lifetime(;soc_model = "polynomial", couplage = (E=true, R=true))
  	couplage::NamedTuple{(:E, :R), Tuple{Bool, Bool}}  #a boolean tuple to tell wether or not the soh should influence the other parameters.
 
  	#Model dynamics
- 	soc_model::String #model name
+ 	eff_model::String #model name
 
  	# Initial conditions
  	Erated_ini::Float64  # capacité de la batterie en Wh
@@ -82,13 +82,13 @@ Liion_fixed_lifetime(;soc_model = "polynomial", couplage = (E=true, R=true))
  		bounds = (lb = 0., ub = 1000.),
  		SoH_threshold = 0.8,
  		couplage = (E = true, R = false),
- 		soc_model = "linear",
+ 		eff_model = "linear",
  		Erated_ini = 1e-6,
  		soc_ini = 0.5,
  		soh_ini = 1.) =  verification_liion_params(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, nCycle, bounds,
-            SoH_threshold, couplage, soc_model, Erated_ini, soc_ini, soh_ini) ?
+            SoH_threshold, couplage, eff_model, Erated_ini, soc_ini, soh_ini) ?
  			new(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, nCycle, bounds,
- 			SoH_threshold, couplage, soc_model, Erated_ini, soc_ini, soh_ini) : nothing
+ 			SoH_threshold, couplage, eff_model, Erated_ini, soc_ini, soh_ini) : nothing
 
  end
 
@@ -177,7 +177,7 @@ end
 
  function verification_liion_params(α_p_ch::Float64, α_p_dch::Float64, η_ch::Float64, η_dch::Float64, η_self::Float64,
  	α_soc_min::Float64, α_soc_max::Float64, lifetime::Int64, nCycle::Float64, bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}},
- 	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, soc_model::String, Erated_ini::Float64, soc_ini::Float64,
+ 	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, eff_model::String, Erated_ini::Float64, soc_ini::Float64,
  	soh_ini::Float64)
 
  	validation = true
@@ -193,8 +193,8 @@ end
  		validation = false
  	end
 
- 	if !(soc_model in soc_model_names)
- 		error(soc_model ," is not an authorized Liion state of charge model. you need to pick one from the following list : ", soc_model_names)
+ 	if !(eff_model in eff_model_names)
+ 		error(eff_model ," is not an authorized Liion state of charge model. you need to pick one from the following list : ", eff_model_names)
  		validation = false
  	end
 

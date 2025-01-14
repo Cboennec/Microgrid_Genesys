@@ -116,16 +116,21 @@ function preallocate!(mg::Microgrid, designer::AbstractDesigner)
     end
 
     #Different decision type for FuelCells and Electrolyzer
-    for a in mg.converters
-        if a isa FuelCell
-            converter_dict[string(typeof(a))] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
-        elseif a isa Electrolyzer
-            converter_dict[string(typeof(a))] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
-        elseif a isa Heater
-            converter_dict[string(typeof(a))] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
+    if designer isa MILP
+        for a in mg.converters
+            converter_dict[string(typeof(a))] = zeros(mg.parameters.ny, mg.parameters.ns)
+        end
+    else
+        for a in mg.converters
+            if a isa FuelCell
+                converter_dict[string(typeof(a))] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
+            elseif a isa Electrolyzer
+                converter_dict[string(typeof(a))] = (surface = zeros(mg.parameters.ny, mg.parameters.ns), N_cell = zeros(mg.parameters.ny, mg.parameters.ns))
+            elseif a isa Heater
+                converter_dict[string(typeof(a))] = (power = zeros(mg.parameters.ny, mg.parameters.ns))
+            end
         end
     end
-
     
     for a in mg.grids
         subscribed_power_dict[string(typeof(a.carrier))] = zeros(mg.parameters.ny, mg.parameters.ns)
@@ -207,3 +212,14 @@ function interpolation(serie_a::Vector{Float64}, serie_b::Vector{Float64}, a::Fl
     b = frac * (serie_b[id] - serie_b[id-1]) + serie_b[id-1]
     return b
 end
+
+
+function get_id_dict(mg::Microgrid)
+
+    id_dict = Dict()
+    id_dict["storages"] = [typeof(a) for a in mg.storages]
+    id_dict["generations"] = [typeof(a) for a in mg.generations]
+    id_dict["converters"] = [typeof(a) for a in mg.converters]
+    return id_dict 
+end
+

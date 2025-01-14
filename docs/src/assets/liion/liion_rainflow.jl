@@ -3,7 +3,7 @@
  =#
 
 
- soc_model_names = ["tremblay_dessaint", "linear", "vermeer", "artificial"]
+ eff_model_names = ["tremblay_dessaint", "linear", "vermeer", "artificial"]
 
 #rainflow ref : Optimal Battery Control Under Cycle Aging Mechanisms in Pay for Performance Settings
 # Yuanyuan Shi, Bolun Xu, Yushi Tan, Daniel Kirschen, Baosen Zhang
@@ -21,7 +21,7 @@ The structure have a lot of parameters but most of them are set to default value
   - `α_soc_max::Float64`: Maximum threshold of charge (normalized) (default : 0.8)
   - `SoH_threshold::Float64`: SoH level to replace the battery (default : 0.8)
   - `couplage::NamedTuple`: Named tuple with two boolean values to indicate if the SoH should influence the other parameters (E stand for capacity coupling and R for efficiency coupling)
-  - `soc_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
+  - `eff_model::String`: Model name for State of Charge (SoC) computation. Available models are listed 
   - `calendar::Bool`: Whether to include calendar aging in the SoH computation  (default : true)
   - `soc_ini::Float64`: Initial State of Charge (SoC) for the beginning of the simulation (default : 0.5)
   - `soh_ini::Float64`: Initial State of Health (SoH) for the beginning of the simulation (default : 1)
@@ -30,7 +30,7 @@ The structure have a lot of parameters but most of them are set to default value
 
 ## example
 ```julia
-Liion_rainflow(update_by_year = 12, calendar = true, soc_model = "linear", couplage = (E=true, R=true))
+Liion_rainflow(update_by_year = 12, calendar = true, eff_model = "linear", couplage = (E=true, R=true))
 ```
 """
 mutable struct Liion_rainflow <: AbstractLiion
@@ -49,7 +49,7 @@ mutable struct Liion_rainflow <: AbstractLiion
 	couplage::NamedTuple{(:E, :R), Tuple{Bool, Bool}}  #a boolean tuple to tell wether or not the soh should influence the other parameters.
 
 	#Model dynamics
-	soc_model::String #model name
+	eff_model::String #model name
 	calendar::Bool
 
 	# Initial conditions
@@ -93,7 +93,7 @@ mutable struct Liion_rainflow <: AbstractLiion
 		bounds = (lb = 0., ub = 1000.),
 		SoH_threshold = 0.8,
 		couplage = (E = true, R = false),
-		soc_model = "linear",
+		eff_model = "linear",
 		calendar = true,
 		Erated_ini = 1e-6,
 		soc_ini = 0.5,
@@ -102,9 +102,9 @@ mutable struct Liion_rainflow <: AbstractLiion
 		fatigue_data = DataFrames.DataFrame(CSV.File("example\\data\\fatigue_data2.csv.csv", delim = ";", header = [Symbol("DoD"),Symbol("cycle")], types=Dict(:DoD=>Float64, :cycle=>Float64))),
 		artificial_soc_profil = zeros(8760,1)
 		) =  verification_liion_params(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, nCycle, bounds,
-			SoH_threshold, couplage, soc_model, calendar, Erated_ini, soc_ini, soh_ini, update_by_year, artificial_soc_profil) ?
+			SoH_threshold, couplage, eff_model, calendar, Erated_ini, soc_ini, soh_ini, update_by_year, artificial_soc_profil) ?
 			new(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, nCycle, bounds,
-			SoH_threshold, couplage, soc_model, calendar, Erated_ini, soc_ini, soh_ini, update_by_year, fatigue_data, artificial_soc_profil) : nothing
+			SoH_threshold, couplage, eff_model, calendar, Erated_ini, soc_ini, soh_ini, update_by_year, fatigue_data, artificial_soc_profil) : nothing
 end
 
 ### Preallocation
@@ -112,7 +112,7 @@ function preallocate!(liion::Liion_rainflow, nh::Int64, ny::Int64, ns::Int64)
 	liion.Erated = convert(SharedArray,zeros(ny+1, ns)) ; liion.Erated[1,:] .= liion.Erated_ini
 	liion.carrier = Electricity()
 	liion.carrier.power = convert(SharedArray,zeros(nh, ny, ns))
-	if liion.soc_model == "artificial"
+	if liion.eff_model == "artificial"
    	 liion.soc = convert(SharedArray,reshape(repeat(liion.artificial_soc_profil,ns), (nh+1,ny+1,ns)))
     else
    	 liion.soc = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; liion.soc[1,1,:] .= liion.soc_ini
@@ -130,11 +130,11 @@ end
 ### Operation dynamic
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_rainflow, decision::Float64, Δh::Int64)
 
-	if liion.soc_model == "tremblay_dessaint"
+	if liion.eff_model == "tremblay_dessaint"
 		liion.soc[h+1,y,s], liion.voltage[h+1,y,s], liion.carrier.power[h,y,s], liion.current[h,y,s] = compute_operation_soc_tremblay_dessaint(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]),  liion.voltage[h,y,s], decision, Δh)
-	elseif  liion.soc_model == "linear"
+	elseif  liion.eff_model == "linear"
 		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_soc_dynamics(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
-	elseif liion.soc_model == "artificial"
+	elseif liion.eff_model == "artificial"
 
 	end
 
@@ -234,7 +234,7 @@ function compute_operation_soh_rainflow(liion::Liion_rainflow, state::NamedTuple
 	fatigue = 0
 
 	for i in 1:length(DoD_seq)
-		if DoD_seq[i] > 0.65 && liion.soc_model != "artificial"
+		if DoD_seq[i] > 0.65 && liion.eff_model != "artificial"
 			#println(peak_copy)
 		end
 		fatigue += 1/(2*Φ(DoD_seq[i], liion.fatigue_data) ) #Compute fatigue with phy function applied to all the half cycles DoD factor 2 refer to half cycles
@@ -302,7 +302,7 @@ end
 
 function verification_liion_params(α_p_ch::Float64, α_p_dch::Float64, η_ch::Float64, η_dch::Float64, η_self::Float64,
 	α_soc_min::Float64, α_soc_max::Float64, lifetime::Int64, nCycle::Float64, bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}},
-	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, soc_model::String, calendar::Bool, Erated_ini::Float64, soc_ini::Float64,
+	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, eff_model::String, calendar::Bool, Erated_ini::Float64, soc_ini::Float64,
 	soh_ini::Float64, update_by_year::Int64, artificial_soc_profil::Array{Float64,2})
 
 	validation = true
@@ -318,8 +318,8 @@ function verification_liion_params(α_p_ch::Float64, α_p_dch::Float64, η_ch::F
 		validation = false
 	end
 
-	if !(soc_model in soc_model_names)
-		error(soc_model ," is not an authorized Liion state of charge model. you need to pick one from the following list : ", soc_model_names)
+	if !(eff_model in eff_model_names)
+		error(eff_model ," is not an authorized Liion state of charge model. you need to pick one from the following list : ", eff_model_names)
 		validation = false
 	end
 

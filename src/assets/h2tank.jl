@@ -1,6 +1,32 @@
-#=
-    H2 tank storage modelling
- =#
+abstract type AbstractH2TankEffModel end
+
+abstract type AbstractH2TankAgingModel end
+
+mutable struct FixedH2TankEfficiency <: AbstractH2TankEffModel
+
+	η_ch::Float64 #Charging efficiency
+	η_dch::Float64 #Discharging efficiency
+	α_p_ch::Float64 #C_rate max
+	α_p_dch::Float64 #C_rate max
+	η_self::Float64 #Auto discarge factor
+	
+	
+	FixedH2TankEfficiency(;η_ch = 1.,
+		η_dch = 1.,
+		α_p_ch = 1.5,
+		α_p_dch = 1.5,
+		η_self = 0.0,
+		) = new(η_ch, η_dch, α_p_ch, α_p_dch, η_self)
+
+end
+
+mutable struct FixedH2TankLifetime <: AbstractH2TankAgingModel
+
+	lifetime::Int64
+
+	FixedH2TankLifetime(;lifetime = 25) = new(lifetime)
+end
+
 
  """
  mutable struct H2Tank  <: AbstractStorage
@@ -28,14 +54,10 @@ A mutable struct representing a hydrogen tank storage model with various paramet
 mutable struct H2Tank  <: AbstractStorage
    # Paramètres
    pression_max::Float64 # Pression en Bar
-   α_p_ch::Float64
-   α_p_dch::Float64
-   η_ch::Float64
-   η_dch::Float64
-   η_self::Float64
+   eff_model::AbstractH2TankEffModel # Efficiency model
    α_soc_min::Float64
    α_soc_max::Float64
-   lifetime::Int64
+   SoH_model::AbstractH2TankAgingModel # Aging model
    bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}
    # Initial conditions
    Erated_ini::Float64
@@ -50,19 +72,15 @@ mutable struct H2Tank  <: AbstractStorage
    # Inner constructor
    H2Tank(;
       pression_max = 150., # Pression en Bar,
-      α_p_ch = 0.5,
-      α_p_dch = 0.5,
-      η_ch = 1.,
-      η_dch = 1.,
-      η_self = 0.,
-      α_soc_min = 0.,
+      eff_model = FixedH2TankEfficiency(),
+      α_soc_min = .05 ,
       α_soc_max = 1.,
-      lifetime = 25,
+      SoH_model = FixedH2TankLifetime(),
       bounds = (lb = 0., ub = 10000.),
       Erated_ini = 1e-6,
       soc_ini = 0.5,
       soh_ini = 1.) =
-      new(pression_max, α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, bounds, Erated_ini, soc_ini, soh_ini)
+      new(pression_max, eff_model, α_soc_min, α_soc_max, SoH_model, bounds, Erated_ini, soc_ini, soh_ini)
 end
 
 """
@@ -95,11 +113,11 @@ Compute the operation dynamics of the hydrogen tank storage for the given state,
 """
 function compute_operation_dynamics(h2tank::H2Tank, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
   # Control power constraint and correction
-  power_dch = max(min(decision, h2tank.α_p_dch * state.Erated, h2tank.η_dch * (state.soc * (1. - h2tank.η_self * Δh) - h2tank.α_soc_min) * state.Erated / Δh), 0.)
-  power_ch = min(max(decision, -h2tank.α_p_ch * state.Erated, (state.soc * (1. - h2tank.η_self * Δh) - h2tank.α_soc_max) * state.Erated / Δh / h2tank.η_ch), 0.)
+  power_dch = max(min(decision, h2tank.eff_model.α_p_dch * state.Erated, h2tank.eff_model.η_dch * (state.soc * (1. - h2tank.eff_model.η_self * Δh) - h2tank.α_soc_min) * state.Erated / Δh), 0.)
+  power_ch = min(max(decision, -h2tank.eff_model.α_p_ch * state.Erated, (state.soc * (1. - h2tank.eff_model.η_self * Δh) - h2tank.α_soc_max) * state.Erated / Δh / h2tank.eff_model.η_ch), 0.)
   # SoC dynamic
   if state.Erated != 0
-    soc_next = state.soc * (1. - h2tank.η_self * Δh) - (power_ch * h2tank.η_ch + power_dch / h2tank.η_dch) * Δh / state.Erated
+    soc_next = state.soc * (1. - h2tank.eff_model.η_self * Δh) - (power_ch * h2tank.eff_model.η_ch + power_dch / h2tank.eff_model.η_dch) * Δh / state.Erated
   else
     soc_next = 0
   end

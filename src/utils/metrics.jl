@@ -23,6 +23,7 @@ mutable struct TCO{T <: Array{Float64}}
     total::T
 end
 
+# TCO take account of grid cost, capex, salvage
 TCO(mg::Microgrid, designer::AbstractDesigner) = TCO(1:mg.parameters.ns, mg, designer)
 function TCO(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
 
@@ -39,6 +40,7 @@ end
 # Compute costs
 COST(mg::Microgrid, designer::AbstractDesigner) = COST(1:mg.parameters.ns, mg, designer)
 # Compute costs for a given scenario s
+# COST take account of grid cost, capex, actualization rate and salvage
 function COST(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
 
     γ = repeat(1. ./ (1. + mg.parameters.τ) .^ range(0, length = mg.parameters.ny, step = mg.parameters.Δy), 1, length(s))
@@ -64,6 +66,7 @@ end
  # Compute costs
 NPV(mg::Microgrid, designer::AbstractDesigner) = NPV(1:mg.parameters.ns, mg, designer)
 # Compute costs for a given scenario s
+# NPV take account of  grid cost, capex, baseline, actualization rate and salvage
 function NPV(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid, designer::AbstractDesigner)
 
     # Discount factor
@@ -228,7 +231,7 @@ function salvage_value(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
     salvage[ny,:] .= 0.
     # Generations
     for a in mg.generations
-        salvage[ny,:] = salvage[ny,:] .+ (a.lifetime .- ny) ./ a.lifetime .* a.cost[ny, s] .* a.powerMax[ny,s]
+        salvage[ny,:] = salvage[ny,:] .+ (a.SoH_model.lifetime .- ny%a.SoH_model.lifetime) ./ a.SoH_model.lifetime .* a.cost[ny, s] .* a.powerMax[ny,s]
     end
     # Storages
     for a in mg.storages
@@ -237,12 +240,11 @@ function salvage_value(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
             #salvage[ny,:] = salvage[ny,:] .+ a.soh[1,end,s] .* a.cost[ny, s] .* a.Erated[ny,s]
             #$a.soh[end,end,s]$ remplace ici $(a.lifetime .- ny) ./ a.lifetime$ comme indicateur de la fraction de vie restante
         else
-            salvage[ny,:] = salvage[ny,:] .+ (a.lifetime .- ny) ./ a.lifetime .* a.cost[ny, s] .* a.Erated[ny,s]
+            salvage[ny,:] = salvage[ny,:] .+ (a.SoH_model.lifetime .- ny%a.SoH_model.lifetime) ./ a.SoH_model.lifetime .* a.cost[ny, s] .* a.Erated[ny,s]
         end
     end
     # Converters
     for a in mg.converters
-        
         if hasproperty(a, :soh)
             if a isa AbstractFuelCell || a isa AbstractElectrolyzer
                 P_nom = maximum(a.V_J_ini[1,:] .* a.V_J_ini[2,:]) .* a.surface .* a.N_cell
@@ -250,7 +252,7 @@ function salvage_value(s::Union{Int64, UnitRange{Int64}}, mg::Microgrid)
                 salvage[ny,:] = salvage[ny,:] .+ ((a.soh[1,end,s] .- a.SoH_threshold) ./ (1 .-a.SoH_threshold)) .* a.cost[ny, s]  .* P_nom
             end
         else
-            salvage[ny,:] = salvage[ny,:] .+ (a.lifetime .- ny) ./ a.lifetime .* a.cost[ny, s]
+            salvage[ny,:] = salvage[ny,:] .+ (a.SoH_model.lifetime .- ny%a.SoH_model.lifetime) ./ a.SoH_model.lifetime .* a.cost[ny, s]
         end
     end
    
@@ -278,7 +280,7 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
     # Generations
     for (k, a) in enumerate(mg.generations)
     
-        Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.lifetime) / ((mg.parameters.τ + 1.) ^ a.lifetime - 1.)            
+        Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ a.SoH_model.lifetime) / ((mg.parameters.τ + 1.) ^ a.SoH_model.lifetime - 1.)            
         capex = capex .+ Γ .* designer.decisions.generations[string(typeof(a))][y,s] .* a.cost[y,s]
         capex[1,s] = capex[1,s] + Γ[1] .* designer.generations[string(typeof(a))] * a.cost[1,s]
 
@@ -289,7 +291,7 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
             id = findfirst(a.soh[:,:,s] .<= a.SoH_threshold) 
             lifetime = id[2] + id[1]/8760
         else
-            lifetime = a.lifetime
+            lifetime = a.SoH_model.lifetime
         end
         Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ lifetime) / ((mg.parameters.τ + 1.) ^  lifetime - 1.)
         capex = capex .+ Γ .* designer.decisions.storages[string(typeof(a))][y,s] .* a.cost[y,s]
@@ -302,7 +304,7 @@ function annualised_capex(y::Union{Int64, UnitRange{Int64}}, s::Union{Int64, Uni
             id = findfirst(a.soh[:,:,s] .<= a.SoH_threshold) 
             lifetime = id[2] + id[1]/8760
         else
-            lifetime = a.lifetime
+            lifetime = a.SoH_model.lifetime
         end
 
         Γ = (mg.parameters.τ * (mg.parameters.τ + 1.) ^ lifetime) / ((mg.parameters.τ + 1.) ^ lifetime - 1.)

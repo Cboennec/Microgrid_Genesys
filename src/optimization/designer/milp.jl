@@ -36,6 +36,10 @@ end
 
 ### Models
 function build_model(mg::Microgrid, designer::MILP, ω::Scenarios, probabilities::Vector{Float64})
+
+    #milp_inform(mg)
+
+
     # Sets
     nh, ns = size(ω.demands[1].power, 1), size(ω.demands[1].power, 3)
     # Initialize
@@ -94,7 +98,7 @@ function build_model_robust(mg::Microgrid, designer::MILP, ω::Scenarios)
     add_technical_constraints!(m, mg.converters, nh, ns)
     add_technical_constraints!(m, mg.grids, nh, ns)
     # Add periodicity constraint
-    #add_periodicity_constraints!(m, mg.storages, ns)
+    add_periodicity_constraints!(m, mg.storages, ns)
     # Add power balance constraints
     add_power_balance!(m, mg, ω, Electricity, nh, ns)
     add_power_balance!(m, mg, ω, Heat, nh, ns)
@@ -108,6 +112,10 @@ end
 
 ### Offline
 function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; multiyear::Bool=false, robust::Bool=false)
+
+    # Asset model compatibility
+    milp_assert(mg)
+
     # Preallocate
     preallocate!(mg, designer)
 
@@ -129,7 +137,7 @@ function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; mult
 
     else
         ω_reduced = ω
-        probabilities = 1
+        probabilities = [1.]
     end
     
     # Initialize model
@@ -141,8 +149,7 @@ function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; mult
         println("Multi_year")
         designer.model = build_model_multi_years(mg, designer, ω_reduced, probabilities)
     else
-        println("my")
-        designer.model = build_model_my(mg, designer, ω_reduced, probabilities)
+        designer.model = build_model(mg, designer, ω_reduced, probabilities)
     end
 
 
@@ -186,7 +193,7 @@ function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; mult
         # Assign values
         for (k,a) in enumerate(mg.generations)
             if a isa Solar
-                designer.decisions.generations["PV"][1,:] .= value(designer.model[:r_g][k])
+                designer.decisions.generations["Solar"][1,:] .= value(designer.model[:r_g][k])
             end
         end
         for (k,a) in enumerate(mg.storages)
@@ -198,19 +205,14 @@ function initialize_designer!(mg::Microgrid, designer::MILP, ω::Scenarios; mult
         end
         for (k,a) in enumerate(mg.converters)
             if typeof(a) <: AbstractFuelCell
-                key = "FuelCell"
-                if a isa FuelCell_V_J || a isa FuelCell_lin
-                    designer.decisions.converters[key].surface[1,:] .= value(designer.model[:r_c_surface][k])
-                    designer.decisions.converters[key].N_cell[1,:] .= value(designer.model[:r_c_N_cell][k])
-                else
-                    designer.decisions.converters[key][1,:] .= value(designer.model[:r_c][k])
-                end
+                # designer.decisions.converters[key].surface[1,:] .= value(designer.model[:r_c_surface][k])
+                # designer.decisions.converters[key].N_cell[1,:] .= value(designer.model[:r_c_N_cell][k])
+                designer.decisions.converters["FuelCell"][1,:] .= value(designer.model[:r_c][k])
             elseif a isa Electrolyzer
                 designer.decisions.converters["Electrolyzer"][1,:] .= value(designer.model[:r_c][k])
             elseif a isa Heater
                 designer.decisions.converters["Heater"][1,:] .= value(designer.model[:r_c][k])
             end
-
         end
     end
 
@@ -243,8 +245,8 @@ function build_model_my(mg::Microgrid, designer::MILP, ω::Scenarios, probabilit
     nh, ny, ns = size(ω.demands[1].power, 1), size(ω.demands[1].power, 2), size(ω.demands[1].power, 3)
     # solver
     
-    solver = designer.options.exact ? Alpine : Juniper
-    nl_option_name = designer.options.exact ? "nlp_solver" : "nl_solver"
+    #solver = designer.options.exact ? Alpine : Juniper
+    #nl_option_name = designer.options.exact ? "nlp_solver" : "nl_solver"
     
     gurobi = optimizer_with_attributes(Gurobi.Optimizer, 
                                          MOI.Silent() => true,
@@ -255,7 +257,6 @@ function build_model_my(mg::Microgrid, designer::MILP, ω::Scenarios, probabilit
     mip_solver = designer.options.exact ? gurobi : highs
 
     optimizer = optimizer_with_attributes(solver.Optimizer,
-    
                             nl_option_name => ipopt,
                             "mip_solver" => gurobi,#mip_solver
                             "time_limit" => 600)
@@ -297,6 +298,10 @@ end
 
 ### Offline
 function initialize_designer_my!(mg::Microgrid, designer::MILP, ω::Scenarios; multiyear::Bool=false)
+
+    # Asset model compatibility
+    milp_assert(mg)
+
     # Preallocate
     preallocate!(mg, designer)
 
@@ -398,4 +403,64 @@ function initialize_designer_my!(mg::Microgrid, designer::MILP, ω::Scenarios; m
     designer.history = ω_reduced
 
     return designer
+end
+
+
+
+# Inform user about the change that are applied to the model in order to make it Milp compatible
+function milp_inform(mg::Microgrid)
+
+    for sto in mg.storages
+        if sto isa AbstractLiion
+            if !(typeof(sto.eff_model) in [FixedLiionEfficiency])
+                println("Liion efficicency model is not MILP compatible fixed efficicency is used")
+            end
+            @assert(sto.couplage.E + sto.couplage.R == 0, "Liion couplage model is not MILP compatible")
+            @assert(typeof(sto.SoH_model) in [EnergyThroughputLiion, FixedLifetimeLiion], "Liion aging model $(string(typeof(sto.SoH_model))) is not MILP compatible")
+        end
+    end
+
+    for conv in mg.converters
+        if conv isa AbstractFuelCell
+            @assert(typeof(conv.eff_model) in [FixedFuelCellEfficiency], "Liion efficicency model is not MILP compatible")
+            @assert(conv.couplage == 0, "Liion couplage model is not MILP compatible")
+            @assert(typeof(conv.SoH_model) in [FixedLifetimeFuelCell], "Liion aging model $(string(typeof(conv.SoH_model))) is not MILP compatible")
+        end
+
+        if conv isa AbstractElectrolyzer
+            @assert(typeof(conv.eff_model) in [FixedElectrolyzerEfficiency], "Liion efficicency model is not MILP compatible")
+            @assert(conv.couplage == 0, "Liion couplage model is not MILP compatible")
+            @assert(typeof(conv.SoH_model) in [FixedLifetimeElectrolyzer], "Liion aging model $(string(typeof(conv.SoH_model))) is not MILP compatible")
+        end
+    end
+
+end
+
+# Test that the representation of the physical component are milp compatible.
+function milp_assert(mg::Microgrid)
+
+    for sto in mg.storages
+        if sto isa AbstractLiion
+            @assert(typeof(sto.eff_model) in [FixedLiionEfficiency], "Liion efficicency model is not MILP compatible")
+            @assert(sto.couplage.E + sto.couplage.R == 0, "Liion couplage model is not MILP compatible")
+            @assert(typeof(sto.SoH_model) in [EnergyThroughputLiion, FixedLifetimeLiion], "Liion aging model $(string(typeof(sto.SoH_model))) is not MILP compatible")
+        end
+    end
+
+    for conv in mg.converters
+        if conv isa AbstractFuelCell
+            @assert(typeof(conv.eff_model) in [FixedFuelCellEfficiency], "FuelCell efficicency model is not MILP compatible")
+            @assert(conv.couplage == 0, "FuelCell couplage model is not MILP compatible")
+            @assert(typeof(conv.SoH_model) in [FixedLifetimeFuelCell], "FuelCell aging model $(string(typeof(conv.SoH_model))) is not MILP compatible")
+        end
+
+        if conv isa AbstractElectrolyzer
+            @assert(typeof(conv.eff_model) in [FixedElectrolyzerEfficiency], "Efficiency efficicency model is not MILP compatible")
+            @assert(conv.couplage == 0, "Electrolyzer couplage model is not MILP compatible")
+            @assert(typeof(conv.SoH_model) in [FixedLifetimeElectrolyzer], "Efficiency aging model $(string(typeof(conv.SoH_model))) is not MILP compatible")
+        end
+    end
+
+
+
 end

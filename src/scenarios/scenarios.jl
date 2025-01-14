@@ -49,14 +49,24 @@ Only some days will be selected. This method implement the work of Van Der Heijd
 - `days::Array{Int64,3}`: The matrix of the days used as representative indexed for each year and scenario  [day,year,sscenario]
 - `sequence::Array{Int64,3}`: The matrix of the representative day used  to represent each day of the year indexed for each year and scenario  [day,year,scenario]
 """
-mutable struct MiniScenarios{T, O, I} <: AbstractScenarios
-    demands::Vector{NamedTuple{(:t, :power),Tuple{T,O}}}
-    generations::Vector{NamedTuple{(:t, :power, :cost), Tuple{T, O, I}}}
-    storages::Vector{NamedTuple{(:cost,), Tuple{I}}}
-    converters::Vector{NamedTuple{(:cost,), Tuple{I}}}
-    grids::Vector{NamedTuple{(:cost_in, :cost_out, :cost_exceed), Tuple{O, O, I}}} 
+mutable struct MiniScenarios <: AbstractScenarios
+    demands::Vector{NamedTuple}
+    generations::Vector{NamedTuple}
+    storages::Vector{NamedTuple}
+    converters::Vector{NamedTuple}
+    grids::Vector{NamedTuple}
     days::Array{Int64, 3}
     sequence::Array{Int64, 3}
+    scenarios_reconstructed::Scenarios
+end
+mutable struct MiniScenarios_my <: AbstractScenarios
+    demands::Vector{NamedTuple}
+    generations::Vector{NamedTuple}
+    storages::Vector{NamedTuple}
+    converters::Vector{NamedTuple}
+    grids::Vector{NamedTuple}
+    days::Array{Int64, 2}
+    sequence::Array{Int64, 2}
     scenarios_reconstructed::Scenarios
 end
 
@@ -280,39 +290,236 @@ function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64; N_bins = 20,
                     end
                 end
 
-            end
         end
+    end
 
         
-        for (k, a) in enumerate(mg.demands)
-            if a.carrier isa Electricity
-                demands[k] = (t = ω.demands[k].t[index_hour], power = ω.demands[k].power[index_hour])
-                demands_reconstructed[k] = (t = ω.demands[k].t, power = loads_E)
-            elseif a.carrier isa Heat
-                demands[k] = (t = ω.demands[k].t[index_hour], power = ω.demands[k].power[index_hour])
-                demands_reconstructed[k] = (t = ω.demands[k].t, power = loads_H)
-            end
-        end    
-
-        for (k, a) in enumerate(mg.generations)
-            if a isa Solar
-                generations[k] = (t = ω.generations[k].t[index_hour], power = ω.generations[k].power[index_hour], cost = ω.generations[k].cost[y, s])
-                generations_reconstructed[k] = (t = ω.generations[k].t, power = PVs, cost = ω.generations[k].cost[y, s])       
-            end
+    for (k, a) in enumerate(mg.demands)
+        if a.carrier isa Electricity
+            demands[k] = (t = ω.demands[k].t[index_hour], power = ω.demands[k].power[index_hour])
+            demands_reconstructed[k] = (t = ω.demands[k].t, power = loads_E)
+        elseif a.carrier isa Heat
+            demands[k] = (t = ω.demands[k].t[index_hour], power = ω.demands[k].power[index_hour])
+            demands_reconstructed[k] = (t = ω.demands[k].t, power = loads_H)
         end
+    end    
 
-    
-        # Grids
-        for (k, a) in enumerate(mg.grids)
-            if a.carrier isa Electricity
-                grids[k] = (cost_in = ω.grids[k].cost_in[index_hour], cost_out = ω.grids[k].cost_out[index_hour], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
-            end
+    for (k, a) in enumerate(mg.generations)
+        if a isa Solar
+            generations[k] = (t = ω.generations[k].t[index_hour], power = ω.generations[k].power[index_hour], cost = ω.generations[k].cost[y, s])
+            generations_reconstructed[k] = (t = ω.generations[k].t, power = PVs, cost = ω.generations[k].cost[y, s])       
         end
+    end
 
-        Scenarios_reconstructed = Scenarios(demands_reconstructed, generations_reconstructed,  ω.storages, ω.converters, ω.grids)
+
+    # Grids
+    for (k, a) in enumerate(mg.grids)
+        if a.carrier isa Electricity
+            grids[k] = (cost_in = ω.grids[k].cost_in[index_hour], cost_out = ω.grids[k].cost_out[index_hour], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
+        end
+    end
+
+    Scenarios_reconstructed = Scenarios(demands_reconstructed, generations_reconstructed,  ω.storages, ω.converters, ω.grids)
    
 
     return MiniScenarios(demands, generations,  ω.storages, ω.converters, grids, days, sequence, Scenarios_reconstructed)
+
+end
+
+
+"""
+    function Scenarios(mg::Microgrid, d::Dict{})
+
+Constructor function for creating a new `Scenarios` instance based on a given `Microgrid` and a `Dict` containing scenario data.
+
+# Arguments
+- `mg::Microgrid`: A Microgrid instance.
+- `d::Dict{}`: A dictionary containing scenario data.
+
+# Returns
+- `Scenarios`: A Scenarios instance with the specified data.
+
+## Example
+
+```julia
+microgrid = ...
+scenario_data = ...
+
+scenarios = Scenarios(microgrid, scenario_data)
+```
+"""
+function MiniScenarios(mg::Microgrid, ω::Scenarios, N_days::Int64, y; N_bins = 20, times_limit = [100,200], display_res = true)
+    h, s = 1:mg.parameters.nh, 1:mg.parameters.ns
+    T, O, I = Array{DateTime,3}, Array{Float64, 3}, Array{Float64, 2}, Array{Int64, 3}
+
+
+    demands = Vector{NamedTuple}(undef, length(mg.demands))
+    generations = Vector{NamedTuple}(undef, length(mg.generations))
+    storages = Vector{NamedTuple}(undef, length(mg.storages))
+    converters = Vector{NamedTuple}(undef, length(mg.converters))
+    grids = Vector{NamedTuple}(undef, length(mg.grids))
+
+    demands_reconstructed = Vector{NamedTuple}(undef, length(mg.demands))
+    generations_reconstructed = Vector{NamedTuple}(undef, length(mg.generations))
+    storages_reconstructed = Vector{NamedTuple}(undef, length(mg.storages))
+    converters_reconstructed = Vector{NamedTuple}(undef, length(mg.converters))
+    grids_reconstructed = Vector{NamedTuple}(undef, length(mg.grids))
+
+    days = Int.(zeros(N_days, mg.parameters.ns))
+    sequence = Int.(zeros(365*y, mg.parameters.ns))
+
+    index_hour = Int.(zeros(24*N_days, mg.parameters.ns))
+
+    data = []
+    constructed_res = zeros(length(h) * y, length(s))
+    loads_E = zeros(length(h) * y, length(s))
+    loads_H = zeros(length(h) * y, length(s))
+    PVs = zeros(length(h) * y, length(s))
+
+    for s_id in s
+       
+        # Van det heijde
+        # 1 : Selecting days by fitting the duration curve    
+        # From Selecting Representative Days for Capturing the Implications of Integrating Intermittent Renewables in Generation Expansion Planning Problems by Kris poncelet et al.
+
+            days_selected, weights = get_days_multi_year(N_days, N_bins, ω, y, s_id; time_limit = times_limit[1])
+
+            days[:, s_id] = days_selected
+        #######################
+        ### Recompose data to plot and compare the load curves ######
+        #####################
+
+                if display_res
+                  
+                    data_reshape = []
+
+                    for demand in ω.demands
+                        push!(data_reshape, reshape(vec(demand.power[:, 1:y, s]),(24,365*y)))
+                    end
+                    for generation in ω.generations
+                        push!(data_reshape, reshape(vec(generation.power[:, 1:y, s]),(24,365*y)))
+                    end
+                    # push!(data_reshape, reshape(vec(ω.demands[1].power[:, : , s_id]), (24,365*y)))
+                    # push!(data_reshape, reshape(vec(ω.demands[2].power[:, :, s_id]), (24,365*y)))
+                    # push!(data_reshape, reshape(vec(ω.generations[1].power[:, :, s_id]), (24,365*y)))
+
+                    data = []
+                    labels = []
+                    units = []
+
+                    for (k,demand) in enumerate(ω.demands)
+                        push!(data, vec(demand.power[:, 1:y, s]))
+                        push!(labels, string("demand : ", typeof(mg.demands[k].carrier)))
+                        push!(units, string( "Power [kWh]"))
+
+                    end
+                    for (k,generation) in enumerate(ω.generations)
+                        push!(data, vec(generation.power[:, 1:y, s]))
+                        push!(labels, string("generation : ", typeof(mg.generations[k])))
+                        push!(units, string("Power [p.u]"))
+                    end
+                    # push!(data, vec(ω.demands[1].power[:, :, s_id]))
+                    # push!(data, vec(ω.demands[2].power[:, :, s_id]))
+                    # push!(data, vec(ω.generations[1].power[:, :, s_id]))
+                    
+                    fig, axs = PyPlot.subplots(length(data)+1,1, figsize=(9, 3), sharey=false, constrained_layout = true)
+                    fig.set_size_inches( 1920 / fig.dpi, 1080/ fig.dpi)
+                
+                    for j in 1:length(data)
+
+                        val = []
+                        for i in 1:length(days_selected)
+                            val = vcat(val, repeat(data_reshape[j][:,days_selected[i]], outer = weights[i]))
+                        end
+                    
+                        RP_DC = reverse(sort(val))
+                    
+                        OG_DC = reverse(sort(data[j]))
+                        
+                                
+                        axs[j].plot(RP_DC, label="Bins = $N_bins, Days = $N_days")
+                        axs[j].plot(OG_DC, label = "OG")
+
+                        axs[j].set_title(string("Duration curve : ", labels[j]))
+                        axs[j].set_xlabel("Hours",fontsize = 14)
+                        axs[j].set_ylabel(units[j], fontsize = 16)
+                        
+                        
+                    end
+
+                    color = Seaborn.color_palette("viridis", as_cmap =true)
+                    #color_names = collect(keys(matplotlib.colors.XKCD_COLORS))[1:end]
+                    count_start = 1
+                    id_x = []
+                    for i in 1:length(weights)
+                        push!(id_x, (count_start,weights[i]))
+                        axs[length(data)+1].annotate(days_selected[i], (count_start -0.5 + weights[i]/2, 0.5))
+                        count_start += weights[i]
+                    end
+                    axs[length(data)+1].broken_barh(id_x , (0, 1),
+                            facecolors=color.(days_selected./(365*y))) #color_names[days_selected])
+
+                    
+                    tight_layout()
+
+                    legend()
+                end
+                
+
+        # 2 : Assign real days to representative days to reconstruct the temporality    
+        # From Representative days selection for district energy system optimisation: a solar district heating system with seasonal storage
+        # Contruct a MIQP model to fit the original data curves by constructing a new one with representative days
+
+                constructed_res, sequence_repr = get_profil_and_sequence_multi_year(days_selected, weights, ω, y, s_id, mg; display_res = display_res, time_limit = times_limit[2])
+                    
+
+                #loads_E[:,:,s_id] = load_E
+                #loads_H[:,:,s_id] = load_H
+
+               # PVs[:,:,s_id] = gen
+
+
+                sequence[:, :, s_id] = sequence_repr
+
+                
+                for i in 1:N_days
+                    for j in 1:24
+                        index_hour[(i-1)*24+j, s_id] = (days_selected[i]-1) * 24 + j
+                    end
+                end
+
+    end
+
+        
+    for (k, a) in enumerate(mg.demands)
+        if a.carrier isa Electricity
+            demands[k] = (t = ω.demands[k].t[index_hour], power = ω.demands[k].power[index_hour])
+            demands_reconstructed[k] = (t = ω.demands[k].t, power = constructed_res[k])
+        elseif a.carrier isa Heat
+            demands[k] = (t = ω.demands[k].t[index_hour], power = ω.demands[k].power[index_hour])
+            demands_reconstructed[k] = (t = ω.demands[k].t, power = loads_H)
+        end
+    end    
+
+    for (k, a) in enumerate(mg.generations)
+        if a isa Solar
+            generations[k] = (t = ω.generations[k].t[index_hour], power = ω.generations[k].power[index_hour], cost = ω.generations[k].cost)
+            generations_reconstructed[k] = (t = ω.generations[k].t, power = constructed_res[k+length(mg.demands)], cost = ω.generations[k].cost)       
+        end
+    end
+
+
+    # Grids
+    for (k, a) in enumerate(mg.grids)
+        if a.carrier isa Electricity
+            grids[k] = (cost_in = ω.grids[k].cost_in[index_hour], cost_out = ω.grids[k].cost_out[index_hour], cost_exceed = zeros(length(y),length(s)) .+ 10) #TODO this price should come from the scenarios
+        end
+    end
+
+    Scenarios_reconstructed = Scenarios(demands_reconstructed, generations_reconstructed,  ω.storages, ω.converters, ω.grids)
+   
+
+    return MiniScenarios_my(demands, generations,  ω.storages, ω.converters, grids, days, sequence, Scenarios_reconstructed)
 
 end
 

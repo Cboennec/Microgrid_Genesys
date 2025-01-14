@@ -27,7 +27,7 @@
 # plot!(quadfit,x[1],x[end],label="Quadratic Fit")
 
 
-soc_model_names = ["tremblay_dessaint", "linear", "vermeer", "artificial"]
+eff_model_names = ["tremblay_dessaint", "linear", "vermeer", "artificial"]
 
 mutable struct Vermeer_params
    c1::Float64
@@ -68,7 +68,7 @@ end
 	temperature::Float64
 
    	#Model dynamics
-   	soc_model::String #model name
+   	eff_model::String #model name
 
    	# Initial conditions
    	Erated_ini::Float64  # capacité de la batterie en Wh
@@ -105,14 +105,14 @@ end
 		Npara = 1,
 		Nseries = 1,
 		temperature = 293,
-   		soc_model = "linear",
+   		eff_model = "linear",
    		Erated_ini = 1e-6,
    		soc_ini = 0.5,
    		soh_ini = 1.,
    		update_by_year = 1) =  verification_liion_params(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, nCycle, bounds,
-   			SoH_threshold, couplage, Npara, Nseries, soc_model, Erated_ini, soc_ini, soh_ini) ?
+   			SoH_threshold, couplage, Npara, Nseries, eff_model, Erated_ini, soc_ini, soh_ini) ?
    			new(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, nCycle, bounds,
-   			SoH_threshold, couplage, Npara, Nseries, temperature, soc_model, Erated_ini, soc_ini, soh_ini) : nothing
+   			SoH_threshold, couplage, Npara, Nseries, temperature, eff_model, Erated_ini, soc_ini, soh_ini) : nothing
 
 end
 
@@ -135,11 +135,11 @@ end
  ### Operation dynamic
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion_vermeer, decision::Float64, Δh::Int64)
 
-	if liion.soc_model == "vermeer"
+	if liion.eff_model == "vermeer"
 		liion.soc[h+1,y,s], liion.carrier.power[h,y,s] = compute_operation_soc_Vermeer(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
-	elseif liion.soc_model == "tremblay_dessaint"
+	elseif liion.eff_model == "tremblay_dessaint"
 		liion.soc[h+1,y,s], liion.voltage[h+1,y,s], liion.carrier.power[h,y,s], liion.current[h,y,s] = compute_operation_soc_tremblay_dessaint(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]),  liion.voltage[h,y,s], decision, Δh)
-	elseif  liion.soc_model == "linear"
+	elseif  liion.eff_model == "linear"
 		liion.soc[h+1,y,s], liion.carrier.power[h,y,s]  = compute_operation_soc_linear(liion, (Erated = liion.Erated[y,s], soc = liion.soc[h,y,s], soh = liion.soh[h,y,s]), decision, Δh)
 	end
 
@@ -238,7 +238,7 @@ end
 
  function verification_liion_params(α_p_ch::Float64, α_p_dch::Float64, η_ch::Float64, η_dch::Float64, η_self::Float64,
  	α_soc_min::Float64, α_soc_max::Float64, lifetime::Int64, nCycle::Float64, bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}},
- 	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, Npara::Int64, Nseries::Int64, soc_model::String, Erated_ini::Float64, soc_ini::Float64,
+ 	SoH_threshold::Float64, couplage::NamedTuple{(:E,:R), Tuple{Bool,Bool}}, Npara::Int64, Nseries::Int64, eff_model::String, Erated_ini::Float64, soc_ini::Float64,
  	soh_ini::Float64)
 
  	validation = true
@@ -254,8 +254,8 @@ end
  		validation = false
  	end
 
- 	if !(soc_model in soc_model_names)
- 		error(soc_model ," is not an authorized Liion state of charge model. you need to pick one from the following list : ", soc_model_names)
+ 	if !(eff_model in eff_model_names)
+ 		error(eff_model ," is not an authorized Liion state of charge model. you need to pick one from the following list : ", eff_model_names)
  		validation = false
  	end
 

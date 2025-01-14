@@ -75,7 +75,7 @@ microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share 
 # Add the equipment to the microgrid
 add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),
-                Liion(SoC_model = PolynomialLiionEfficiency(), SoH_model = SemiEmpiricalLiion()),
+                Liion(eff_model = PolynomialLiionEfficiency(), SoH_model = SemiEmpiricalLiion()),
                 Grid(carrier = Electricity()))
                 
 
@@ -86,16 +86,16 @@ data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jl
 
 data_selected = data_HP_HC
      
-ω_a = Scenarios(microgrid, data_selected; same_year=true, seed=1:ns)
+ω_a = Scenarios(microgrid, data_fix; same_year=true, seed=[x for x in 1:4])
 
 Plot_dayly_prices(ω_a; label = "HP HC")
 
 
 
 ############# Dimentionnement manuel du réseau #####################
-generations = Dict("Solar" => 10.)
-storages = Dict("Liion" => 20.)
-subscribed_power = Dict("Electricity" => 10.)
+generations = Dict("Solar" => 0.)
+storages = Dict("Liion" => 0.)
+subscribed_power = Dict("Electricity" => 20.)
 
 designer = initialize_designer!(microgrid, Manual(generations = generations, storages = storages, subscribed_power = subscribed_power), ω_a)
 ###################################################################
