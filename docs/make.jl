@@ -8,13 +8,8 @@ using Conda
 Conda.add("numpy"; channel="conda-forge")
 Conda.add("matplotlib")
 
-# Mock Gurobi dependency
-try
-  Pkg.add("Gurobi")
-  using Gurobi
-catch e
-  println("Gurobi not available, proceeding with mock.")
-end
+Pkg.add("Gurobi")
+ 
 #Pkg.activate(".")
 
 #Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
