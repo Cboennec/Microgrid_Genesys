@@ -9,31 +9,7 @@
 
 
 
-# Definition du type individu
-mutable struct Individu
-    front::Int                     # front d'appartenance
-    niche_count::Float64           # indice de densite
-    val_param::Vector{Float64}     # parametres
-    contrainte::Vector{Float64}   # contraintes
-    critere::Vector{Float64}      # criteres
-    type_cross::Int               # X-gene : type de croisement
-    realisable::Bool             # = 1 si realisable
-end
 
-
-
-# Definition du type type_param
-mutable struct TypeParam
-    pmin::Float64
-    pmax::Float64
-end
-
-# Struct for tracking the evolution  of cross operators
-mutable struct Cross
-    cross_bgx::Vector{Int}
-    cross_blx::Vector{Int}
-    cross_sbx::Vector{Int}
-end
 
 # Fonctions pour la generation des nombres aleatoires
 

@@ -1,3 +1,9 @@
+
+abstract type AbstractTESEffModel end
+
+abstract type AbstractTESAgingModel end
+
+
 #=
     Thermal energy storage modelling
  =#
@@ -9,12 +15,10 @@ A mutable struct representing a thermal energy storage model with various parame
 # Parameters
 - `α_p_ch::Float64`: Maximum charging power factor
 - `α_p_dch::Float64`: Maximum discharging power factor
-- `η_ch::Float64`: Charging efficiency
-- `η_dch::Float64`: Discharging efficiency
-- `η_self::Float64`: Self-discharge rate
+- `eff_model::AbstractTESEffModel`: Efficiency model 
 - `α_soc_min::Float64`: Minimum state of charge factor
 - `α_soc_max::Float64`: Maximum state of charge factor
-- `lifetime::Int64`: Storage lifetime in years
+- `SoH_model::AbstractTESAgingModel`: Storage aging model (fixed lifetime in years)
 - `bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}`: Lower and upper bounds of storage capacity
 - `Erated_ini::Float64`: Initial rated storage energy capacity
 - `soc_ini::Float64`: Initial state of charge
@@ -28,12 +32,14 @@ mutable struct ThermalStorage <: AbstractStorage
   # Paramètres
   α_p_ch::Float64
   α_p_dch::Float64
-  η_ch::Float64
-  η_dch::Float64
-  η_self::Float64
+
+  eff_model::AbstractTESEffModel
+
   α_soc_min::Float64
   α_soc_max::Float64
-  lifetime::Int64
+
+  SoH_model::AbstractTESAgingModel
+
   bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}
   # Initial conditions
   Erated_ini::Float64
@@ -48,18 +54,39 @@ mutable struct ThermalStorage <: AbstractStorage
   # Inner constructor
   ThermalStorage(; α_p_ch = 1.5,
        α_p_dch = 1.5,
-       η_ch = 0.8,
-       η_dch = 0.8,
-       η_self = 0.008,
+       eff_model = FixedTESEfficiency(),
        α_soc_min = 0.,
        α_soc_max = 1.,
-       lifetime = 25,
+       SoH_model = FixedTESLifetime(),
        bounds = (lb = 0., ub = 1000.),
        Erated_ini = 1e-6,
        soc_ini = 0.5,
        soh_ini = 1.) =
-       new(α_p_ch, α_p_dch, η_ch, η_dch, η_self, α_soc_min, α_soc_max, lifetime, bounds, Erated_ini, soc_ini, soh_ini)
+       new(α_p_ch, α_p_dch, eff_model, α_soc_min, α_soc_max, SoH_model, bounds, Erated_ini, soc_ini, soh_ini)
 end
+
+mutable struct FixedTESEfficiency <: AbstractTESEffModel
+
+  η_ch::Float64
+  η_dch::Float64
+  η_self::Float64
+
+  FixedTESEfficiency(;η_ch = 0.8,
+		η_dch = 0.8,
+		η_self = 0.008,
+	) = new(η_ch, η_dch, η_self)
+end
+
+
+mutable struct FixedTESLifetime <: AbstractTESAgingModel
+
+	lifetime::Int64
+
+	FixedTESLifetime(;lifetime = 25) = new(lifetime)
+end
+
+
+
 
 """
  preallocate!(tes::ThermalStorage, nh::Int64, ny::Int64, ns::Int64)
@@ -86,10 +113,10 @@ end
 
 function compute_operation_dynamics(tes::ThermalStorage, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
   # Control power constraint and correction
-  power_dch = max(min(decision, tes.α_p_dch * state.Erated, tes.η_dch * (state.soc * (1. - tes.η_self * Δh) - tes.α_soc_min) * state.Erated / Δh), 0.)
-  power_ch = min(max(decision, -tes.α_p_ch * state.Erated, (state.soc * (1. - tes.η_self * Δh) - tes.α_soc_max) * state.Erated / Δh / tes.η_ch), 0.)
+  power_dch = max(min(decision, tes.α_p_dch * state.Erated, tes.eff_model.η_dch * (state.soc * (1. - tes.eff_model.η_self * Δh) - tes.α_soc_min) * state.Erated / Δh), 0.)
+  power_ch = min(max(decision, -tes.α_p_ch * state.Erated, (state.soc * (1. - tes.eff_model.η_self * Δh) - tes.α_soc_max) * state.Erated / Δh / tes.eff_model.η_ch), 0.)
   # SoC dynamic
-  soc_next = state.soc * (1. - tes.η_self * Δh) - (power_ch * tes.η_ch + power_dch / tes.η_dch) * Δh / state.Erated
+  soc_next = state.soc * (1. - tes.eff_model.η_self * Δh) - (power_ch * tes.eff_model.η_ch + power_dch / tes.eff_model.η_dch) * Δh / state.Erated
   return soc_next, power_dch + power_ch
 end
 

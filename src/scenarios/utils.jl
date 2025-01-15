@@ -139,7 +139,7 @@ function get_profil_and_sequence(days::Vector{Int64}, weights::Vector{Int64}, ω
     @objective(m2, Min, sum((error[data_id, d, h]^2) .* weight_energy for data_id in 1:length(data_reshape) for d in 1:365 for  h in 1:24))
 
 
-    optimize!(m2)
+    JuMP.optimize!(m2)
 
     
     sequence = [findfirst( x -> x > 0, Int64.(round.(value.(m2[:assignments])[i,:]))) for i in 1:365]
@@ -212,14 +212,18 @@ end
 
 
 
+
 function get_days(N_days, N_bins, ω, y ,s; time_limit = 0)
 
 
     data = []
 
-    push!(data, ω.demands[1].power[:, y, s])
-    push!(data, ω.demands[2].power[:, y, s])
-    push!(data, ω.generations[1].power[:, y, s])
+    for demand in ω.demands
+        push!(data, demand.power[:, y, s])
+    end
+    for generation in ω.generations
+        push!(data, generation.power[:, y, s])
+    end
 
     N_metric = length(data) # Elec curve, Solar curve
 
@@ -284,7 +288,7 @@ function get_days(N_days, N_bins, ω, y ,s; time_limit = 0)
 
     @objective(m, Min, sum(errors[metric, b] for metric in 1:N_metric for b in 1:N_bins))
 
-    optimize!(m)
+    JuMP.optimize!(m)
 
     days_id = findall( x -> x > 0, Int64.(round.(value.(m[:day]))))
     return days_id, Int64.(round.(value.(m[:weight_day])))[days_id]
@@ -292,3 +296,248 @@ function get_days(N_days, N_bins, ω, y ,s; time_limit = 0)
 end
 
 
+
+
+function get_days_multi_year(N_days, N_bins, ω, y, s; time_limit = 0)
+
+
+    data = []
+
+    for demand in ω.demands
+        push!(data, vec(demand.power[:, 1:y, s]))
+    end
+    for generation in ω.generations
+        push!(data, vec(generation.power[:, 1:y, s]))
+    end
+
+    N_metric = length(data) # Elec curve, Solar curve
+
+    
+    # #######################
+    ### Define values of L and A (see Poncelet et al. P.5 second column) ######
+    #####################
+    L = zeros(N_metric, N_bins)
+    A = zeros(N_metric, N_bins, 365 * y)
+
+    for i in 1:N_metric
+        min_data = minimum(data[i])
+        max_data = maximum(data[i])
+
+        bin_step = (max_data-min_data)/N_bins
+
+        OG_DC = reverse(sort(data[i]))
+
+
+
+        for j in 1:N_bins
+            #PyPlot.scatter(findfirst(OG_DC .<  ((j-1)*bin_step)+min_data),((j-1)*bin_step)+min_data)
+
+            L[i,j] = sum(OG_DC .>= ((j-1)*bin_step)+min_data) / (8760 * y)
+
+            for k in 1:(365 * y)
+                A[i,j,k] = sum(data[i][((k-1)*24+1):(k*24)] .>= ((j-1)*bin_step)+min_data) / 24
+            end
+        end
+    end
+
+    
+
+
+#######################
+### Optimize to find the best set of days and their weights ######
+#####################
+
+    n_real_days = 365 * y 
+    @assert(n_real_days == length(data[1])/24)
+
+
+    m = Model(Gurobi.Optimizer)
+
+    if time_limit > 0
+        set_optimizer_attribute(m, "TimeLimit", time_limit)
+    end
+
+
+    @variable(m, weight_day[1:n_real_days] >= 0, Int)
+    @variable(m, day[1:n_real_days], Bin)
+
+
+    @constraint(m, sum(m[:weight_day][d] for d in 1:n_real_days) == n_real_days)
+    @constraint(m, [d in 1:n_real_days], weight_day[d] <= n_real_days * day[d])
+    @constraint(m, [d in 1:n_real_days], weight_day[d] >= day[d])
+
+
+    @constraint(m, sum(day[d] for d in 1:n_real_days) == N_days)
+
+    @variable(m, errors[1:N_metric, 1:N_bins])
+
+
+    @constraint(m, [metric in 1:N_metric, b in 1:N_bins], errors[metric,b] >= sum(weight_day[d] * 1/n_real_days * A[metric,b,d] for d in 1:n_real_days) - L[metric,b])
+    @constraint(m, [metric in 1:N_metric, b in 1:N_bins], errors[metric,b] >= -(sum(weight_day[d] * 1/n_real_days * A[metric,b,d] for d in 1:n_real_days) - L[metric,b]))
+
+    @objective(m, Min, sum(errors[metric, b] for metric in 1:N_metric for b in 1:N_bins))
+
+    JuMP.optimize!(m)
+
+    days_id = findall( x -> x > 0, Int64.(round.(value.(m[:day]))))
+    return days_id, Int64.(round.(value.(m[:weight_day])))[days_id]
+            
+end
+
+
+
+
+
+
+function get_profil_and_sequence_multi_year(days::Vector{Int64}, weights::Vector{Int64}, ω::Scenarios, y::Int64, s::Int64, mg::Microgrid; display_res = false, time_limit = 300)
+    
+
+    data_reshape = []
+    data = []
+    labels = []
+    units = []
+
+    for (k,demand) in enumerate(ω.demands)
+        push!(data, demand.power[:, :, s])
+        push!(labels, string("demand : ", typeof(mg.demands[k].carrier)))
+        push!(units, string( "Power [kWh]"))
+       
+    end
+    for (k,generation) in enumerate(ω.generations)
+        push!(data, generation.power[:, :, s])
+        push!(labels, string("generation : ", typeof(mg.generations[k])))
+        push!(units, string("Power [p.u]"))
+    end
+
+    n_real_days = 365 * y 
+    @assert(n_real_days == length(data[1])/24)
+
+
+    max_data = maximum.(data)
+
+    for (k,d) in enumerate(data)
+        push!(data_reshape, reshape(vec(d), (24,n_real_days)) ./ max_data[k])
+    end
+    
+    
+    total_energy = sum(sum(data))
+    weight_energy = ones(length(data)) ./ length(data)#[sum(d) for d in data] ./ total_energy
+
+
+    m2 = Model(Gurobi.Optimizer)
+    set_optimizer_attribute(m2, "TimeLimit", time_limit)
+    
+    #Which day is assigned to which representative
+    @variable(m2, assignments[1:n_real_days, 1:length(days)], Bin)
+
+    #Each representative represent itself
+    for (i,d) in enumerate(days)
+        fix(m2[:assignments][d,i], 1)
+    end
+
+    #Each day is represented by one day
+    @constraint(m2, [d in 1:n_real_days], sum(assignments[d,r] for r in 1:length(days)) == 1)
+    # Each representative represents a number of day equal to its weight
+    @constraint(m2, [r in 1:length(days)], sum(assignments[d,r] for d in 1:n_real_days) == weights[r])
+
+    #The constructed profil
+    @variable(m2, constructed_data[1:length(data_reshape), 1:n_real_days, 1:24])
+    #Assign values to the constructed profil
+    @constraint(m2, [data_id in 1:length(data_reshape), d in 1:n_real_days, h in 1:24], constructed_data[data_id,d,h] == sum(assignments[d,r] * data_reshape[data_id][h,days[r]] for r in 1:length(days)))
+
+    @variable(m2, error[1:length(data_reshape), 1:n_real_days, 1:24])
+   
+
+    @constraint(m2, [data_id in 1:length(data_reshape), d in 1:n_real_days, h in 1:24], error[data_id, d, h] == (constructed_data[data_id,d,h] - data_reshape[data_id][h,d]))
+   
+
+
+    #Minimize the squared error
+   # @objective(m2, Min, sum((error[data_id, d, h]^2) * weight_energy[data_id] for data_id in 1:length(data_reshape) for d in 1:n_real_days for  h in 1:24))
+   
+   # Not quadratic version
+   @variable(m2, error_abs[1:length(data_reshape), 1:n_real_days, 1:24])
+   @constraint(m2, [data_id in 1:length(data_reshape), d in 1:n_real_days, h in 1:24], error_abs[data_id, d, h] >= error[data_id, d, h])
+   @constraint(m2, [data_id in 1:length(data_reshape), d in 1:n_real_days, h in 1:24], error_abs[data_id, d, h] >= -error[data_id, d, h])
+   @objective(m2, Min, sum((error_abs[data_id, d, h]) * weight_energy[data_id] for data_id in 1:length(data_reshape) for d in 1:n_real_days for  h in 1:24))
+
+    JuMP.optimize!(m2)
+
+    
+    sequence = [findfirst( x -> x > 0, value.(m2[:assignments][i,:])) for i in 1:n_real_days]
+
+    constructed_res = [reshape(vec(transpose(value.(m2[:constructed_data][k,:,:]))) * max_data[k], (8760,y)) for k in 1:length(data)]
+
+    # load_result_E = vec(transpose(value.(m2[:constructed_data][1,:,:]))) * max_ld_E
+    # load_result_H = vec(transpose(value.(m2[:constructed_data][2,:,:]))) * max_ld_H
+    # gen_result = vec(transpose(value.(m2[:constructed_data][3,:,:]))) * max_ld_PV
+
+    if display_res 
+    
+        fig, axs = PyPlot.subplots(length(data),1, figsize=(9, 3), sharey=true)
+        fig.set_size_inches( 1920 / fig.dpi, 1080/ fig.dpi)
+
+        for k in 1:length(data)
+            axs[k].plot(vec(transpose(value.(m2[:error])[k,:,:])).^2)
+            axs[k].set_title(labels[k])
+            axs[k].set_xlabel("Days",fontsize = 16)
+            axs[k].set_ylabel("Squared Error",fontsize = 16)
+        end
+        # axs[1].plot(vec(transpose(value.(m2[:error])[2,:,:])).^2)
+        # axs[1].set_title("Load_H")
+        # axs[1].set_xlabel("Days",fontsize = 16)
+        # axs[1].set_ylabel("Squared Error",fontsize = 16)
+
+
+        # axs[2].plot(vec(transpose(value.(m2[:error])[3,:,:])).^2)
+        # axs[2].set_title("Generation")
+        # axs[2].set_xlabel("Days",fontsize = 16)
+        # axs[2].set_ylabel("Squared Error",fontsize = 16)
+        tight_layout()
+
+        fig, axs = PyPlot.subplots(length(data)+1,1, figsize=(9, 3), sharey=false)
+        fig.set_size_inches( 1920 / fig.dpi, 1080/ fig.dpi)
+
+        for k in 1:length(data)
+            axs[k].plot(vec(data_reshape[k]).* max_data[k], label = "OG")
+            axs[k].plot(vec(transpose(value.(m2[:constructed_data][k,:,:]))) .* max_data[k])
+            axs[k].set_title(labels[k])
+            axs[k].set_ylabel(units[k],fontsize = 16)
+        end
+        # axs[2].plot(vec(data_reshape[2]).* max_ld_H, label = "OG")
+        # axs[2].plot(vec(transpose(value.(m2[:constructed_data][2,:,:]))) .* max_ld_H)
+        # axs[2].set_title("Load Profil Heat")
+        # axs[2].set_ylabel("Power [kW]",fontsize = 16)
+
+
+        # axs[3].plot(vec(data_reshape[3]).* max_ld_PV)
+        # axs[3].plot(vec(transpose(value.(m2[:constructed_data][3,:,:]))) .* max_ld_PV)
+        # axs[3].set_title("Generation Profil")
+        # axs[3].set_xlabel("Hours",fontsize = 16)
+        # axs[3].set_ylabel("Power [p.u]",fontsize = 16)
+
+
+        x_id = []
+        color_id = []
+       # color_names = collect(keys(matplotlib.colors.XKCD_COLORS))
+        color = Seaborn.color_palette("viridis", as_cmap =true)
+
+        for day in 1:(365*y)
+            push!(x_id, (((day-1)*1), 1))
+            push!(color_id, color(days[sequence[day]]/(365*y)))# color_names[sequence[day]])
+        end
+        axs[length(data)+1].broken_barh(x_id, (0, 1),
+                    facecolors=color_id)
+
+        tight_layout()
+
+        legend()
+    end
+
+
+
+    
+    return  constructed_res, sequence
+
+
+end

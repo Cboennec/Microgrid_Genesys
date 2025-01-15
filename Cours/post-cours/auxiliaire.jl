@@ -131,7 +131,7 @@ end
 
 ### Preallocation
 function preallocate!(elyz::Electrolyzer, nh::Int64, ny::Int64, ns::Int64)
-    elyz.EffModel.powerMax = convert(SharedArray,zeros(nh+1, ny+1, ns)) ;  elyz.EffModel.powerMax[1,1,:] .= elyz.EffModel.powerMax_ini
+    elyz.eff_model.powerMax = convert(SharedArray,zeros(nh+1, ny+1, ns)) ;  elyz.eff_model.powerMax[1,1,:] .= elyz.eff_model.powerMax_ini
     elyz.η = convert(SharedArray,zeros(nh+1, ny+1, ns))
   
     elyz.carrier = [Electricity(), Heat(), Hydrogen()]
@@ -143,14 +143,14 @@ function preallocate!(elyz::Electrolyzer, nh::Int64, ny::Int64, ns::Int64)
   
     elyz.SoH_model.V_J_ini = convert(SharedArray, zeros(3, length(elyz.V_J_ini[1,:]))) #J, V, P
     elyz.SoH_model.V_J = convert(SharedArray, zeros(3, length(elyz.V_J_ini[1,:]), ns)) #J, V, P
-    elyz.EffModel.V_J = convert(SharedArray, zeros(3, length(elyz.V_J_ini[1,:]), ns)) #J, V, P
+    elyz.eff_model.V_J = convert(SharedArray, zeros(3, length(elyz.V_J_ini[1,:]), ns)) #J, V, P
   
-    if elyz.EffModel isa LinearElectrolyzerEfficiency
-        elyz.EffModel.a_η =  convert(SharedArray, zeros(ns))
-        elyz.EffModel.b_η = convert(SharedArray, zeros(ns))
+    if elyz.eff_model isa LinearElectrolyzerEfficiency
+        elyz.eff_model.a_η =  convert(SharedArray, zeros(ns))
+        elyz.eff_model.b_η = convert(SharedArray, zeros(ns))
     end
 
-    elyz.EffModel.compresseur.pression_H2 = convert(SharedArray, zeros(ns))
+    elyz.eff_model.compresseur.pression_H2 = convert(SharedArray, zeros(ns))
 
     return elyz
 end
@@ -192,7 +192,7 @@ function share_info_bw_assets!(h::Int64, y::Int64, s::Int64, mg::Microgrid)
     id_elyz = findfirst(a isa Electrolyzer for a in mg.converters)
     id_tank = findfirst(a isa H2Tank for a in mg.storages)
     if !isnothing(id_elyz) && !isnothing(id_tank)
-        mg.converters[id_elyz].EffModel.compresseur.pression_H2[s] = get_pression(mg.storages[id_tank], h,y,s)
+        mg.converters[id_elyz].eff_model.compresseur.pression_H2[s] = get_pression(mg.storages[id_tank], h,y,s)
     end
 end
 
@@ -294,7 +294,7 @@ deg = create_deg_params(datas_deg_FC, current_densities, V_J_FC, J_ref, obj_hour
 
 microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = .5))
 
-elyz = Electrolyzer(;V_J_ini = V_J_Elyz, EffModel = PolarizationElectrolyzerEfficiency2())
+elyz = Electrolyzer(;V_J_ini = V_J_Elyz, eff_model = PolarizationElectrolyzerEfficiency2())
 fc = FuelCell(;V_J_ini = V_J_FC, SoH_model = PowerAgingFuelCell(;deg_params=deg))
 
 # Add the equipment to the microgrid

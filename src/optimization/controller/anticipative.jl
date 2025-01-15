@@ -39,7 +39,7 @@ function build_model(mg::Microgrid, controller::Anticipative, ω::Scenarios; rep
     add_investment_decisions!(m, mg.storages)
     add_investment_decisions!(m, mg.converters)
     # Fix their values
-    fix_investment_decisions!(m, mg, controller.generations, controller.storages, controller.converters)
+    fix_investment_decisions!(m, mg, [x for x in values(controller.generations)], [x for x in values(controller.storages)], [x.surface * x.N_cell for x in values(controller.converters)])
     # Add decision variables
     add_operation_decisions!(m, mg.storages, nh, ns)
     add_operation_decisions!(m, mg.converters, nh, ns)
@@ -159,6 +159,51 @@ function build_model(mg::Microgrid, controller::Anticipative, ω::MiniScenarios,
 end 
 
 
+function build_model(mg::Microgrid, controller::Anticipative, ω::MiniScenarios_my, s::Int64; time_limit = 3600)
+
+    id_dict = get_id_dict(mg)    
+    nh, ns = size(ω.demands[1].power, 1) * size(ω.demands[1].power, 2), size(ω.demands[1].power, 3)
+    n_days = size(ω.demands[1].power, 2) * 365
+    # Initialize
+    m = Model(controller.options.solver.Optimizer)
+    set_optimizer_attribute(m, "TimeLimit", time_limit)
+
+    #set_optimizer_attribute(m,"CPX_PARAM_SCRIND", 0)
+    # Add investment variables
+    add_investment_decisions!(m, mg.generations)
+    add_investment_decisions!(m, mg.storages)
+    add_investment_decisions!(m, mg.converters)
+    # Fix their values
+    fix_investment_decisions!(m, mg, controller.generations, controller.storages, controller.converters, id_dict)
+    # Add decision variables
+    add_operation_decisions!(m, mg.storages, nh, ns)
+    add_operation_decisions!(m, mg.converters, nh, ns)
+    add_operation_decisions!(m, mg.grids, nh, ns)
+    # Add technical constraints
+    add_SoC_base!(m, mg.storages, ns, n_days)
+
+
+    add_technical_constraints_mini!(m, mg.storages, mg.parameters.Δh, nh, ns)
+    add_technical_constraints!(m, mg.converters, nh, ns)
+    add_technical_constraints!(m, mg.grids, nh, ns)
+    # Add periodicity constraint
+    #add_periodicity_constraints!(m, mg.storages, ns)
+    # Add power balance constraints
+    add_power_balance_my!(m, mg, ω, Electricity, nh, ns)
+    add_power_balance_my!(m, mg, ω, Heat, nh, ns)
+    add_power_balance_my!(m, mg, ω, Hydrogen, nh, ns)
+
+    add_Continuity_SoC_constraints_mini!(m, mg.storages, nh, ns, ω.sequence[:,s])
+    add_periodicity_constraints_mini!(m, mg.storages, ns, ω.sequence[:,s])
+
+    # Objective
+    opex = compute_opex_mini(m, mg, ω, n_days, ns, ω.sequence[:,s])
+    @objective(m, Min, opex[1])
+
+    return m
+end 
+
+
 ### Offline
 function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::MiniScenarios)
     # Preallocate
@@ -175,7 +220,7 @@ function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::Min
         model = build_model(mg, controller, ω, y, s)
       
         # Optimize
-        optimize!(model)
+        JuMP.optimize!(model)
 
         push!(model_return, model)
         #println(objective_value(model))
@@ -200,6 +245,61 @@ function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::Min
                 controller.decisions.converters[k][:,y,s] .= .- value.(model[:p_c][h_seq,1,k])
             elseif typeof(a) <: AbstractFuelCell
                 controller.decisions.converters[k][:,y,s] .= value.(model[:p_c][h_seq,1,k])
+            end
+        end
+    
+       
+    end
+
+    return controller, model_return
+end
+
+
+function initialize_controller!(mg::Microgrid, controller::Anticipative, ω::MiniScenarios_my; time_limit = 3600)
+    # Preallocate
+
+    preallocate!(mg, controller)
+
+    model_return = []
+
+    for s in 1:mg.parameters.ns
+        # Scenario reduction
+       
+
+        # Build model
+        model = build_model(mg, controller, ω, s; time_limit)
+      
+        # Optimize
+        JuMP.optimize!(model)
+
+        push!(model_return, model)
+        #println(objective_value(model))
+        
+        legend()
+
+       
+      
+        for y in 1:mg.parameters.ny
+
+            h_seq = []
+            for d in (1+(y-1)*365):(365 + (y-1)*365)
+                for h in 1:24
+                    h_seq = push!(h_seq, (ω.sequence[d]-1) * 24 + h  )
+                end
+            end
+
+                # Assign controller values
+            for k in 1:length(mg.storages)
+                controller.decisions.storages[k][:,y,s] .= value.(model[:p_dch][h_seq,1,k] .- model[:p_ch][h_seq,1,k])
+            end
+            for (k,a) in enumerate(mg.converters)
+                if a isa Heater
+                    controller.decisions.converters[k][:,y,s] .= .- value.(model[:p_c][h_seq,y,k])
+                elseif typeof(a) <: AbstractElectrolyzer
+                    controller.decisions.converters[k][:,y,s] .= .- value.(model[:p_c][h_seq,y,k])
+                elseif typeof(a) <: AbstractFuelCell
+                    controller.decisions.converters[k][:,y,s] .= value.(model[:p_c][h_seq,y,k])
+                end
             end
         end
     

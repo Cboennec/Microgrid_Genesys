@@ -219,9 +219,9 @@ function π_6(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
         u_heater_E, heater_H = compute_operation_dynamics(heater, (powerMax = heater.powerMax[y,s],), p_net_E - u_liion - u_elyz_E, Δh)
     else
         # If the battery is getting low and the fuelcell is not activated due to minor demand we activate and use the excess to charge the battery with it
-        if p_net_E - u_liion < fc.EffModel.powerMin[h,y,s] && p_net_E - u_liion != 0 #&& liion.soc[h,y,s] < 0.6 #&& h2tank.soc[h,y,s] > 0.3 
-            p_adjust_E = fc.EffModel.powerMin[h,y,s]
-            u_liion = p_net_E - fc.EffModel.powerMin[h,y,s]
+        if p_net_E - u_liion < fc.eff_model.powerMin[h,y,s] && p_net_E - u_liion != 0 #&& liion.soc[h,y,s] < 0.6 #&& h2tank.soc[h,y,s] > 0.3 
+            p_adjust_E = fc.eff_model.powerMin[h,y,s]
+            u_liion = p_net_E - fc.eff_model.powerMin[h,y,s]
         else
             p_adjust_E = p_net_E - u_liion
         end
@@ -279,8 +279,8 @@ function π_7(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
     if p_net_E < 0.
 
         # If there is a rest but its not enough to activate the elyz
-        if p_net_E - u_liion < elyz.EffModel.powerMax[h,y,s] * elyz.min_part_load && p_net_E - u_liion > 0 && p_net_E >= elyz.EffModel.powerMin[h,y,s]
-            p_adjust_E = elyz.EffModel.powerMin[h,y,s]
+        if p_net_E - u_liion < elyz.eff_model.powerMax[h,y,s] * elyz.min_part_load && p_net_E - u_liion > 0 && p_net_E >= elyz.eff_model.powerMin[h,y,s]
+            p_adjust_E = elyz.eff_model.powerMin[h,y,s]
             u_liion = p_net_E - p_adjust_E
         else
             p_adjust_E = p_net_E - u_liion
@@ -299,8 +299,8 @@ function π_7(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
        
     else
          # If there is a rest but its not enough to activate the fc
-        if p_net_E - u_liion < fc.EffModel.powerMin[h,y,s] && p_net_E - u_liion > 0 && p_net_E >= fc.EffModel.powerMin[h,y,s]
-            p_adjust_E = fc.EffModel.powerMin[h,y,s]
+        if p_net_E - u_liion < fc.eff_model.powerMin[h,y,s] && p_net_E - u_liion > 0 && p_net_E >= fc.eff_model.powerMin[h,y,s]
+            p_adjust_E = fc.eff_model.powerMin[h,y,s]
             u_liion = p_net_E - p_adjust_E
         else
             p_adjust_E = p_net_E - u_liion
@@ -349,7 +349,7 @@ function π_8(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
 
         if u_fc_E == 0
             # La pile ne peut pas prendre le reste alors on lui donne son min 
-            u_fc_E = fc.EffModel.powerMin[h,y,s] 
+            u_fc_E = fc.eff_model.powerMin[h,y,s] 
             u_liion = p_net_E - u_fc_E
         end
 
@@ -365,7 +365,7 @@ function π_8(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
 
         if u_elyz_E == 0
             # L'electrolyzer ne peut pas prendre le reste alors on lui donne son min 
-            min_elyz = ceil(elyz.EffModel.powerMax[h,y,s] * elyz.min_part_load, digits = 6)
+            min_elyz = ceil(elyz.eff_model.powerMax[h,y,s] * elyz.min_part_load, digits = 6)
 
             u_elyz_E, _, u_elyz_H2 = compute_operation_dynamics(elyz, h, y, s, -min_elyz, Δh)
 

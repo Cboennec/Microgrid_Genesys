@@ -1,11 +1,27 @@
+"""
 abstract type AbstractLiion <: AbstractStorage  end
 
-abstract type AbstractLiionEffModel end
-
-abstract type AbstractLiionAgingModel end
+An abstract type, parent of all Liion types
+"""
+abstract type AbstractLiion <: AbstractStorage  end
 
 """
-LinearLiionEfficiency <: AbstractLiionEffModel
+abstract type AbstractLiionEffModel end
+
+An abstract type, parent of all Liion efficieny model types
+"""
+abstract type AbstractLiionEffModel end
+
+"""
+abstract type AbstractLiionAgingModel end
+
+An abstract type, parent of all Liion aging model types
+"""
+abstract type AbstractLiionAgingModel end
+
+
+"""
+FixedLiionEfficiency <: AbstractLiionEffModel
 
 A mutable struct that represents a Li-ion battery efficiency model for SoC computation.
 This model implement a fixed efficiency that can decrease linearly with battery aging.
@@ -21,10 +37,10 @@ This model implement a fixed efficiency that can decrease linearly with battery 
 
 ## Example 
 ```julia
-LinearLiionEfficiency()
+FixedLiionEfficiency()
 ```
 """
-mutable struct LinearLiionEfficiency <: AbstractLiionEffModel
+mutable struct FixedLiionEfficiency <: AbstractLiionEffModel
 
 	η_ch::Float64 #Charging efficiency
 	η_dch::Float64 #Discharging efficiency
@@ -35,7 +51,7 @@ mutable struct LinearLiionEfficiency <: AbstractLiionEffModel
 	η_self::Float64 #Auto discarge factor
 	
 	
-	LinearLiionEfficiency(;η_ch = 0.98,
+	FixedLiionEfficiency(;η_ch = 0.98,
 		η_dch = 0.98,
 		η_deg_coef = 0.2303,  # ref : Redondo Iglesias - Efficiency Degradation Model of Lithium-Ion Batteries for Electric Vehicles
 		couplage = (E = true, R = true),
@@ -72,6 +88,9 @@ PolynomialLiionEfficiency()
 """
 mutable struct PolynomialLiionEfficiency <: AbstractLiionEffModel
 
+	η_ch::Float64 #Charging efficiency
+	η_dch::Float64 #Discharging efficiency
+
 	#Polynom coefficients for the computation of efficiency
 	a_η_ch::Float64
 	b_η_ch::Float64
@@ -84,10 +103,13 @@ mutable struct PolynomialLiionEfficiency <: AbstractLiionEffModel
 	couplage::NamedTuple{(:E, :R), Tuple{Bool, Bool}}  #a boolean tuple to tell wether or not the soh should influence the other parameters.
 	α_p_ch::Float64 #C_rate max
 	α_p_dch::Float64 #C_rate max
-	η_self::Float64 #Auto discarge factor
+	η_self::Float64 #Auto discarge factor 
 	
 	
-	PolynomialLiionEfficiency(;a_η_ch=	0.0033,
+	PolynomialLiionEfficiency(;
+	η_ch = 0.98,
+	η_dch = 0.98,
+	a_η_ch=	0.0033,
 	b_η_ch = 0.0297, 
 	c_η_ch = 0.99814,
 	a_η_dch = 0.002232, 
@@ -97,7 +119,7 @@ mutable struct PolynomialLiionEfficiency <: AbstractLiionEffModel
 	couplage = (E = true, R = false),
 	α_p_ch = 1.5,
 	α_p_dch = 1.5,
-	η_self = 0.0005) = new(a_η_ch, b_η_ch, c_η_ch, a_η_dch, b_η_dch, c_η_dch, η_deg_coef, couplage, α_p_ch, α_p_dch ,η_self)
+	η_self = 0.0005) = new(η_ch, η_dch, a_η_ch, b_η_ch, c_η_ch, a_η_dch, b_η_dch, c_η_dch, η_deg_coef, couplage, α_p_ch, α_p_dch ,η_self)
 
 end
 
@@ -110,15 +132,16 @@ This model calculates aging based on the cumulative energy throughput and additi
 
 # Parameters:
 - `calendar::Bool`: A boolean value to indicate whether to consider calendar aging (default: true)
-- `nCycle::Int64`: An adjusted number of cycle to reach the SoH replacement threshold after nCycle_ini cycles (default: 2500)
-- `nCycle_ini::Int64`: The total number of cycles achievable before reaching EOL(default: 2500)
+- `nCycle::Int64`: An adjusted number of cycle to reach the SoH replacement threshold after nCycle_ini cycles (default: 6000)
+- `nCycle_ini::Int64`: The total number of cycles achievable before reaching EOL(default: 6000). 
 - `Δcal::Float64`: The calendar aging parameter (default: 1 - exp(-4.14e-10 * 3600))
 
 ## Example 
 ```julia
 EnergyThroughputLiion(;nCycle_ini = Int(floor(fatigue_data.cycle[findfirst(fatigue_data.DoD .> (0.6))])))```
 
-supposing that fatigue data is a dataframe with a cycle column and a DoD column
+This set the feasible number of cycles corresponding to the number of 60% DoD cycles in the cycle-to-failure curve (named fatigue_data).
+Supposing that fatigue data is a dataframe with a cycle column and a DoD column
 """
 mutable struct EnergyThroughputLiion <: AbstractLiionAgingModel
 
@@ -252,7 +275,7 @@ A mutable struct representing a Li-ion battery model with state of charge (SoC) 
 
 ## Parameters
 
-- `SoC_model::AbstractLiionEffModel`: Model for state of charge computation.
+- `eff_model::AbstractLiionEffModel`: Model for state of charge computation.
 - `SoH_model::AbstractLiionAgingModel`: Model for aging computation.
 - `α_soc_min::Float64`: Minimum threshold of charge (normalized).
 - `α_soc_max::Float64`: Maximum threshold of charge (normalized).
@@ -277,19 +300,20 @@ A mutable struct representing a Li-ion battery model with state of charge (SoC) 
 
 ## Example 
 ```julia
-Liion(SoC_model = PolynomialLiionEfficiency(), SoH_model = FixedLifetimeLiion())```
+Liion(eff_model = PolynomialLiionEfficiency(), SoH_model = FixedLifetimeLiion())```
 
 """
 mutable struct Liion <: AbstractLiion
 
 	
-	SoC_model::AbstractLiionEffModel
+	eff_model::AbstractLiionEffModel
 	SoH_model::AbstractLiionAgingModel
 
 	# Parameters
 	α_soc_min::Float64 #min threshold of charge (normalized)
 	α_soc_max::Float64 #max threshold of charge (normalized)
 
+	η_self::Float64 
 	
 
 	bounds::NamedTuple{(:lb, :ub), Tuple{Float64, Float64}}
@@ -312,16 +336,17 @@ mutable struct Liion <: AbstractLiion
 	cost::AbstractArray{Float64,2}
 
 	# Inner constructor
-	Liion(; SoC_model = LinearLiionEfficiency(),
+	Liion(; eff_model = FixedLiionEfficiency(),
 		SoH_model = FixedLifetimeLiion(),
 		α_soc_min = 0.2,
 		α_soc_max = 0.8,
+		η_self = 0.0005,
 		bounds = (lb = 0., ub = 1000.),
 		SoH_threshold = 0.8,
 		couplage = (E = true, R = true),
 		Erated_ini = 1e-6,
 		soc_ini = 0.5,
-		soh_ini = 1.) = new(SoC_model, SoH_model, α_soc_min, α_soc_max, bounds,
+		soh_ini = 1.) = new(eff_model, SoH_model, α_soc_min, α_soc_max, η_self, bounds,
 			SoH_threshold, couplage, Erated_ini, soc_ini, soh_ini) 
 
 end
@@ -363,7 +388,7 @@ function preallocate!(liion::Liion, nh::Int64, ny::Int64, ns::Int64)
 		liion.SoH_model.Sum_fd = convert(SharedArray,zeros(ns))
    end
 
-   liion.SoC_model.couplage = liion.couplage
+   liion.eff_model.couplage = liion.couplage
 
    return liion
 end
@@ -399,7 +424,7 @@ compute_operation_dynamics!(h, y, s, liion, decision, Δh)```
 """
 function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion, decision::Float64, Δh::Int64)
 
-	liion.soc[h+1,y,s], power_ch, power_dch = compute_operation_soc(liion, liion.SoC_model, h ,y ,s , decision, Δh)
+	liion.soc[h+1,y,s], power_ch, power_dch = compute_operation_soc(liion, liion.eff_model, h ,y ,s , decision, Δh)
 	
 	liion.carrier.power[h,y,s] = power_ch + power_dch 
 
@@ -415,12 +440,12 @@ end
 """
 # compute_operation_soc
 
-Compute and update the state of charge (SoC) dynamics based on the input decisions using the LinearLiionEfficiency model.
+Compute and update the state of charge (SoC) dynamics based on the input decisions using the FixedLiionEfficiency model.
 
 ## Arguments
 
 - `liion::Liion`: Li-ion battery model.
-- `model::LinearLiionEfficiency`: Linear efficiency model.
+- `model::FixedLiionEfficiency`: Linear efficiency model.
 - `h::Int64`: Operation time step index.
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
@@ -429,7 +454,7 @@ Compute and update the state of charge (SoC) dynamics based on the input decisio
 
 ## Description
 
-This function computes and updates the state of charge (SoC) dynamics of the Liion battery model based on the input decisions and the LinearLiionEfficiency model. It considers efficiency, capacity coupling, and efficiency coupling according to the model parameters.
+This function computes and updates the state of charge (SoC) dynamics of the Liion battery model based on the input decisions and the FixedLiionEfficiency model. It considers efficiency, capacity coupling, and efficiency coupling according to the model parameters.
 
 ## Example
 
@@ -442,7 +467,13 @@ decision = 0.5
 compute_operation_soc(liion, model, h, y, s, decision, Δh)
 ```
 """
-function compute_operation_soc(liion::Liion, model::LinearLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_soc(liion::Liion, model::FixedLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+	
+	
+	if liion.Erated[y,s] == 0
+		return 0,0,0
+	end 
+	
 	if decision >= 0 
 		η_ini = model.η_dch 
 	else
@@ -464,7 +495,11 @@ function compute_operation_soc(liion::Liion, model::LinearLiionEfficiency, h::In
 	@inbounds power_dch = max(min(decision, model.α_p_dch * Erated, liion.soh[h,y,s] * liion.Erated[y,s] / Δh, η * (liion.soc[h,y,s] - liion.α_soc_min) * Erated / Δh), 0.)
 	@inbounds power_ch = min(max(decision, -model.α_p_ch * Erated, -liion.soh[h,y,s] * liion.Erated[y,s] / Δh, (liion.soc[h,y,s] - liion.α_soc_max) * Erated / Δh / η), 0.)
 
-	return (1-model.η_self) * liion.soc[h,y,s] - (power_ch * η + power_dch / η) * Δh / Erated, power_ch, power_dch
+	if Erated == 0
+		return 0
+	else
+		return (1-model.η_self) * liion.soc[h,y,s] - (power_ch * η + power_dch / η) * Δh / Erated, power_ch, power_dch
+	end
 
 end
 
@@ -527,7 +562,9 @@ function compute_operation_soc(liion::Liion, model::PolynomialLiionEfficiency, h
 	power_dch = max(min(decision, model.α_p_dch * Erated, liion.soh[h,y,s] * liion.Erated[y,s] / Δh, η * (liion.soc[h,y,s] - liion.α_soc_min) * Erated / Δh), 0.)
 	power_ch = min(max(decision, -model.α_p_ch * Erated, -liion.soh[h,y,s] * liion.Erated[y,s] / Δh, (liion.soc[h,y,s] - liion.α_soc_max) * Erated / Δh / η), 0.)
 
+
 	return (1-model.η_self) * liion.soc[h,y,s] - (power_ch * η + power_dch / η) * Δh / Erated, power_ch, power_dch
+	
 
 end
 
@@ -908,7 +945,7 @@ compute_operation_dynamics(liion, h, y, s, decision, Δh)
 """
 function compute_operation_dynamics(liion::Liion, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Int64)
 	 
-	soc_next, power_ch, power_dch = compute_operation_soc(liion, liion.SoC_model, h, y, s, decision, Δh)
+	soc_next, power_ch, power_dch = compute_operation_soc(liion, liion.eff_model, h, y, s, decision, Δh)
 	
 	return power_dch + power_ch, soc_next
  end
@@ -1263,9 +1300,9 @@ end
 
 function toStringShort(liion::Liion)
 
-	if liion.SoC_model isa LinearLiionEfficiency
+	if liion.eff_model isa FixedLiionEfficiency
 		efficiency = "x"
-	elseif liion.SoC_model isa PolynomialLiionEfficiency
+	elseif liion.eff_model isa PolynomialLiionEfficiency
 		efficiency = "x²"
 	end
 

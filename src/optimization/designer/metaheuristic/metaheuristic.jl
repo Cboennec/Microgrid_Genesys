@@ -307,7 +307,7 @@ function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, design
     for a in mg.storages
         if a isa Liion
             if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.storages["Liion"][y,s] =  designer.storages["Liion"]
+                designer.decisions.storages[string(typeof(a))][y,s] = designer.storages[string(typeof(a))]
             end
         elseif a isa H2Tank
             #No SoH yet for H2Tank
@@ -317,19 +317,19 @@ function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, design
     for a in mg.converters
         if a isa FuelCell
             if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.converters["FuelCell"].surface[y,s] = designer.converters["FuelCell"].surface
-                designer.decisions.converters["FuelCell"].N_cell[y,s] = designer.converters["FuelCell"].N_cell     
+                designer.decisions.converters[string(typeof(a))].surface[y,s] = designer.converters[string(typeof(a))].surface
+                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = designer.converters[string(typeof(a))].N_cell     
             else
-                designer.decisions.converters["FuelCell"].surface[y,s] = 0.
-                designer.decisions.converters["FuelCell"].N_cell[y,s] = 0.
+                designer.decisions.converters[string(typeof(a))].surface[y,s] = 0.
+                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = 0.
             end
         elseif a isa Electrolyzer
             if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.converters["Electrolyzer"].surface[y,s] = designer.converters["Electrolyzer"].surface
-                designer.decisions.converters["Electrolyzer"].N_cell[y,s] = designer.converters["Electrolyzer"].N_cell
+                designer.decisions.converters[string(typeof(a))].surface[y,s] = designer.converters[string(typeof(a))].surface
+                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = designer.converters[string(typeof(a))].N_cell
             else
-                designer.decisions.converters["Electrolyzer"].surface[y,s] = 0.
-                designer.decisions.converters["Electrolyzer"].N_cell[y,s] = 0.
+                designer.decisions.converters[string(typeof(a))].surface[y,s] = 0.
+                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = 0.
             end
         end
     end
@@ -497,45 +497,7 @@ function initialize_designer_MO(mg::Microgrid, results::Metaheuristic, varID::Di
 
 end
 
-### Online
-# Loi de gestion d'investissement dynamique
-# ex : remplacer la batterie par une equivalente à partir d'un seuil défini
-# regarder dans le papier sur investissement dynamique
-function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, designer::Metaheuristic)
 
-    for a in mg.storages
-        if a isa Liion
-            if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.storages[string(typeof(a))][y,s] = designer.storages[string(typeof(a))]
-            end
-        elseif a isa H2Tank
-            #No SoH yet for H2Tank
-        end
-    end
-
-    for a in mg.converters
-        if a isa FuelCell
-            if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.converters[string(typeof(a))].surface[y,s] = designer.converters[string(typeof(a))].surface
-                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = designer.converters[string(typeof(a))].N_cell     
-            else
-                designer.decisions.converters[string(typeof(a))].surface[y,s] = 0.
-                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = 0.
-            end
-        elseif a isa Electrolyzer
-            if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.converters[string(typeof(a))].surface[y,s] = designer.converters[string(typeof(a))].surface
-                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = designer.converters[string(typeof(a))].N_cell
-            else
-                designer.decisions.converters[string(typeof(a))].surface[y,s] = 0.
-                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = 0.
-            end
-        end
-    end
-
-    return nothing
-
-end
 
 ### Utils
 function set_bounds(mg::Microgrid)
@@ -626,7 +588,7 @@ end
 function get_liion_model_config(decisions::NamedTuple{(:eff, :soh, :couplage), Tuple{Float64, Float64, Float64}})
 
     if Int(round(decisions.eff)) == 0 
-        eff_model = LinearLiionEfficiency()
+        eff_model = FixedLiionEfficiency()
     elseif  Int(round(decisions.eff)) == 1
         eff_model = PolynomialLiionEfficiency()
     else
@@ -655,7 +617,7 @@ function get_liion_model_config(decisions::NamedTuple{(:eff, :soh, :couplage), T
 
 
     
-    return Liion(SoC_model = eff_model, SoH_model = soh_model, couplage = coupl)
+    return Liion(eff_model = eff_model, SoH_model = soh_model, couplage = coupl)
 
 end
 
@@ -692,7 +654,7 @@ function get_electrolyer_model_config(decisions::NamedTuple{(:eff, :soh, :coupla
 
 
     
-    return Electrolyzer(;V_J_ini = V_J_Elyz, EffModel = eff_model, SoH_model = soh_model, couplage = coupl)
+    return Electrolyzer(;V_J_ini = V_J_Elyz, eff_model = eff_model, SoH_model = soh_model, couplage = coupl)
 
 end
 
@@ -716,9 +678,9 @@ function get_fuelcell_model_config(decisions::NamedTuple{(:eff, :soh, :couplage)
     elseif Int(round(decisions.soh)) == 1
         soh_model =  FunctHoursAgingFuelCell(;deg_params=deg, J_base = 0.1)
     elseif Int(round(decisions.soh)) == 2
-        soh_model =  PowerAgingFuelCell(;deg_params=deg, StartStop = false)
+        soh_model =  PowerAgingFuelCell(;deg_params=deg, start_stop = false)
     elseif Int(round(decisions.soh)) == 3
-        soh_model =  PowerAgingFuelCell(;deg_params=deg, StartStop = true)
+        soh_model =  PowerAgingFuelCell(;deg_params=deg, start_stop = true)
     else
         println("problem with var Fuel Cell soh model : ", decisions.soh)
     end
@@ -732,7 +694,7 @@ function get_fuelcell_model_config(decisions::NamedTuple{(:eff, :soh, :couplage)
     end
 
     
-    return FuelCell(;V_J_ini = V_J_FC, EffModel = eff_model, SoH_model = soh_model, couplage = coupl)
+    return FuelCell(;V_J_ini = V_J_FC, eff_model = eff_model, SoH_model = soh_model, couplage = coupl)
 
 end
 

@@ -23,19 +23,25 @@ abstract type AbstractController end
 
 abstract type MetaheuristicResults end
 
-
+"""
 abstract type EnergyCarrier end
+
+An abstract type, parent of all energy carrier types (electricity, heat, hydrogen...)
+"""
+abstract type EnergyCarrier end
+
 
 #Metaheuristic module part
 using Distributions, Random, LinearAlgebra, Statistics
 using Distributed
-using GlobalSensitivity, Test, ProgressMeter
+using Test, ProgressMeter #GlobalSensitivity
 
 # Clearing
 include(joinpath("optimization","designer", "metaheuristic","clearing","struct.jl"))
 include(joinpath("optimization","designer", "metaheuristic","clearing","functions.jl"))
 include(joinpath("optimization","designer", "metaheuristic","clearing","optimize.jl"))
 include(joinpath("optimization","designer", "metaheuristic","clearing","utils.jl"))
+
 # NSGAII
 include(joinpath("optimization","designer", "metaheuristic","NSGAII","struct.jl"))
 include(joinpath("optimization","designer", "metaheuristic","NSGAII","functions.jl"))
@@ -46,7 +52,9 @@ include(joinpath("optimization","designer", "metaheuristic","NSGAII","utils.jl")
 
 
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP, Ipopt#, Gurobi
+using JuMP, Cbc, Metaheuristics, SDDP, Ipopt, Gurobi
+
+
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
@@ -63,13 +71,13 @@ include(joinpath("assets","heater.jl"))
 include(joinpath("assets","grid.jl"))
 include(joinpath("assets","solar.jl"))
 include(joinpath("assets","demand.jl"))
-#export AbstractController,  AbstractDesigner
-#export AbstractLiion, AbstractFuelCell
-#export Microgrid, Demand, Solar
-#export Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params
-#export ThermalStorage, H2Tank, FuelCell_OnOFF, FuelCell_HoursMax, FuelCell_Power, Electrolyzer, Heater, Grid, GlobalParameters
-#export Electricity, Heat, Hydrogen
-#export add!
+# export AbstractController,  AbstractDesigner
+# export AbstractLiion, AbstractFuelCell
+# export Microgrid, Demand, Solar
+# export Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params
+# export ThermalStorage, H2Tank, FuelCell_OnOFF, FuelCell_HoursMax, FuelCell_Power, Electrolyzer, Heater, Grid, GlobalParameters
+# export Electricity, Heat, Hydrogen
+# export add!
 # Scenarios
 include(joinpath("scenarios","scenarios.jl"))
 include(joinpath("scenarios","reduction.jl"))
@@ -111,9 +119,9 @@ include(joinpath("simulation","simulations.jl"))
 include(joinpath("utils","metrics.jl"))
 include(joinpath("utils","plots.jl"))
 include(joinpath("utils","saves.jl"))
-#export Metrics
-#export plot_operation, plot_metrics
-#export COST
+# export Metrics
+# export plot_operation, plot_metrics
+# export COST
 
 #end
 

@@ -42,9 +42,9 @@ plotlyjs()
 
 microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = .5))
 
-fc =  FuelCell(;V_J_ini = V_J_FC, SoH_model = PowerAgingFuelCell(;deg_params=deg, StartStop = true))
+fc =  FuelCell(;V_J_ini = V_J_FC, SoH_model = PowerAgingFuelCell(;deg_params=deg, start_stop = true))
 elyz = Electrolyzer(;V_J_ini = V_J_Elyz)
-liion =  Liion(SoC_model = PolynomialLiionEfficiency(), SoH_model = SemiEmpiricalLiion())
+liion =  Liion(eff_model = PolynomialLiionEfficiency(), SoH_model = SemiEmpiricalLiion())
 # Add the equipment to the microgrid
 add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),

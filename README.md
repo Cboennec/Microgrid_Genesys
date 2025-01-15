@@ -3,7 +3,10 @@
 A generic module written in Julia to asses and compare different design and control methods for distributed energy systems in a stochastic framework. The `simulate!` function includes multi-stage investment periods and multi-scenarios assessment.  
 
 # Branch
+v2 branch is now this offical branch
+=======
 The current maintained and up-to-date branch is not "main" anymore but "v2".
+
 
 # Installation
 In order to use the package, follow the [managing package guideline](https://julialang.github.io/Pkg.jl/v1/managing-packages/) for uneregistred packages. Examples on how to use the package are provided in the "example" folder. 

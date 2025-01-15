@@ -3,20 +3,19 @@ using JuMP
 using JLD2, FileIO, Cbc, Ipopt #, Gurobi
 
 
-
+using Gurobi
 
 
 
 ##################### Exemple ############################
-m = Model(Cbc.Optimizer)
+m = Model(Gurobi.Optimizer)
 
 @variable(m, x1, Int) # variable de décision 1
-@variable(m, 0 >= x2 >= 0., Int) # variable de décision 2
+@variable(m, 4 >= x2 >= 0., Int) # variable de décision 2
 n=12
 @variable(m, affectation[1:n,1:n], Bin) # Une matrice de variable binaire n*n
 
-
-@constraint(m, 2 * m[:x1] + 3 * m[:x2] <= 10 ) # Contrainte 1
+@constraint(m, 2 * m[:x1] + 3 * m[:x2] <= 12 ) # Contrainte 1
 @constraint(m, m[:x1] - m[:x2] >= -2 )# Contrainte 2
 @constraint(m, m[:x2] >= 4 )
 
@@ -152,7 +151,7 @@ microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share 
 # Le microgrid étudié
 add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),
-                Liion(SoC_model = LinearLiionEfficiency(), SoH_model = FixedLifetimeLiion(), couplage = (E=false, R = false)),
+                Liion(eff_model = FixedLiionEfficiency(), SoH_model = FixedLifetimeLiion(), couplage = (E=false, R = false)),
                 Grid(carrier = Electricity()))
                 
 
@@ -169,7 +168,7 @@ data_selected = data_fix
 
 
 
-h_interval = 1:24
+h_interval = 1:720
 
 #################### Fonction pour créer le modèle ########################
 function get_model_1(solver, microgrid, ω_a)
@@ -186,12 +185,12 @@ function get_model_1(solver, microgrid, ω_a)
     #### Configuration des variables décrivant les composant pour le modèle de prog mathématique
     liion = microgrid.storages[1]
 
-    η_self = liion.SoC_model.η_self #Facreur d'auto-décharge
-    η = liion.SoC_model.η_ch # Rendement
+    η_self = liion.eff_model.η_self #Facreur d'auto-décharge
+    η = liion.eff_model.η_ch # Rendement
     ∆h = 1. # taille du pas d'opération
     seuil_max = liion.α_soc_max # SoC max
     seuil_min = liion.α_soc_min # SoC min
-    C_rate = liion.SoC_model.α_p_ch # C-rate max
+    C_rate = liion.eff_model.α_p_ch # C-rate max
 
     Erated = 20. # Capacité de la batterie kWh
     PV = 10. # Puissance du panneau solaire kWc
@@ -214,7 +213,7 @@ end
 
 
 ################## Execution du modèle #############################
-mod1 = get_model_1(Cbc)
+mod1 = get_model_3(h_interval)
 JuMP.optimize!(mod1)
 
 println("La solution optimale vaut : ", round(objective_value(mod1), digits=2), " €")
@@ -224,6 +223,10 @@ println("Le problème à été résolu en : ", round(solve_time(mod1), digits=2)
 
 
 
+
+mod1 = get_model_3(h_interval)
+
+JuMP.optimize!(mod1)
 
 
 
@@ -239,10 +242,33 @@ println("Le problème à été résolu en : ", round(solve_time(mod1), digits=2)
 ######################### Model 1 ##############################
 ################################################################
 
-function get_model_1(solver)
+function get_model_1(h_interval)
+
+    # Couts associés au grid 
+    cost_in = ω_a.grids[1].cost_in[h_interval,1,1] #Prix d'achat €/kWh
+    cost_out = ω_a.grids[1].cost_out[h_interval,1,1] #Prix de vente €/kWh
+    cout_depassement = microgrid.grids[1].cost_exceed[1,1] # Cout de dépassement de la puissance souscrite au réseau €/h
+
+    # Variables d'environement (imposées)
+    p_load = ω_a.demands[1].power[h_interval,1,1] # Demande en kWh
+    p_gen = ω_a.generations[1].power[h_interval,1,1] # Puissance par unité de kWc installé 
+
+    #### Configuration des variables décrivant les composant pour le modèle de prog mathématique
+    liion = microgrid.storages[1]
+
+    η_self = liion.eff_model.η_self #Facreur d'auto-décharge
+    η = liion.eff_model.η_ch # Rendement
+    ∆h = 1. # taille du pas d'opération
+    seuil_max = liion.α_soc_max # SoC max
+    seuil_min = liion.α_soc_min # SoC min
+    C_rate = liion.eff_model.α_p_ch # C-rate max
+
+    Erated = 20. # Capacité de la batterie kWh
+    PV = 10. # Puissance du panneau solaire kWc
+    grid_seuil = 10. # puissance souscrite au réseau kW
 
     #Déclaration du model et du solver
-    m1 = Model(solver.Optimizer)
+    m1 = Model(Gurobi.Optimizer)
 
     #variables de décisions
     @variable(m1, p_ch[1:length(h_interval)] >= 0.)
@@ -289,18 +315,51 @@ end
 ######################### Model 2 ##############################
 ################################################################
 
-function get_model_2(solver)
+function get_model_2(h_interval)
+
+    # Couts associés au grid 
+    cost_in = ω_a.grids[1].cost_in[h_interval,1,1] #Prix d'achat €/kWh
+    cost_out = ω_a.grids[1].cost_out[h_interval,1,1] #Prix de vente €/kWh
+    cout_depassement = microgrid.grids[1].cost_exceed[1,1] # Cout de dépassement de la puissance souscrite au réseau €/h
+
+    # Variables d'environement (imposées)
+    p_load = ω_a.demands[1].power[h_interval,1,1] # Demande en kWh
+    p_gen = ω_a.generations[1].power[h_interval,1,1] # Puissance par unité de kWc installé 
+
+    #### Configuration des variables décrivant les composant pour le modèle de prog mathématique
+    liion = microgrid.storages[1]
+
+    η_self = liion.eff_model.η_self #Facreur d'auto-décharge
+    η = liion.eff_model.η_ch # Rendement
+    ∆h = 1. # taille du pas d'opération
+    seuil_max = liion.α_soc_max # SoC max
+    seuil_min = liion.α_soc_min # SoC min
+    C_rate = liion.eff_model.α_p_ch # C-rate max
+
+    Erated = 20. # Capacité de la batterie kWh
+    PV = 10. # Puissance du panneau solaire kWc
+    grid_seuil = 10. # puissance souscrite au réseau kW
 
     # On ajoute à la fonction de cout une notion de dépassement. On considère un seuil de demande horaire au dessus duquel on paye un surcout
    
     M = 10000. #Valeur big-M pour les contraintes de type "if-else"
 
     #Déclaration du model et du solver
-    m2 = Model(solver.Optimizer)
+    m2 = Model(Gurobi.Optimizer)
 
     #variables de décisions
-    @variable(m2, p_ch[1:length(h_interval)] >= 0.)
-    @variable(m2, p_dch[1:length(h_interval)] >= 0.)
+    @variable(m2, p_ch1[1:length(h_interval)] >= 0.)
+    @variable(m2, p_ch2[1:length(h_interval)] >= 0.)
+
+    @variable(m2, p_dch1[1:length(h_interval)] >= 0.)
+    @variable(m2, p_dch2[1:length(h_interval)] >= 0.)
+
+
+    @variable(m2, z1[1:(length(h_interval))], Bin)
+    @variable(m2, z2[1:(length(h_interval))], Bin)
+    eff1 = 0.97
+    eff2 = 0.93
+
 
     #variables de recours (formulée comme des variables de décisions)
     @variable(m2, p_in[1:length(h_interval)] >= 0.)
@@ -312,16 +371,27 @@ function get_model_2(solver)
     #La variable de dépassement
     @variable(m2, depassement[1:(length(h_interval))], Bin)
 
+    @constraints(m2, begin
+        #Toujours un unique morceau actif
+        [h in 1:length(h_interval)], m2[:z1][h] + m2[:z2][h] == 1
+
+        # Le rendement 1 c'est pour les valeur de C_rate 1/2 de max
+        [h in 1:length(h_interval)], m2[:p_dch1][h] <= m2[:z1][h] * C_rate * Erated /2
+        [h in 1:length(h_interval)], m2[:p_ch1][h] <= m2[:z1][h] * C_rate * Erated /2
+
+        [h in 1:length(h_interval)], m2[:p_dch2][h] <= m2[:z2][h] * C_rate * Erated
+        [h in 1:length(h_interval)], m2[:p_ch2][h] <= m2[:z2][h] * C_rate * Erated
+
+    end)
+
 
     @constraints(m2, begin
     #dynamique de l'état de la batterie
-        [h in 1:length(h_interval)], m2[:soc][h+1] == m2[:soc][h] * (1-η_self * ∆h) - (m2[:p_dch][h] / η - m2[:p_ch][h] * η) * ∆h
+        [h in 1:length(h_interval)], m2[:soc][h+1] == m2[:soc][h] * (1-η_self * ∆h) - (m2[:p_dch1][h] / eff1 + m2[:p_dch2][h] / eff2 - m2[:p_ch1][h] * eff1 - m2[:p_ch2][h] * eff2) * ∆h
     #bornes du soc
         [h in 1:(length(h_interval)+1)], m2[:soc][h] <= seuil_max * Erated
         [h in 1:(length(h_interval)+1)], m2[:soc][h] >= seuil_min * Erated
-    #Borne de puissance
-        [h in 1:length(h_interval)], m2[:p_ch][h] <= Erated * C_rate
-        [h in 1:length(h_interval)], m2[:p_dch][h] <= Erated * C_rate
+
     #initialisation et périodicité
         m2[:soc][1] == 0.5 * Erated
         m2[:soc][end] >= m2[:soc][1]
@@ -329,7 +399,7 @@ function get_model_2(solver)
 
             
     @constraints(m2, begin
-        [h in 1:length(h_interval)],  p_load[h] - (p_gen[h] * PV) + m2[:p_ch][h] - m2[:p_dch][h] - m2[:p_in][h] + m2[:p_out][h] == 0
+        [h in 1:length(h_interval)],  p_load[h] - (p_gen[h] * PV) + m2[:p_ch1][h] + m2[:p_ch2][h] - m2[:p_dch1][h] - m2[:p_dch2][h] - m2[:p_in][h] + m2[:p_out][h] == 0
     end)
 
     @constraints(m2, begin
@@ -352,7 +422,30 @@ end
 ######################### Model 3 ##############################
 ################################################################
 
-function get_model_3()
+function get_model_3(h_interval)
+
+     # Couts associés au grid 
+     cost_in = ω_a.grids[1].cost_in[h_interval,1,1] #Prix d'achat €/kWh
+     cost_out = ω_a.grids[1].cost_out[h_interval,1,1] #Prix de vente €/kWh
+     cout_depassement = microgrid.grids[1].cost_exceed[1,1] # Cout de dépassement de la puissance souscrite au réseau €/h
+ 
+     # Variables d'environement (imposées)
+     p_load = ω_a.demands[1].power[h_interval,1,1] # Demande en kWh
+     p_gen = ω_a.generations[1].power[h_interval,1,1] # Puissance par unité de kWc installé 
+ 
+     #### Configuration des variables décrivant les composant pour le modèle de prog mathématique
+     liion = microgrid.storages[1]
+ 
+     η_self = liion.eff_model.η_self #Facreur d'auto-décharge
+     η = liion.eff_model.η_ch # Rendement
+     ∆h = 1. # taille du pas d'opération
+     seuil_max = liion.α_soc_max # SoC max
+     seuil_min = liion.α_soc_min # SoC min
+     C_rate = liion.eff_model.α_p_ch # C-rate max
+ 
+     Erted = 20. # Capacité de la batterie kWh
+     PV = 10. # Puissance du panneau solaire kWc
+     grid_seuil = 10. # puissance souscrite au réseau kW
         
     # On ajoute à la fonction de cout une notion de dépassement. On considère un seuil de demande horaire au dessus duquel on paye un surcout
     M = 10000. #Valeur big-M pour les contraintes de type "if-else"
@@ -360,7 +453,7 @@ function get_model_3()
     #Déclaration du model et du solver
     m3 = Model(Gurobi.Optimizer)
     set_attribute(m3, "non_convex", 2)
-    set_attribute(m3, "TimeLimit", 200)
+    set_optimizer_attribute(m3, "MIPGap", 10^(-2))
 
 
     #variables de décisions
@@ -371,36 +464,43 @@ function get_model_3()
     @variable(m3, p_in[1:length(h_interval)] >= 0.)
     @variable(m3, p_out[1:length(h_interval)] >= 0.)
 
+    @variable(m3, η_ch[1:length(h_interval)] >= 0.)
+    @variable(m3, η_dch[1:length(h_interval)] >= 0.)
+
     # variables d'état, formulé comme un variable de décisions mais contraintes.
     @variable(m3, soc[1:(length(h_interval)+1)])
 
     #La variable de dépassement
     @variable(m3, depassement[1:(length(h_interval))], Bin)
 
-    @variable(m3, η_ch[1:(length(h_interval))])
-    @variable(m3, η_dch[1:(length(h_interval))])
 
+    @variable(m3, Erated[1:(length(h_interval)+1)] >= 0)    
 
 
     @constraints(m3, begin
     #dynamique de l'état de la batterie
-        [h in 1:length(h_interval)], m3[:soc][h+1] == m3[:soc][h] * (1-η_self * ∆h) - (m3[:p_dch][h] * m3[:η_dch][h] - m3[:p_ch][h] * m3[:η_ch][h]) * ∆h
+    [h in 1:length(h_interval)], m3[:soc][h+1] == m3[:soc][h] * (1-η_self * ∆h) - (m3[:p_dch][h] * m3[:η_dch][h] - m3[:p_ch][h] * m3[:η_ch][h]) * ∆h
+    #dynamique du soh 
+    [h in 1:length(h_interval)], m3[:Erated][h+1] == m3[:Erated][h] - (m3[:p_dch][h] * m3[:η_dch][h] + m3[:p_ch][h] * m3[:η_ch][h]) * 0.002
     #bornes du soc
-        [h in 1:(length(h_interval)+1)], m3[:soc][h] <= seuil_max * Erated
-        [h in 1:(length(h_interval)+1)], m3[:soc][h] >= seuil_min * Erated
+        [h in 1:(length(h_interval)+1)], m3[:soc][h] <= seuil_max * m3[:Erated][h]
+
+        [h in 1:(length(h_interval)+1)], m3[:soc][h] >= seuil_min * m3[:Erated][h]
+
     #Borne de puissance
-        [h in 1:length(h_interval)], m3[:p_ch][h] <= Erated * C_rate
-        [h in 1:length(h_interval)], m3[:p_dch][h] <= Erated * C_rate
+        [h in 1:length(h_interval)], m3[:p_ch][h] <=  m3[:Erated][h] * C_rate
+        [h in 1:length(h_interval)], m3[:p_dch][h] <=  m3[:Erated][h] * C_rate
     #initialisation et périodicité
-        m3[:soc][1] == 0.5 * Erated
+        m3[:soc][1] == 0.5 * m3[:Erated][1]
         m3[:soc][end] >= m3[:soc][1]
 
-        [h in 1:length(h_interval)], m3[:η_ch][h] == 1 - (m3[:p_ch][h])/(Erated * C_rate * 5) 
-        [h in 1:length(h_interval)], m3[:η_dch][h] == 1 + (m3[:p_dch][h])/(Erated * C_rate * 5) 
+        m3[:Erated][1] == Erted
+
+        [h in 1:length(h_interval)], m3[:η_dch][h] == 2.05 - m3[:Erated][h]/Erted  
+        [h in 1:length(h_interval)], m3[:η_ch][h] == m3[:Erated][h]/Erted - 0.05
 
     end)
 
-            
     @constraints(m3, begin
         [h in 1:length(h_interval)],  p_load[h] - (p_gen[h] * PV) + m3[:p_ch][h] - m3[:p_dch][h] - m3[:p_in][h] + m3[:p_out][h] == 0
     end)
@@ -419,18 +519,75 @@ end
 ######################################################################################
 
 
+h_interval = 1:144
+
+mod1 = get_model_1(h_interval)
+JuMP.optimize!(mod1)
+
+println("La solution optimale vaut : ", round(objective_value(mod1), digits=2), " €")
+println("Le problème à été résolu en : ", round(solve_time(mod1), digits=2), " secondes")
 
 
 
 
+mod2 = get_model_2(h_interval)
+JuMP.optimize!(mod2)
+
+println("La solution optimale vaut : ", round(objective_value(mod2), digits=2), " €")
+println("Le problème à été résolu en : ", round(solve_time(mod2), digits=2), " secondes")
 
 
 
+mod3 = get_model_3(h_interval)
+JuMP.optimize!(mod3)
+
+println("La solution optimale vaut : ", round(objective_value(mod3), digits=2), " €")
+println("Le problème à été résolu en : ", round(solve_time(mod3), digits=2), " secondes")
+
+T1 = []
+T2 = []
+T3 = []
+
+minlp_exec = true
+
+for i in 61:65
+    h_interval = 1:(i*24)
+
+    mod1 = get_model_1(h_interval)
+    JuMP.optimize!(mod1)
+    
+    println("La solution optimale vaut : ", round(objective_value(mod1), digits=2), " €")
+    println("Le problème à été résolu en : ", round(solve_time(mod1), digits=2), " secondes")
+
+    T1[i] = solve_time(mod1)
+    
+    mod2 = get_model_2(h_interval)
+    JuMP.optimize!(mod2)
+    
+    println("La solution optimale vaut : ", round(objective_value(mod2), digits=2), " €")
+    println("Le problème à été résolu en : ", round(solve_time(mod2), digits=2), " secondes")
+    
+    T2[i] = solve_time(mod2)
+
+    
+    
+    mod3 = get_model_3(h_interval)
+    JuMP.optimize!(mod3)
+    
+    println("La solution optimale vaut : ", round(objective_value(mod3), digits=2), " €")
+    println("Le problème à été résolu en : ", round(solve_time(mod3), digits=2), " secondes")
+
+    T3[i] = solve_time(mod3)
+
+
+end
 
 
 
+days = [x for x in 1:365]
 
-
+d = Dict("LP"=>T1, "MILP"=>T2, "MINLP"=>T3, "days"=> days)
+CSV.write("duration.csv", d)
 
 
 
@@ -488,7 +645,7 @@ microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share 
 # Add the equipment to the microgrid
 add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),
-                Liion(SoC_model = LinearLiionEfficiency(), SoH_model = SemiEmpiricalLiion(), couplage = (E=false, R = false)),
+                Liion(eff_model = FixedLiionEfficiency(), SoH_model = SemiEmpiricalLiion(), couplage = (E=false, R = false)),
                 Grid(carrier = Electricity()))
                 
 
@@ -514,12 +671,12 @@ p_gen = ω_a.generations[1].power[h_interval,1,1]
 
 liion = microgrid.storages[1]
 
-η_self = liion.SoC_model.η_self
-η = liion.SoC_model.η_ch
+η_self = liion.eff_model.η_self
+η = liion.eff_model.η_ch
 ∆h = 1.
 seuil_max = liion.α_soc_max
 seuil_min = liion.α_soc_min
-C_rate = liion.SoC_model.α_p_ch
+C_rate = liion.eff_model.α_p_ch
 
 
 Erated = 20.

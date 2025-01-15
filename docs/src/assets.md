@@ -5,10 +5,23 @@
 ### Batteries
 ```@docs
 Genesys.AbstractLiion
-Genesys.Liion_rainflow
-Genesys.Liion_electro_chimique
-Genesys.Liion_fixed_lifetime
-Genesys.Liion_energy_exchanged
+Genesys.Liion
+```
+
+#### Battery Efficiency Models
+```@docs
+Genesys.AbstractLiionEffModel
+Genesys.FixedLiionEfficiency
+Genesys.PolynomialLiionEfficiency
+```
+
+#### Battery Aging Models
+```@docs
+Genesys.AbstractLiionAgingModel
+Genesys.EnergyThroughputLiion
+Genesys.FixedLifetimeLiion
+Genesys.RainflowLiion
+Genesys.SemiEmpiricalLiion
 ```
 
 ### Thermal Storage

@@ -11,7 +11,7 @@ microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share 
 # Add the equipment to the microgrid
 add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),
-                Liion(SoC_model = PolynomialLiionEfficiency(), SoH_model = SemiEmpiricalLiion()),
+                Liion(eff_model = PolynomialLiionEfficiency(), SoH_model = SemiEmpiricalLiion()),
                 Grid(carrier = Electricity()))
                 
 using JLD2, FileIO
