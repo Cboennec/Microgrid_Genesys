@@ -1,12 +1,31 @@
+
+"""
 abstract type AbstractElectrolyzer <: AbstractConverter  end
 
+An abstract type, parent of all electrolyzer types.
+"""
+abstract type AbstractElectrolyzer <: AbstractConverter  end
 
+"""
 abstract type AbstractElectrolyzerEffModel end
 
+An abstract type, parent of all electrolyzer efficiency model types.
+"""
+abstract type AbstractElectrolyzerEffModel end
+
+"""
+abstract type AbstractElectrolyzerAgingModel end
+
+An abstract type, parent of all electrolyzer aging model types.
+"""
 abstract type AbstractElectrolyzerAgingModel end
 
 
 
+
+"""
+
+"""
 mutable struct FixedElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
  
   α_p::Float64 #Minimum power defined as a share of the maximum Power
@@ -30,6 +49,9 @@ mutable struct FixedElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
     ) = new(α_p, η_E_H2, η_E_H, k_aux, powerMax_ini, couplage)
 end
 
+"""
+
+"""
 mutable struct PolarizationElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
   α_p::Float64 #Minimum power defined as a share of the maximum Power
 
@@ -58,6 +80,9 @@ mutable struct PolarizationElectrolyzerEfficiency <: AbstractElectrolyzerEffMode
 end
 
 
+"""
+
+"""
 mutable struct LinearElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
   α_p::Float64 #Minimum power defined as a share of the maximum Power
   k_aux::Float64 # Share of the power used by the auxiliaries
@@ -87,7 +112,9 @@ mutable struct LinearElectrolyzerEfficiency <: AbstractElectrolyzerEffModel
 end
 
 
+"""
 
+"""
 #M/A en option
 mutable struct FunctHoursAgingElectrolyzer <: AbstractElectrolyzerAgingModel
   plot::Bool 
@@ -116,7 +143,9 @@ mutable struct FunctHoursAgingElectrolyzer <: AbstractElectrolyzerAgingModel
 end
 
 
+"""
 
+"""
 #M/A en option
 mutable struct FixedLifetimeElectrolyzer <: AbstractElectrolyzerAgingModel
   plot::Bool 
@@ -144,7 +173,9 @@ mutable struct FixedLifetimeElectrolyzer <: AbstractElectrolyzerAgingModel
 end
 
 
+"""
 
+"""
 mutable struct Electrolyzer <: AbstractElectrolyzer
 
   eff_model::AbstractElectrolyzerEffModel

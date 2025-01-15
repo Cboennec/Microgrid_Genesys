@@ -1,8 +1,24 @@
+"""
 abstract type AbstractLiion <: AbstractStorage  end
 
+An abstract type, parent of all Liion types
+"""
+abstract type AbstractLiion <: AbstractStorage  end
+
+"""
 abstract type AbstractLiionEffModel end
 
+An abstract type, parent of all Liion efficieny model types
+"""
+abstract type AbstractLiionEffModel end
+
+"""
 abstract type AbstractLiionAgingModel end
+
+An abstract type, parent of all Liion aging model types
+"""
+abstract type AbstractLiionAgingModel end
+
 
 """
 FixedLiionEfficiency <: AbstractLiionEffModel

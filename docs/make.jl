@@ -11,16 +11,16 @@ Conda.add("matplotlib")
 Pkg.add("Gurobi")
 #Pkg.activate(".")
 
-Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
+#Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
 
-include("src/Genesys.jl")
+include("../src/Genesys2.jl")
 using Documenter, Main.Genesys
-
 
 makedocs(sitename="Microgrid_Genesys.jl", format = Documenter.HTML(prettyurls = false))
 
 deploydocs(
   repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",
   branch = "gh-pages",
-  target = "build"
+  target = "build",
+  #key = ENV["DOCUMENTER_KEY"]
 )

@@ -1,7 +1,25 @@
+
+"""
 abstract type AbstractFuelCell <: AbstractConverter  end
 
+An abstract type, parent of all fuel cell types.
+"""
+abstract type AbstractFuelCell <: AbstractConverter  end
+
+
+"""
 abstract type AbstractFuelCellEffModel end
 
+An abstract type, parent of all fuel cell efficiency model types.
+"""
+abstract type AbstractFuelCellEffModel end
+
+
+"""
+abstract type AbstractFuelCellAgingModel end
+
+An abstract type, parent of all fuel cell aging model types.
+"""
 abstract type AbstractFuelCellAgingModel end
 
 
