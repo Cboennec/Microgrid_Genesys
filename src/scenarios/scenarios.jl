@@ -662,7 +662,7 @@ scenarios = Scenarios(microgrid, scenario_data; same_year = true, seed = [1, 2, 
 namedtuple(x) = x
 namedtuple(d::Dict) = (; (Symbol(k) => namedtuple(v) for (k,v) in d)...)
 
-function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = []) # repeat make every year the same, seed decide with year to use.
+function Scenarios(mg::Microgrid, d::Dict{}, same_year; seed = []) # repeat make every year the same, seed decide with year to use.
     # Utils to simplify the writting
     nh = mg.parameters.nh
     ny = mg.parameters.ny

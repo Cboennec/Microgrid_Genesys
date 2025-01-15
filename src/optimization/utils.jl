@@ -212,52 +212,52 @@ function add_operation_decisions!(m::Model, grids::Vector{AbstractGrid}, nh::Int
     end
 end
 
-# Multi year dynamic version
-function add_operation_decisions!(m::Model, demands::Vector{AbstractDemand}, nh::Int64, ns::Int64, ny::Int64)
-    if !isempty(demands)
-        na = length(demands)
-        @variables(m, begin
-        p_d[1:nh, 1:ns, 1:na, 1:ny]
-        end)
-    end
-end
-function add_operation_decisions!(m::Model, generations::Vector{AbstractGeneration}, nh::Int64, ns::Int64, ny::Int64)
-    if !isempty(generations)
-        na = length(generations)
-        @variables(m, begin
-        p_g[1:nh, 1:ny, 1:ns, 1:na]
-        end)
-    end
-end
-function add_operation_decisions!(m::Model, storages::Vector{AbstractStorage}, nh::Int64, ns::Int64, ny::Int64)
-    if !isempty(storages)
-        na = length(storages)
-        @variables(m, begin
-        p_ch[1:nh, 1:ny, 1:ns, 1:na]   >= 0.
-        p_dch[1:nh, 1:ny, 1:ns, 1:na]  >= 0.
-        soc[1:nh+1, 1:ny, 1:ns, 1:na]  >= 0.
-        soh[1:nh+1, 1:ny, 1:ns, 1:na]  >= 0. #could exist over multiple storage here is just a battery
-        end)
-    end
-end
-function add_operation_decisions!(m::Model, converters::Vector{AbstractConverter}, nh::Int64, ns::Int64, ny::Int64)
-    if !isempty(converters)
-        na = length(converters)
-        @variable(m, p_c[1:nh, 1:ny, 1:ns, 1:na] >= 0.)
-    end
-end
-function add_operation_decisions!(m::Model, grids::Vector{AbstractGrid}, nh::Int64, ns::Int64, ny::Int64)
-    if !isempty(grids)
-        na = length(grids)
-        @variables(m, begin
-        p_in[1:nh, 1:ny, 1:ns, 1:na]   >= 0.
-        p_out[1:nh, 1:ny, 1:ns, 1:na]  >= 0.
-        end)
-    end
-end
+# # Multi year dynamic version
+# function add_operation_decisions!(m::Model, demands::Vector{AbstractDemand}, nh::Int64, ns::Int64, ny::Int64)
+#     if !isempty(demands)
+#         na = length(demands)
+#         @variables(m, begin
+#         p_d[1:nh, 1:ns, 1:na, 1:ny]
+#         end)
+#     end
+# end
+# function add_operation_decisions!(m::Model, generations::Vector{AbstractGeneration}, nh::Int64, ns::Int64, ny::Int64)
+#     if !isempty(generations)
+#         na = length(generations)
+#         @variables(m, begin
+#         p_g[1:nh, 1:ny, 1:ns, 1:na]
+#         end)
+#     end
+# end
+# function add_operation_decisions!(m::Model, storages::Vector{AbstractStorage}, nh::Int64, ns::Int64, ny::Int64)
+#     if !isempty(storages)
+#         na = length(storages)
+#         @variables(m, begin
+#         p_ch[1:nh, 1:ny, 1:ns, 1:na]   >= 0.
+#         p_dch[1:nh, 1:ny, 1:ns, 1:na]  >= 0.
+#         soc[1:nh+1, 1:ny, 1:ns, 1:na]  >= 0.
+#         soh[1:nh+1, 1:ny, 1:ns, 1:na]  >= 0. #could exist over multiple storage here is just a battery
+#         end)
+#     end
+# end
+# function add_operation_decisions!(m::Model, converters::Vector{AbstractConverter}, nh::Int64, ns::Int64, ny::Int64)
+#     if !isempty(converters)
+#         na = length(converters)
+#         @variable(m, p_c[1:nh, 1:ny, 1:ns, 1:na] >= 0.)
+#     end
+# end
+# function add_operation_decisions!(m::Model, grids::Vector{AbstractGrid}, nh::Int64, ns::Int64, ny::Int64)
+#     if !isempty(grids)
+#         na = length(grids)
+#         @variables(m, begin
+#         p_in[1:nh, 1:ny, 1:ns, 1:na]   >= 0.
+#         p_out[1:nh, 1:ny, 1:ns, 1:na]  >= 0.
+#         end)
+#     end
+# end
 
 
-# Multiyear case statz variables
+# Multiyear case state variables
 function add_state_variables!(m::Model, ny::Int64)
     @variables(m, begin
     E_state[1:ny] >= 0.
@@ -798,58 +798,4 @@ function compute_salvage(m::Model, mg::Microgrid, ω::Scenarios, ny::Int64, ns::
     #add_to_expression!.(salvage, K * m[:soh][end,end,:])
 
     return salvage
-end
-
-
-"""
-compute_SA
-
-A function taking a set of solution as an entry and compute the Sobol first index and the Pearson correlation.
-    A [@ref NSGAIISensitivityAnalysis] is then returned
-# Parameters:
-- `track_real`: A list of feasible solutions
-
-"""
-function compute_SA(track_real::Vector{Any})
-    param = [x.val_param for x in track_real]
-    obj = [x.critere for x in track_real]
-    X = zeros(length(param[1]),length(param))
-    Y_reg = zeros(length(obj[1]),length(obj))
-    for i in 1:length(param)
-        X[:,i] = param[i]
-        Y_reg[:,i] = obj[i]
-    end
-
-    Y_EASI = obj
-
-    tmp_EASI = []
-    for i in 1:length(obj[1])
-        push!(tmp_EASI, gsa(X, [y[i] for y in Y_EASI], EASI()).S1)
-    end
- 
-    res_EASI = transpose(hcat(tmp_EASI...))
-    res_reg = gsa(X, Y_reg, RegressionGSA(true))
-
-    return NSGAIISensitivityAnalysis(res_EASI,  res_reg.pearson)
-
-end
-
-
-
-function plot_results(pop, cross)
-
-    nb_gene = length(cross.cross_bgx)
-    ############## Croisement evolution
-    figure("Croisement")
-    PyPlot.plot(1:nb_gene, cross.cross_bgx, label="BGX")
-    PyPlot.plot(1:nb_gene, cross.cross_blx, label="BLX")
-    PyPlot.plot(1:nb_gene, cross.cross_sbx, label="SBX")
-    legend()
-
-
-    ################# critère
-    figure("front Julia")
-
-    PyPlot.scatter([a.critere[1] for a in  pop],[a.critere[2] for a in pop])
- 
 end

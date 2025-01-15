@@ -514,21 +514,6 @@ end
 
 
 
-function SoCPlot(mg::Microgrid, y::UnitRange{Int64}, s::UnitRange{Int64}, hours::UnitRange{Int64})
-    # State of charge
-    f = figure("State-of-charge")
-
-   
-    for s_id in s
-        for (k, a) in enumerate(mg.storages)
-            
-            k == 1 ? subplot(length(mg.storages), 1, k) : subplot(length(mg.storages), 1, k, sharex = f.axes[1])
-            Seaborn.lineplot(x= hours, y=vec(a.soc[1:end-1, y, s_id]), label = string("Storage : ", typeof(a)))
-            legend()
-
-        end
-    end
-end
 
 
 

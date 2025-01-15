@@ -307,7 +307,7 @@ function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, design
     for a in mg.storages
         if a isa Liion
             if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.storages["Liion"][y,s] =  designer.storages["Liion"]
+                designer.decisions.storages[string(typeof(a))][y,s] = designer.storages[string(typeof(a))]
             end
         elseif a isa H2Tank
             #No SoH yet for H2Tank
@@ -317,19 +317,19 @@ function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, design
     for a in mg.converters
         if a isa FuelCell
             if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.converters["FuelCell"].surface[y,s] = designer.converters["FuelCell"].surface
-                designer.decisions.converters["FuelCell"].N_cell[y,s] = designer.converters["FuelCell"].N_cell     
+                designer.decisions.converters[string(typeof(a))].surface[y,s] = designer.converters[string(typeof(a))].surface
+                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = designer.converters[string(typeof(a))].N_cell     
             else
-                designer.decisions.converters["FuelCell"].surface[y,s] = 0.
-                designer.decisions.converters["FuelCell"].N_cell[y,s] = 0.
+                designer.decisions.converters[string(typeof(a))].surface[y,s] = 0.
+                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = 0.
             end
         elseif a isa Electrolyzer
             if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.converters["Electrolyzer"].surface[y,s] = designer.converters["Electrolyzer"].surface
-                designer.decisions.converters["Electrolyzer"].N_cell[y,s] = designer.converters["Electrolyzer"].N_cell
+                designer.decisions.converters[string(typeof(a))].surface[y,s] = designer.converters[string(typeof(a))].surface
+                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = designer.converters[string(typeof(a))].N_cell
             else
-                designer.decisions.converters["Electrolyzer"].surface[y,s] = 0.
-                designer.decisions.converters["Electrolyzer"].N_cell[y,s] = 0.
+                designer.decisions.converters[string(typeof(a))].surface[y,s] = 0.
+                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = 0.
             end
         end
     end
@@ -497,45 +497,7 @@ function initialize_designer_MO(mg::Microgrid, results::Metaheuristic, varID::Di
 
 end
 
-### Online
-# Loi de gestion d'investissement dynamique
-# ex : remplacer la batterie par une equivalente à partir d'un seuil défini
-# regarder dans le papier sur investissement dynamique
-function compute_investment_decisions!(y::Int64, s::Int64, mg::Microgrid, designer::Metaheuristic)
 
-    for a in mg.storages
-        if a isa Liion
-            if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.storages[string(typeof(a))][y,s] = designer.storages[string(typeof(a))]
-            end
-        elseif a isa H2Tank
-            #No SoH yet for H2Tank
-        end
-    end
-
-    for a in mg.converters
-        if a isa FuelCell
-            if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.converters[string(typeof(a))].surface[y,s] = designer.converters[string(typeof(a))].surface
-                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = designer.converters[string(typeof(a))].N_cell     
-            else
-                designer.decisions.converters[string(typeof(a))].surface[y,s] = 0.
-                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = 0.
-            end
-        elseif a isa Electrolyzer
-            if a.soh[end,y,s] <= a.SoH_threshold
-                designer.decisions.converters[string(typeof(a))].surface[y,s] = designer.converters[string(typeof(a))].surface
-                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = designer.converters[string(typeof(a))].N_cell
-            else
-                designer.decisions.converters[string(typeof(a))].surface[y,s] = 0.
-                designer.decisions.converters[string(typeof(a))].N_cell[y,s] = 0.
-            end
-        end
-    end
-
-    return nothing
-
-end
 
 ### Utils
 function set_bounds(mg::Microgrid)
