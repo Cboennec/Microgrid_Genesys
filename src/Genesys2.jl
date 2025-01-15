@@ -52,7 +52,14 @@ include(joinpath("optimization","designer", "metaheuristic","NSGAII","utils.jl")
 
 
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP, Ipopt, Gurobi
+using JuMP, Cbc, Metaheuristics, SDDP, Ipopt
+
+try
+    using Gurobi
+catch e
+    println("Gurobi not available, proceeding with mock.")
+end
+
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
