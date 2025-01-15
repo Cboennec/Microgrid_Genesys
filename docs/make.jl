@@ -2,16 +2,17 @@
 import Pkg
 using Pkg
 
+# Activez l'environnement des `docs`
+Pkg.activate(".")
+Pkg.instantiate()
+
+
 ENV["PYTHON"] = ""
 Pkg.build("PyCall")
 using Conda
 Conda.add("numpy"; channel="conda-forge")
 Conda.add("matplotlib")
  
-#Pkg.activate(".")
-
-#Pkg.add(url="https://github.com/hradet/Metaheuristics.jl")
-
 include("../src/Genesys.jl")
 using Documenter, Main.Genesys
 

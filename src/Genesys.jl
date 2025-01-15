@@ -21,35 +21,62 @@ abstract type AbstractDesigner end
 abstract type AbstractDesignerNonFloat end
 abstract type AbstractController end
 
+abstract type MetaheuristicResults end
+
+"""
+abstract type EnergyCarrier end
+
+An abstract type, parent of all energy carrier types (electricity, heat, hydrogen...)
+"""
+abstract type EnergyCarrier end
+
+
+#Metaheuristic module part
+using Distributions, Random, LinearAlgebra, Statistics
+using Distributed
+using Test, ProgressMeter #GlobalSensitivity
+
+# Clearing
+include(joinpath("optimization","designer", "metaheuristic","clearing","struct.jl"))
+include(joinpath("optimization","designer", "metaheuristic","clearing","functions.jl"))
+include(joinpath("optimization","designer", "metaheuristic","clearing","optimize.jl"))
+include(joinpath("optimization","designer", "metaheuristic","clearing","utils.jl"))
+
+# NSGAII
+include(joinpath("optimization","designer", "metaheuristic","NSGAII","struct.jl"))
+include(joinpath("optimization","designer", "metaheuristic","NSGAII","functions.jl"))
+include(joinpath("optimization","designer", "metaheuristic","NSGAII","optimize.jl"))
+include(joinpath("optimization","designer", "metaheuristic","NSGAII","utils.jl"))
+
+#Genesys package part 
 
 
 # Optimisation
-using JuMP, Cbc, Metaheuristics, SDDP, Juniper, Alpine, Ipopt, HiGHS#, Gurobi
+using JuMP, Cbc, Metaheuristics, SDDP, Ipopt
+
+try
+    using Gurobi
+catch e
+    println("Gurobi not available, proceeding with mock.")
+end
+
 # Math
 using Statistics, StatsBase, MultivariateStats, Clustering, Distributions, Distances, LinearAlgebra, Interpolations
 # Others
-using Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD, Pandas, Random
+using Seaborn, Dates, Distributed, SharedArrays, CSV, DataFrames, JLD2, Pandas, Random, Plots
 # Assets
 include(joinpath("assets","microgrid.jl"))
 include(joinpath("assets","carriers.jl"))
 include(joinpath("assets","liion","liion.jl"))
-include(joinpath("assets","liion","liion_energy_exchanged.jl"))
-include(joinpath("assets","liion","liion_rainflow.jl"))
-include(joinpath("assets","liion","liion_electro_chimique.jl"))
-include(joinpath("assets","liion","liion_vermeer.jl"))
-include(joinpath("assets","liion","liion_fixed_lifetime.jl"))
 include(joinpath("assets","tes.jl"))
 include(joinpath("assets","h2tank.jl"))
-include(joinpath("assets","electrolyzer.jl"))
+include(joinpath("assets","electrolyzer","electrolyzer.jl"))
 include(joinpath("assets","fuelcell","fuelcell.jl"))
-include(joinpath("assets","fuelcell","fuelcell_hoursmax.jl"))
-include(joinpath("assets","fuelcell","fuelcell_on_off.jl"))
-include(joinpath("assets","fuelcell","fuelCell_power.jl"))
 include(joinpath("assets","heater.jl"))
 include(joinpath("assets","grid.jl"))
 include(joinpath("assets","solar.jl"))
 include(joinpath("assets","demand.jl"))
-export AbstractController,  AbstractDesigner, AbstractDesignerNonFloat
+export AbstractController,  AbstractDesigner
 export AbstractLiion, AbstractFuelCell
 export Microgrid, Demand, Solar
 export Liion_energy_exchanged, Liion_rainflow, Liion_fixed_lifetime, Liion_vermeer, Liion_electro_chimique, Tremblay_dessaint_params, vermeer_params, Electro_chimique_params
@@ -83,7 +110,7 @@ export initialize_controller!
 # Investment optimization
 include(joinpath("optimization","designer","manual.jl"))
 include(joinpath("optimization","designer","milp.jl"))
-include(joinpath("optimization","designer","metaheuristic.jl"))
+include(joinpath("optimization","designer","metaheuristic", "metaheuristic.jl"))
 export Manual, Metaheuristic, MILP
 export MetaheuristicOptions, MILPOptions, ManualOptions
 export initialize_designer!, initialize_designer_my!
