@@ -228,7 +228,7 @@ Once you have generated the data scenarios for your microgrid system, you can op
 
 
 ### Constructing the grid
-The first step is to build the microgrid get the data and add assets to it. The following code show this process for the case of a single energy grid with battery storage and Solar panel over 21 years for 1 scenario. For more details about the assets see [Assets page](src/assets.md)
+The first step is to build the microgrid get the data and add assets to it. The following code show this process for the case of a single energy grid with battery storage and Solar panel over 21 years for 1 scenario. For more details about the assets see [Assets page](assets.md)
 
 ```julia
 
