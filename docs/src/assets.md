@@ -60,7 +60,7 @@ Genesys.Demand
 
 ## grid
 ```@docs
-Genesys.Microgrid
+Genesys.Grid
 ```
 
 
