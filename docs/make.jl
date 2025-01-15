@@ -14,7 +14,7 @@ Conda.add("numpy"; channel="conda-forge")
 Conda.add("matplotlib")
  
 include("../src/Genesys.jl")
-using Documenter, Main.Genesys
+using Documenter
 
 makedocs(sitename="Microgrid_Genesys.jl", format = Documenter.HTML(prettyurls = false))
 
