@@ -453,7 +453,7 @@ function get_model_3(h_interval)
     #Déclaration du model et du solver
     m3 = Model(Gurobi.Optimizer)
     set_attribute(m3, "non_convex", 2)
-    set_optimizer_attribute(m3, "MIPGap", 10^(-1))
+    set_optimizer_attribute(m3, "MIPGap", 10^(-2))
 
 
     #variables de décisions
@@ -550,8 +550,8 @@ T3 = []
 
 minlp_exec = true
 
-for h_max in 24:24:(24*15)
-    h_interval = 1:h_max
+for i in 61:65
+    h_interval = 1:(i*24)
 
     mod1 = get_model_1(h_interval)
     JuMP.optimize!(mod1)
@@ -559,7 +559,7 @@ for h_max in 24:24:(24*15)
     println("La solution optimale vaut : ", round(objective_value(mod1), digits=2), " €")
     println("Le problème à été résolu en : ", round(solve_time(mod1), digits=2), " secondes")
 
-    push!(T1, solve_time(mod1))
+    T1[i] = solve_time(mod1)
     
     mod2 = get_model_2(h_interval)
     JuMP.optimize!(mod2)
@@ -567,23 +567,18 @@ for h_max in 24:24:(24*15)
     println("La solution optimale vaut : ", round(objective_value(mod2), digits=2), " €")
     println("Le problème à été résolu en : ", round(solve_time(mod2), digits=2), " secondes")
     
-    push!(T2, solve_time(mod2))
+    T2[i] = solve_time(mod2)
 
-    if solve_time(mod3) > 100
-        minlp_exec = false
-    end
+    
+    
+    mod3 = get_model_3(h_interval)
+    JuMP.optimize!(mod3)
+    
+    println("La solution optimale vaut : ", round(objective_value(mod3), digits=2), " €")
+    println("Le problème à été résolu en : ", round(solve_time(mod3), digits=2), " secondes")
 
-    if minlp_exec
-        mod3 = get_model_3(h_interval)
-        JuMP.optimize!(mod3)
-        
-        println("La solution optimale vaut : ", round(objective_value(mod3), digits=2), " €")
-        println("Le problème à été résolu en : ", round(solve_time(mod3), digits=2), " secondes")
+    T3[i] = solve_time(mod3)
 
-        push!(T3, solve_time(mod3))
-    else
-        push!(T3, 100)
-    end
 
 end
 

@@ -1,14 +1,31 @@
 include(joinpath(pwd(),"src","Genesys2.jl"))
 
 
-plotlyjs()
+pyplot_installed = true
+if !(isdir(Pkg.dir("PyPlot")))
+    Pkg.add("plotlyjs")
+    using plotlyjs
+    plotlyjs()
+    pyplot_installed = false
+else
+    using PyPlot
+    pygui(true)
+end
+
+
 
 function Plot_dayly_prices(ω; label = "")
     
-    p = Plots.plot(1:24, ω.grids[1].cost_in[1:24,1,1],seriestype=:scatter, label = label)
-    xlabel!("Hours")
-    ylabel!("Price (€)")
-    display(p)
+    if !pyplot_installed
+        p = Plots.plot(1:24, ω.grids[1].cost_in[1:24,1,1],seriestype=:scatter, label = label)
+        xlabel!("Hours")
+        ylabel!("Price (€)")
+        display(p)
+    else
+        PyPlot.scatter(1:24, ω.grids[1].cost_in[1:24,1,1], label = label)
+        legend()
+    end
+  
 end
 
 
@@ -84,9 +101,10 @@ using JLD2, FileIO
 data_fix = JLD2.load(joinpath(pwd(), "Cours" , "Cours1", "data_light_4.jld2"))
 data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jld2"))
 
-data_selected = data_HP_HC
+
+data_selected = data_fix
      
-ω_a = Scenarios(microgrid, data_fix; same_year=true, seed=[x for x in 1:4])
+ω_a = Scenarios(microgrid, data_selected; same_year=true, seed=[x for x in 1:4])
 
 Plot_dayly_prices(ω_a; label = "HP HC")
 
@@ -120,7 +138,11 @@ println("Part de renouvelable : ", round.(metrics.renewable_share[1,1:ns] * 100,
 println("Cout total : ", round.(metrics.cost.total[:,1:ns], digits=2), " €")
 
     
-plot_operation2(microgrid, y=1:ny, s=1:1)
+if pyplot_installed
+    plot_operation(microgrid, y=1:ny, s=1:1)
+else
+    plot_operation2(microgrid, y=1:ny, s=1:1)
+end
 ###################################################################
 
 

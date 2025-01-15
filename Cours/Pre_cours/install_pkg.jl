@@ -62,9 +62,9 @@ Pkg.add("JLD2")
 Pkg.add("FileIO")
 Pkg.add("Plots")
 Pkg.add("PlotlyJS")
+Pkg.add("BenchmarkTools")
 
-
-using Pandas, Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, Random, JLD2, FileIO, Plots, PlotlyJS
+using Pandas, Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, Random, JLD2, FileIO, Plots, PlotlyJS, BenchmarkTools
 
 Pkg.status()
 
