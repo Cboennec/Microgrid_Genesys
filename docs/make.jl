@@ -4,6 +4,12 @@ using Pkg
 Pkg.activate(".")
 Pkg.instantiate()
 
+ENV["PYTHON"] = ""
+Pkg.build("PyCall")
+using Conda
+Conda.add("numpy"; channel="conda-forge")
+Conda.add("matplotlib")
+ 
 # Load Documenter and your package
 using Documenter
 using Genesys
