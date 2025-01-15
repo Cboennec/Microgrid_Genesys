@@ -25,7 +25,6 @@ deploydocs(
     repo = "github.com/Cboennec/Microgrid_Genesys.jl.git",
     branch = "gh-pages",
     target = "build",
-    key = ENV["DOCUMENTER_KEY"]
 )
 # import Pkg
 # using Pkg
