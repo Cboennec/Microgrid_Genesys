@@ -3,8 +3,8 @@ import Pkg
 using Pkg
 
 # Activez l'environnement des `docs`
-Pkg.activate(".")
-Pkg.develop(PackageSpec(path = ".."))
+#Pkg.activate(".")
+#Pkg.develop(PackageSpec(path = ".."))
 #Pkg.instantiate()
 
 
