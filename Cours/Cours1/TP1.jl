@@ -104,7 +104,7 @@ data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jl
 
 data_selected = data_fix
      
-ω_a = Scenarios(microgrid, data_selected; same_year=true, seed=[x for x in 1:4])
+ω_a = Scenarios(microgrid, data_selected, true, seed=[x for x in 1:4])
 
 Plot_dayly_prices(ω_a; label = "HP HC")
 
@@ -443,9 +443,12 @@ hours = [i for i in 1:(8760*ny)]
 y_values = zeros(nh*ny, ns)
 labels = Matrix{String}(undef, 1, ns)
 
+
 for s in 1:ns
-    y_values[:,s] = vec(a.soc[1:end-1, 1:ny, s_id])
-    labels[s] = string("Storage : ", typeof(a))
+    for a in microgrid.storages
+        y_values[:,s] = vec(a.soc[1:end-1, 1:ny, s])
+        labels[s] = string("$s : Storage : ", typeof(a))
+    end
 end
 
 plot_soc = Plots.plot(hours, y_values, label = labels, linewidth=2, title="State-of-charge")
@@ -461,8 +464,10 @@ y_values = zeros(nh*ny, ns)
 labels = Matrix{String}(undef, 1, ns)
 
 for s in 1:ns
-    y_values[:,s] = vec(a.soh[1:end-1, 1:ny, s_id])
-    labels[s] = string("Storage : ", typeof(a))
+    for a in microgrid.storages
+        y_values[:,s] = vec(a.soh[1:end-1, 1:ny, s])
+        labels[s] = string("Storage : ", typeof(a))
+    end
 end
 
 plot_soh = Plots.plot(hours, y_values, label = labels, linewidth=2, title="State-of-health")
