@@ -1,6 +1,5 @@
 # Microgrid_Genesys.jl
 
-
 A toolbox for modeling, optimizing and simulating microgrids developped by the Genesys team at LAPLACE laboratory, Toulouse, France
 
 ## Table Of Contents

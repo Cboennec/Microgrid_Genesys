@@ -23,6 +23,8 @@ function Plot_dayly_prices(ω; label = "")
         display(p)
     else
         PyPlot.scatter(1:24, ω.grids[1].cost_in[1:24,1,1], label = label)
+        PyPlot.xlabel("Hours")
+        PyPlot.ylabel("Price (€)")
         legend()
     end
   
@@ -30,7 +32,7 @@ end
 
 
 #La place de ce code est normalement dans le fichier src/optimization/controller/rb.jl 
-#Redefinition de la fonction de selection de Rule Base controller
+#Redefinition de la fonction de selection de Rule Base controller pour ajouter 101, 102, 103
 
 function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
     # Chose policy
@@ -59,8 +61,6 @@ function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgri
     end
 end
 
-
-
 #Il faut ici déterminer, en fonction des inputs (load, generation), les décisions pour les éléments de stockage et de conversion
 #Il faut affecter les valeurs pour le pas de temps donné aux variables de décisions.
 # P^{PV}_h est accéssible dans la variable    mg.generations[1].carrier.power[h,y,s]
@@ -68,16 +68,16 @@ end
 
 #Décisions négative = charge, Décision positive = décharge (car on se place du point de vue de notre microréseau)
 
-function RB_autonomie(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
-   #controller.decisions.storages[1][h,y,s] = 
+function RB_autonomie(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC) # policy 101
+   #controller.decisions.storages[1][h,y,s] = calcul de votre décision
 end
 
-function RB_vieillissement(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
-    #controller.decisions.storages[1][h,y,s] = 
+function RB_vieillissement(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC) # policy 102
+    #controller.decisions.storages[1][h,y,s] = calcul de votre décision
 end
 
-function RB_opex(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
-    #controller.decisions.storages[1][h,y,s] = 
+function RB_opex(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC) # policy 103
+    #controller.decisions.storages[1][h,y,s] = calcul de votre décision
 end
 
 
@@ -102,7 +102,7 @@ data_fix = JLD2.load(joinpath(pwd(), "Cours" , "Cours1", "data_light_4.jld2"))
 data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jld2"))
 
 
-data_selected = data_fix
+data_selected = data_HP_HC
      
 ω_a = Scenarios(microgrid, data_selected, true, seed=[x for x in 1:4])
 
@@ -122,7 +122,7 @@ designer = initialize_designer!(microgrid, Manual(generations = generations, sto
 ############# Controle du réseau ##################################
 RB_choisie = 101 # 101, 102 ou 103
 
-controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = 2)), ω_a)
+controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = RB_choisie)), ω_a)
 ###################################################################
 
 ############## Evaluation, métriques et affichage ###############
@@ -149,10 +149,14 @@ end
 
 
 
+
+##########################################################################
+##########################################################################
 ##########################################################################
 ##################### Les solutions du TP ###############################
 ##########################################################################
-
+##########################################################################
+##########################################################################
 
 
 

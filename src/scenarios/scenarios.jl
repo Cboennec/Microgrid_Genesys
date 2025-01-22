@@ -633,18 +633,20 @@ function Scenarios(mg::Microgrid, d::Dict{}, nweeks::Int64; seed = []) # repeat 
 end
 
 
+namedtuple(x) = x
+namedtuple(d::Dict) = (; (Symbol(k) => namedtuple(v) for (k,v) in d)...)
+
+
 
 """
-    function Scenarios(mg::Microgrid, d::Dict{}; same_year = false, seed = [])
+    function Scenarios(mg::Microgrid, d::Dict{}, same_year::Bool; seed = [])
 
 Constructor function for creating a new `Scenarios` instance based on a given `Microgrid` and a `Dict` containing scenario data. It allows for repetitive years for longer scenarios.
 
 # Arguments
 - `mg::Microgrid`: A Microgrid instance.
 - `d::Dict{}`: A dictionary containing scenario data.
-
-# Keyword Arguments
-- `same_year::Bool=false`: If `true`, the function repeats the same year for all years in the microgrid.
+- `same_year::Bool` : If `true`, the function repeats the same year for all years in the microgrid.
 - `seed::Array=[]`: An array specifying the seed for selecting the scenario number and offer reproductivity.
 
 # Returns
@@ -656,12 +658,9 @@ Constructor function for creating a new `Scenarios` instance based on a given `M
 microgrid = ...
 scenario_data = ...
 
-scenarios = Scenarios(microgrid, scenario_data; same_year = true, seed = [1, 2, 3])
+scenarios = Scenarios(microgrid, scenario_data, true; seed = [1, 2, 3])
 ```
 """
-namedtuple(x) = x
-namedtuple(d::Dict) = (; (Symbol(k) => namedtuple(v) for (k,v) in d)...)
-
 function Scenarios(mg::Microgrid, d::Dict{}, same_year; seed = []) # repeat make every year the same, seed decide with year to use.
     # Utils to simplify the writting
     nh = mg.parameters.nh

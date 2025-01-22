@@ -20,7 +20,7 @@ using JLD2, FileIO
 
 data_optim = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4.jld2"))
 
-ω_a = Scenarios(microgrid, data_optim; same_year=true, seed=1:ns)
+ω_a = Scenarios(microgrid, data_optim, true; seed=1:ns)
             
 generations = Dict("Solar" => 10.)
 storages = Dict("Liion" => 40.)
@@ -34,8 +34,7 @@ simulate!(microgrid, controller, designer, ω_a, options = (Options(mode = "seri
 
 metrics = Metrics(microgrid, designer)
 
-    
-plot_operation2(microgrid, y=1:ny, s=1:1)
+plot_operation(microgrid, y=1:ny, s=1:1)
 
 
 
