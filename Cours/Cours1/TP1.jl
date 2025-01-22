@@ -98,12 +98,13 @@ add!(microgrid, Demand(carrier = Electricity()),
 
 using JLD2, FileIO
 
+# Load data
 data_fix = JLD2.load(joinpath(pwd(), "Cours" , "Cours1", "data_light_4.jld2"))
 data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jld2"))
 
-
 data_selected = data_HP_HC
      
+# Load data Scenarios
 ω_a = Scenarios(microgrid, data_selected, true, seed=[x for x in 1:4])
 
 Plot_dayly_prices(ω_a; label = "HP HC")
@@ -111,9 +112,9 @@ Plot_dayly_prices(ω_a; label = "HP HC")
 
 
 ############# Dimentionnement manuel du réseau #####################
-generations = Dict("Solar" => 0.)
-storages = Dict("Liion" => 0.)
-subscribed_power = Dict("Electricity" => 20.)
+generations = Dict("Solar" => 0.) # Scalar Value for PV panel peak power 
+storages = Dict("Liion" => 0.) # Scalar value for Li-ion battery capacity [kwh]
+subscribed_power = Dict("Electricity" => 20.) # Maximum available power from grid [kVA]
 
 designer = initialize_designer!(microgrid, Manual(generations = generations, storages = storages, subscribed_power = subscribed_power), ω_a)
 ###################################################################
