@@ -105,7 +105,7 @@ data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jl
 data_selected = data_HP_HC
      
 # Load data Scenarios
-ω_a = Scenarios(microgrid, data_selected, true, seed=[x for x in 1:4])
+ω_a = Scenarios(microgrid, data_selected, true)
 
 Plot_dayly_prices(ω_a; label = "HP HC")
 
