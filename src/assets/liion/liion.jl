@@ -237,9 +237,9 @@ mutable struct SemiEmpiricalLiion <: AbstractLiionAgingModel
 	update_by_year::Int64 #Number of update each year
 	
 	# for NMC parameters #
-   #Technoeconomic model of second-life batteries for utility-scale solar
-   #considering calendar and cycle aging
-   #Ian Mathews a,⁎, Bolun Xu b, Wei He a, Vanessa Barreto c, Tonio Buonassisi a, Ian Marius Peters
+    #Technoeconomic model of second-life batteries for utility-scale solar
+    #considering calendar and cycle aging
+    #Ian Mathews a,⁎, Bolun Xu b, Wei He a, Vanessa Barreto c, Tonio Buonassisi a, Ian Marius Peters
 
 	alpha_sei::Float64
 	beta_sei::Float64

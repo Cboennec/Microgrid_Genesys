@@ -152,9 +152,18 @@ end
 ####################################################
 ####################################################
 
+abstract type AbstractBarageAgingModel end
+
+mutable struct FixedLifetimeBarrage <: AbstractBarageAgingModel
+
+	lifetime::Int64
+
+	FixedLifetimeBarrage(;lifetime = 40) = new(lifetime)
+end
 # Nouveau composant 
 mutable struct Barrage <: AbstractStorage
 
+    SoH_model::AbstractBarageAgingModel
     η_E_O::Float64 # la conversion m^3/Wh 
     η_O_E::Float64 # la conversion Wh/m^3
     volume_ini::Float64 # 
@@ -174,16 +183,19 @@ mutable struct Barrage <: AbstractStorage
 
     cost::AbstractArray{Float64,2} 
 
-    Barrage(;η_E_O = 0.8,
+
+
+    Barrage(;SoH_model = FixedLifetimeBarrage(),
+    η_E_O = 0.8,
     η_O_E = 0.9,
     volume_ini = 1e-6,
     soc_ini = 0.5,
     facteur_pluie = 1/100,
     facteur_evaporation = 1/500,
     lifetime = 40,
-    lim_debit_pompe = 12,
-    lim_debit_turbine = 20,
-    ) = new(η_E_O, η_O_E, volume_ini, soc_ini, facteur_pluie, facteur_evaporation, lifetime, lim_debit_pompe, lim_debit_turbine) 
+    lim_debit_pompe = 20,
+    lim_debit_turbine = 25,
+    ) = new(SoH_model, η_E_O, η_O_E, volume_ini, soc_ini, facteur_pluie, facteur_evaporation, lifetime, lim_debit_pompe, lim_debit_turbine) 
 
 end
 
@@ -206,7 +218,7 @@ function preallocate!(barage::Barrage, nh::Int64, ny::Int64, ns::Int64)
     barage.soc[1,1,s] = barage.soc_ini
  end
  
-
+# Function used to apply decisions
  function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, barage::Barrage, decision::Float64, Δh::Int64)
 
 	barage.soc[h+1,y,s], power_ch, power_dch = compute_operation_soc(barage, h ,y ,s , decision, Δh)
@@ -216,7 +228,7 @@ function preallocate!(barage::Barrage, nh::Int64, ny::Int64, ns::Int64)
 end
 
 
-
+#Function used to test decisions (for RB control)
 function compute_operation_dynamics(h::Int64, y::Int64, s::Int64, barage::Barrage, decision::Float64, Δh::Int64)
 
 	soc_next, power_ch, power_dch  = compute_operation_soc(barage, h ,y ,s , decision, Δh)
@@ -316,7 +328,7 @@ using JLD2, FileIO
 
 data_optim = JLD2.load(joinpath(pwd(),"Cours", "cours4", "Data_base_TP4.jld2"))
             
-ω_a = Scenarios(microgrid, data_optim; same_year=true, seed=1:ns)
+ω_a = Scenarios(microgrid, data_optim, true)
             
 generations = Dict("Solar" => 30.)
 storages = Dict( "Barrage" => 400.)
@@ -330,9 +342,8 @@ controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_s
 
 simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
 
-
-metrics = Metrics(microgrid, designer)
+#metrics = Metrics(microgrid, designer)
     
-plot_operation2(microgrid, y=1:ny, s=1:1)
+plot_operation(microgrid, y=1:ny, s=1:1)
 
 
