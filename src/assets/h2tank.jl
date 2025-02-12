@@ -98,20 +98,20 @@ function preallocate!(h2tank::H2Tank, nh::Int64, ny::Int64, ns::Int64)
 end
 
 """
-  compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, h2tank::H2Tank, decision::Float64, Δh::Int64)
+  compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, h2tank::H2Tank, decision::Float64, Δh::Float64)
 
 Compute the operation dynamics of the hydrogen tank storage for a given hour (h), year (y), and scenario (s), using the provided decision and time step (Δh).
 """
-function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, h2tank::H2Tank, decision::Float64, Δh::Int64)
+function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, h2tank::H2Tank, decision::Float64, Δh::Float64)
    h2tank.soc[h+1,y,s], h2tank.carrier.power[h,y,s] = compute_operation_dynamics(h2tank, (Erated = h2tank.Erated[y,s], soc = h2tank.soc[h,y,s]), decision, Δh)
 end
 
 """
-  compute_operation_dynamics(h2tank::H2Tank, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
+  compute_operation_dynamics(h2tank::H2Tank, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Float64)
 
 Compute the operation dynamics of the hydrogen tank storage for the given state, decision, and time step (Δh).
 """
-function compute_operation_dynamics(h2tank::H2Tank, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(h2tank::H2Tank, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Float64)
   # Control power constraint and correction
   power_dch = max(min(decision, h2tank.eff_model.α_p_dch * state.Erated, h2tank.eff_model.η_dch * (state.soc * (1. - h2tank.eff_model.η_self * Δh) - h2tank.α_soc_min) * state.Erated / Δh), 0.)
   power_ch = min(max(decision, -h2tank.eff_model.α_p_ch * state.Erated, (state.soc * (1. - h2tank.eff_model.η_self * Δh) - h2tank.α_soc_max) * state.Erated / Δh / h2tank.eff_model.η_ch), 0.)

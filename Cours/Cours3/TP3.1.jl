@@ -148,7 +148,7 @@ end
 
 
 # Doit retourner SoC, P_ch, P_dch
-function compute_operation_soc(liion::Liion, model::ModelTP3SOC, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_soc(liion::Liion, model::ModelTP3SOC, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 
     C_rate = abs(decision)/liion.Erated[y,s]
 
@@ -197,7 +197,7 @@ end
 # La fonction va surtout avoir pour rôle de calculer le nombre d'heure succéssive de charge ou décharge. (Cela peut être réalisé dans un fonction annexe)
 # Puis ce nombre va être traité pour induire une dégradation.
 
-function compute_operation_soh(liion::Liion, model::ModelTP3SOH, h::Int64,y::Int64 ,s::Int64 , Δh::Int64)
+function compute_operation_soh(liion::Liion, model::ModelTP3SOH, h::Int64,y::Int64 ,s::Int64 , Δh::Float64)
 
     nb_consecutif = get_nb_consecutif(liion.soc, h, y, s)
 	

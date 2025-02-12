@@ -406,7 +406,7 @@ Compute and update inner arrays of Liion according to the input decisions using 
 - `s::Int64`: scenario index.
 - `liion::Liion`: Li-ion battery structure.
 - `decision::Float64`: Input power decision (positive or negative).
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 
 ## Description
 
@@ -422,7 +422,7 @@ decision = 0.5
 Δh = 1
 compute_operation_dynamics!(h, y, s, liion, decision, Δh)```
 """
-function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion, decision::Float64, Δh::Int64)
+function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, liion::Liion, decision::Float64, Δh::Float64)
 
 	liion.soc[h+1,y,s], power_ch, power_dch = compute_operation_soc(liion, liion.eff_model, h ,y ,s , decision, Δh)
 	
@@ -450,7 +450,7 @@ Compute and update the state of charge (SoC) dynamics based on the input decisio
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
 - `decision::Float64`: Power input (positive or negative).
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 
 ## Description
 
@@ -467,7 +467,7 @@ decision = 0.5
 compute_operation_soc(liion, model, h, y, s, decision, Δh)
 ```
 """
-function compute_operation_soc(liion::Liion, model::FixedLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_soc(liion::Liion, model::FixedLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 	
 	
 	if liion.Erated[y,s] == 0
@@ -516,7 +516,7 @@ Compute and update the state of charge (SoC) dynamics based on the input decisio
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
 - `decision::Float64`: Power input (positive or negative).
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 
 ## Description
 
@@ -533,7 +533,7 @@ decision = 0.5
 compute_operation_soc(liion, model, h, y, s, decision, Δh)
 ```
 """
-function compute_operation_soc(liion::Liion, model::PolynomialLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_soc(liion::Liion, model::PolynomialLiionEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 	
 	if liion.Erated[y,s] == 0
 		return 0,0,0
@@ -581,7 +581,7 @@ Compute and update the state of health (SoH) dynamics at the current time using 
 - `h::Int64`: Operation time step index.
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 
 ## Description
 
@@ -596,7 +596,7 @@ s = 1
 Δh = 1
 compute_operation_soh(liion, model, h, y, s, Δh)```
 """
-function compute_operation_soh(liion::Liion, model::EnergyThroughputLiion, h::Int64,y::Int64 ,s::Int64 , Δh::Int64)
+function compute_operation_soh(liion::Liion, model::EnergyThroughputLiion, h::Int64,y::Int64 ,s::Int64 , Δh::Float64)
 	
 	ΔSoH = (abs(liion.carrier.power[h,y,s])) * Δh / (2. * model.nCycle * (liion.α_soc_max - liion.α_soc_min) * liion.Erated[y,s])
 
@@ -623,7 +623,7 @@ Compute and update the state of health (SoH) dynamics based on the SemiEmpirical
 - `h::Int64`: Operation time step index.
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 
 ## Description
 
@@ -643,7 +643,7 @@ s = 1
 Δh = 1
 compute_operation_soh(liion, model, h, y, s, Δh)```
 """
-function compute_operation_soh(liion::Liion, model::SemiEmpiricalLiion, h::Int64, y::Int64, s::Int64, Δh::Int64)
+function compute_operation_soh(liion::Liion, model::SemiEmpiricalLiion, h::Int64, y::Int64, s::Int64, Δh::Float64)
 	
 	h_between_update = convert(Int64,floor(8760/model.update_by_year))
 	#SoH computation
@@ -671,7 +671,7 @@ Compute and update the state of health (SoH) dynamics based on the RainflowLiion
 - `h::Int64`: Operation time step index.
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 
 ## Description
 
@@ -692,7 +692,7 @@ s = 1
 compute_operation_soh(liion, model, h, y, s, Δh)
 ```
 """
-function compute_operation_soh(liion::Liion, model::RainflowLiion, h::Int64, y::Int64, s::Int64, Δh::Int64)
+function compute_operation_soh(liion::Liion, model::RainflowLiion, h::Int64, y::Int64, s::Int64, Δh::Float64)
 	
 	h_between_update = convert(Int64,floor(8760/model.update_by_year))
 	#SoH computation
@@ -727,7 +727,7 @@ Compute and update the state of health (SoH) dynamics based on the FixedLifetime
 - `h::Int64`: Operation time step index.
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 
 ## Description
 
@@ -743,7 +743,7 @@ s = 1
 compute_operation_soh(liion, model, h, y, s, Δh)
 ```
 """
-function compute_operation_soh(liion::Liion, model::FixedLifetimeLiion, h::Int64, y::Int64, s::Int64, Δh::Int64)
+function compute_operation_soh(liion::Liion, model::FixedLifetimeLiion, h::Int64, y::Int64, s::Int64, Δh::Float64)
 	
 	return liion.soh[h,y,s] - ((1 - liion.SoH_threshold) * Δh)/(8760 * model.lifetime)
 	
@@ -762,7 +762,7 @@ Compute and update the state of health (SoH) using rainflow cycle counting based
 
 - `liion::Liion`: Li-ion battery model.
 - `model::SemiEmpiricalLiion`: SemiEmpiricalLiion aging model.
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 - `soc::Vector{Float64}`: State of charge (SoC) profile over a certain interval.
 - `Sum_fd::Float64`: Cumulated fatigue of the battery.
 
@@ -779,7 +779,7 @@ Sum_fd = 0.0
 compute_operation_soh_rainflow(liion, model, Δh, soc_profile, Sum_fd)
 ```
 """
-function compute_operation_soh_rainflow(liion::Liion, model::SemiEmpiricalLiion, Δh::Int64, soc::Vector{Float64}, Sum_fd::Float64)
+function compute_operation_soh_rainflow(liion::Liion, model::SemiEmpiricalLiion, Δh::Float64, soc::Vector{Float64}, Sum_fd::Float64)
 
 	soc_peak, soc_peak_id = get_soc_peaks(soc)
 
@@ -849,7 +849,7 @@ Compute and update the state of health (SoH) using rainflow cycle counting based
 
 - `liion::Liion`: Li-ion battery model.
 - `model::RainflowLiion`: RainflowLiion aging model.
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 - `soc::Vector{Float64}`: State of charge (SoC) profile.
 
 ## Description
@@ -864,7 +864,7 @@ soc_profile = [0.2, 0.4, 0.8, 0.6, 0.2]
 compute_operation_soh_rainflow(liion, model, Δh, soc_profile)
 ```
 """
-function compute_operation_soh_rainflow(liion::Liion, model::RainflowLiion, Δh::Int64, soc::Vector{Float64})
+function compute_operation_soh_rainflow(liion::Liion, model::RainflowLiion, Δh::Float64, soc::Vector{Float64})
 
 	#Gather peaks from the soc profil
 	soc_peak, _ = get_soc_peaks(soc)
@@ -926,7 +926,7 @@ Compute and retur the power dynamics based on the input decisions.
 - `y::Int64`: Decision time step index.
 - `s::Int64`: Scenario index.
 - `decision::Float64`: Power input (positive or negative).
-- `Δh::Int64`: Time step duration.
+- `Δh::Float64`: Time step duration.
 
 ## Description
 
@@ -943,7 +943,7 @@ decision = -10.0
 compute_operation_dynamics(liion, h, y, s, decision, Δh)
 ```
 """
-function compute_operation_dynamics(liion::Liion, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(liion::Liion, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Float64)
 	 
 	soc_next, power_ch, power_dch = compute_operation_soc(liion, liion.eff_model, h, y, s, decision, Δh)
 	

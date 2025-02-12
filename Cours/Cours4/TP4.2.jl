@@ -68,7 +68,7 @@ function preallocate!(barrage::Barrage, nh::Int64, ny::Int64, ns::Int64)
  end
  
 
- function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, barrage::Barrage, decision::Float64, Δh::Int64)
+ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, barrage::Barrage, decision::Float64, Δh::Float64)
 
 	barrage.soc[h+1,y,s], power_ch, power_dch = compute_operation_soc(barrage, h ,y ,s , decision, Δh)
 	
@@ -78,7 +78,7 @@ end
 
 
 
-function compute_operation_dynamics(h::Int64, y::Int64, s::Int64, barrage::Barrage, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(h::Int64, y::Int64, s::Int64, barrage::Barrage, decision::Float64, Δh::Float64)
 
 	soc_next, power_ch, power_dch  = compute_operation_soc(barrage, h ,y ,s , decision, Δh)
 	
@@ -88,7 +88,7 @@ end
 
 
 
-function compute_operation_soc(barrage::Barrage, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_soc(barrage::Barrage, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 	if decision >= 0 
 		η = barrage.η_O_E 
 	else
@@ -335,7 +335,7 @@ function preallocate!(barrage::Barrage, nh::Int64, ny::Int64, ns::Int64)
  end
  
 
- function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, barrage::Barrage, decision::Float64, Δh::Int64)
+ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, barrage::Barrage, decision::Float64, Δh::Float64)
 
 	barrage.soc[h+1,y,s], power_ch, power_dch = compute_operation_soc(barrage, h ,y ,s , decision, Δh)
 	
@@ -345,7 +345,7 @@ end
 
 
 
-function compute_operation_dynamics(h::Int64, y::Int64, s::Int64, barrage::Barrage, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(h::Int64, y::Int64, s::Int64, barrage::Barrage, decision::Float64, Δh::Float64)
 
 	soc_next, power_ch, power_dch  = compute_operation_soc(barrage, h ,y ,s , decision, Δh)
 	
@@ -355,7 +355,7 @@ end
 
 
 
-function compute_operation_soc(barrage::Barrage, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_soc(barrage::Barrage, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 	if decision >= 0 
 		η = barrage.η_O_E 
 	else

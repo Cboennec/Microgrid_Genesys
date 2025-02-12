@@ -418,6 +418,6 @@ function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgri
     elseif controller.options.policy_selection == 8
         return π_8(h, y, s, mg, controller)
     else
-        println("Policy not defined !")
+        error("Policy not defined !")
     end
 end

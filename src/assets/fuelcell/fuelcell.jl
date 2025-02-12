@@ -517,7 +517,7 @@ end
   
 
 ### Operation dynamic
-function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, fc::FuelCell, decision::Float64, Δh::Int64)
+function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, fc::FuelCell, decision::Float64, Δh::Float64)
 
   fc.carrier[1].power[h,y,s], fc.carrier[2].power[h,y,s], fc.carrier[3].power[h,y,s] = compute_operation_efficiency(fc, fc.eff_model, h ,y ,s , decision, Δh)
 
@@ -527,14 +527,14 @@ end
 
 
 ### Operation dynamic
-function compute_operation_dynamics(fc::FuelCell, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(fc::FuelCell, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Float64)
 
   return compute_operation_efficiency(fc, fc.eff_model, h ,y ,s , decision, Δh)
 
 end
 
 
-function compute_operation_efficiency(fc::FuelCell, model::PolarizationFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_efficiency(fc::FuelCell, model::PolarizationFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 	
  #Apply minimum power
   model.powerMin[h,y,s] <= decision ? power_E = min(decision, model.powerMax[h,y,s]) : power_E = 0. 
@@ -566,7 +566,7 @@ end
 
 
 
-function compute_operation_efficiency(fc::FuelCell, model::FixedFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_efficiency(fc::FuelCell, model::FixedFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 	
   #Apply minimum power
    model.powerMin[h,y,s] <= decision ? power_E = min(decision, model.powerMax[h,y,s]) : power_E = 0. 
@@ -584,7 +584,7 @@ function compute_operation_efficiency(fc::FuelCell, model::FixedFuelCellEfficien
 
 
  
-function compute_operation_efficiency(fc::FuelCell, model::LinearFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_efficiency(fc::FuelCell, model::LinearFuelCellEfficiency, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 	
   #Apply minimum power
    model.powerMin[h,y,s] <= decision ? power_E = min(decision, model.powerMax[h,y,s]) : power_E = 0. 
@@ -619,7 +619,7 @@ end
 
  
 
-function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64,  y::Int64,  s::Int64,  Δh::Int64)
+function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64,  y::Int64,  s::Int64,  Δh::Float64)
 
   if (h%convert(Int64,floor(8760/model.update_by_year))) == 0 
     interval = (h-convert(Int64,floor(8760/model.update_by_year))+1):h
@@ -702,7 +702,7 @@ function compute_operation_soh(fc::FuelCell, model::PowerAgingFuelCell, h::Int64
 end
 
 
-function compute_operation_soh(fc::FuelCell, model::FunctHoursAgingFuelCell, h::Int64,  y::Int64,  s::Int64,  Δh::Int64)
+function compute_operation_soh(fc::FuelCell, model::FunctHoursAgingFuelCell, h::Int64,  y::Int64,  s::Int64,  Δh::Float64)
 
   if (h%convert(Int64,floor(8760/model.update_by_year))) == 0 
     interval = (h-convert(Int64,floor(8760/model.update_by_year))+1):h
@@ -768,7 +768,7 @@ function compute_operation_soh(fc::FuelCell, model::FunctHoursAgingFuelCell, h::
 end
 
 
-function compute_operation_soh(fc::FuelCell, model::FixedLifetimeFuelCell, h::Int64,  y::Int64,  s::Int64,  Δh::Int64)
+function compute_operation_soh(fc::FuelCell, model::FixedLifetimeFuelCell, h::Int64,  y::Int64,  s::Int64,  Δh::Float64)
 
   if (h%convert(Int64,floor(8760/model.update_by_year))) == 0 
     duration = convert(Int64,floor(8760/model.update_by_year))
@@ -899,7 +899,7 @@ end
     return powerMax_next, powerMin_next, soh_next
 end
 
-function compute_powers(fc::AbstractFuelCell, state::NamedTuple{(:powerMax, :soh), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
+function compute_powers(fc::AbstractFuelCell, state::NamedTuple{(:powerMax, :soh), Tuple{Float64, Float64}}, decision::Float64, Δh::Float64)
   fc.α_p * state.powerMax <= decision && state.soh * fc.nHoursMax / Δh > 1. ? power_E = min(decision, state.powerMax) : power_E = 0.
   # Power conversion
   power_H2 = - power_E / fc.η_H2_E
