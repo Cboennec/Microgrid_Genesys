@@ -3,7 +3,6 @@ include(joinpath(pwd(),"src","Genesys2.jl"))
 
 nh, ny, ns = 8760, 10, 1
 
-plotlyjs()
 
 
 microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = .5))
@@ -11,16 +10,16 @@ microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share 
 # Add the equipment to the microgrid
 add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),
-                Liion( SoH_model = ModelTP3SOH()), 
+                Liion(SoH_model = ModelTP3SOH(), eff_model = ModelTP3SOC()), 
                 Grid(carrier = Electricity()))
 
 
 
 using JLD2, FileIO
 
-data_optim = JLD2.load(joinpath(pwd(),"data_light_4.jld2"))
+data_optim = JLD2.load(joinpath(pwd(),"Cours", "Cours1", "data_light_4.jld2"))
             
-ω_a = Scenarios(microgrid, data_optim; same_year=true, seed=1:ns)
+ω_a = Scenarios(microgrid, data_optim, true)
             
 generations = Dict("Solar" => 25.)
 storages = Dict("Liion" => 40.)
@@ -35,8 +34,9 @@ controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_s
 simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
 
 
-metrics = Metrics(microgrid, designer)
+#metrics = Metrics(microgrid, designer)
     
+pygui(true)
 plot_operation2(microgrid, y=1:ny, s=1:1)
 
 
@@ -46,19 +46,6 @@ plot_operation2(microgrid, y=1:ny, s=1:1)
 # La seule cond  ition :  η ∈ [0-1]
 # Attention, par défault les limites de SoC étant fixés à α_soc_max = 0.8 et α_soc_min = 0.2. et le pas de temps étant l'heure.
 # La conséquence est que les bornes du C_rate sont implicitement définies comme ∈ [0-0.6]
-mutable struct ModelTP3SOC <: AbstractLiionEffModel
-
-
-end
-
-
-# Creez un model dont le vieillissement vient du fait de rester en model charge ou en mode décharge.
-# Une seule heure n'implique pas ou très peu de vieillissement puis on arrive à un vieillissement important pout plusieurs heures consécutives
-
-mutable struct ModelTP3SOH <: AbstractLiionAgingModel
-
- 
-end
 
 
 
@@ -112,7 +99,6 @@ function compute_operation_soc(liion::Liion, model::ModelTP3SOC, h::Int64,  y::I
 
     C_rate = abs(decision)/liion.Erated[y,s]
 
-
     if C_rate <= model.palier1 # schéma 1
         η = 1
     elseif C_rate > model.palier2 # schéma 3
@@ -125,7 +111,10 @@ function compute_operation_soc(liion::Liion, model::ModelTP3SOC, h::Int64,  y::I
 	power_dch = max(min(decision, liion.soh[h,y,s] * liion.Erated[y,s] / Δh, η * (liion.soc[h,y,s] - liion.α_soc_min) * liion.Erated[y,s] / Δh), 0.)
 	power_ch = min(max(decision, -liion.soh[h,y,s] * liion.Erated[y,s] / Δh, (liion.soc[h,y,s] - liion.α_soc_max) * liion.Erated[y,s] / Δh / η), 0.)
 
-	return liion.soc[h,y,s] - (power_ch * η + power_dch / η) * Δh / liion.Erated[y,s], power_ch, power_dch
+    #newly computed soc 
+    new_soc = liion.soc[h,y,s] - (power_ch * η + power_dch / η) * Δh / liion.Erated[y,s] 
+
+	return new_soc, power_ch, power_dch
 
 end
 
