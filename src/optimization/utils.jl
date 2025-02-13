@@ -353,7 +353,7 @@ end
 
 
 # Technical constraint
-function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage}, Δh::Int64, nh::Int64, ns::Int64)
+function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage}, Δh::Float64, nh::Int64, ns::Int64)
     if !isempty(storages)
         na = length(storages)
         @constraints(m, begin
@@ -392,7 +392,7 @@ end
 
 
 # multi year dynamic version
-function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage}, Δh::Int64, nh::Int64, ny::Int64, ns::Int64)
+function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage}, Δh::Float64, nh::Int64, ny::Int64, ns::Int64)
     if !isempty(storages)
         na = length(storages)
         @constraints(m, begin

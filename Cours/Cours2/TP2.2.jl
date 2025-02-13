@@ -19,8 +19,8 @@ using JLD2, FileIO
 data_fix = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4.jld2"))
 data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jld2"))
      
-ω_opti = Scenarios(microgrid, data_HP_HC; same_year=true, seed=1:ns)
-ω_eval = Scenarios(microgrid, data_HP_HC; same_year=true, seed=(ns+1):(2ns))
+ω_opti = Scenarios(microgrid, data_HP_HC, true; seed=1:ns)
+ω_eval = Scenarios(microgrid, data_HP_HC, true; seed=(ns+1):(2ns))
 
 #Métaheuristique avec RB du TP1
 
@@ -134,7 +134,7 @@ Metaheuristic(options = MetaheuristicOptions(;method = Clearing(nind = 50), mult
  f_obj = fobj_cours)  
 
 
- controller_eval = initialize_controller!(microgrid, controller, ω_optim)
+ controller_eval = initialize_controller!(microgrid, controller, ω_opti)
 
   # Simulate 
   # Si vous utilisez le(s) scénario(s) de l'optim (ω_optim) vous retrouverez les même metrics.

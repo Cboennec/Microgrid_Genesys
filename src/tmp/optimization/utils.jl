@@ -270,7 +270,7 @@ end
 
 
 # Technical constraint
-function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage}, Δh::Int64, nh::Int64, ns::Int64)
+function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage}, Δh::Float64, nh::Int64, ns::Int64)
     if !isempty(storages)
         na = length(storages)
         @constraints(m, begin
@@ -295,7 +295,7 @@ end
 
 
 # Technical constraint
-function add_technical_constraints_mini!(m::Model, storages::Vector{AbstractStorage}, Δh::Int64, nh::Int64, ns::Int64)
+function add_technical_constraints_mini!(m::Model, storages::Vector{AbstractStorage}, Δh::Float64, nh::Int64, ns::Int64)
     if !isempty(storages)
         na = length(storages)
         @constraints(m, begin
@@ -861,7 +861,7 @@ end
 
 
 # Technical constraints
-function add_technical_constraints_my!(m::Model, storages::Vector{AbstractStorage}, Δh::Int64, nh::Int64, ny::Int64, ns::Int64)
+function add_technical_constraints_my!(m::Model, storages::Vector{AbstractStorage}, Δh::Float64, nh::Int64, ny::Int64, ns::Int64)
     not_a_liion = [!(storages[i] isa AbstractLiion) for i in 1:length(storages)]
     storages_without_liion = storages[not_a_liion]
     storages_liion = storages[.!not_a_liion]

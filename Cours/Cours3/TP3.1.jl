@@ -1,6 +1,20 @@
 
 include(joinpath(pwd(),"src","Genesys2.jl"))
 
+
+
+pyplot_installed = true
+if !(isdir(Pkg.dir("PyPlot")))
+    Pkg.add("plotlyjs")
+    using plotlyjs
+    plotlyjs()
+    pyplot_installed = false
+else
+    using PyPlot
+    pygui(true)
+end
+
+
 nh, ny, ns = 8760, 10, 1
 
 
@@ -10,15 +24,17 @@ microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share 
 # Add the equipment to the microgrid
 add!(microgrid, Demand(carrier = Electricity()),
                 Solar(),
-                Liion(SoH_model = ModelTP3SOH(), eff_model = ModelTP3SOC()), 
+                Liion( SoH_model = ModelTP3SOH(), eff_model = ModelTP3SOC()), 
                 Grid(carrier = Electricity()))
 
 
 
 using JLD2, FileIO
 
-data_optim = JLD2.load(joinpath(pwd(),"Cours", "Cours1", "data_light_4.jld2"))
-            
+data_optim = JLD2.load(joinpath(pwd(), "Cours", "Cours3", "data_light_4.jld2"))
+        
+
+# Load data Scenarios
 ω_a = Scenarios(microgrid, data_optim, true)
             
 generations = Dict("Solar" => 25.)
@@ -37,10 +53,11 @@ simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "seria
 #metrics = Metrics(microgrid, designer)
     
 pygui(true)
-plot_operation2(microgrid, y=1:ny, s=1:1)
+plot_operation(microgrid, y=1:ny, s=1:1)
 
 
 
+ 
 # Faite un rendement par palier qui se comporte différement en fonction du C-rate.
 # Réaliser 3 paliers régies par des équations différente (vous pouvez ou non différencier la charge de la décharge)
 # La seule cond  ition :  η ∈ [0-1]
@@ -51,15 +68,30 @@ plot_operation2(microgrid, y=1:ny, s=1:1)
 
 function get_nb_consecutif(soc::SharedArray{Float64, 3}, h::Int64, y::Int64, s::Int64)
 
-    diff = [soc[i, y, s] - soc[i+1, y, s] for i in (h-1):-1:1] .>= 0
+    index = h
+    tot = 0
+    same_sign = true
+    sign = (soc[index+1, y, s] - soc[index, y, s]) > 0 ? 1 : 0 # 0 negatif, 1 positif
 
-    sign = diff[1]
-    counter=1
-    while sign == diff[counter]
-        counter+=1
+    while index >= 1 && same_sign
+        soc_diff = soc[index+1, y, s] - soc[index, y, s] 
+
+        if soc_diff > 0
+            new_sign = 1
+        else 
+            new_sign = 0
+        end
+
+        if new_sign != sign || soc_diff == 0
+            same_sign = false
+        else
+            tot += 1
+        end
+
+        index -= 1 
     end
 
-    return counter
+    return tot
 
 end
 
@@ -70,8 +102,19 @@ end
 
 
 ###########################################################################
+###########################################################################
+###########################################################################
+###########################################################################
+###########################################################################
 ############### Correction model de batterie ##############################
 ###########################################################################
+###########################################################################
+###########################################################################
+###########################################################################
+###########################################################################
+
+
+
 
 # Faite un rendement par palier qui se comporte différement en fonction du C-rate.
 # Réaliser 3 paliers régies par des équations différente (vous pouvez ou non différencier la charge de la décharge)
@@ -95,7 +138,7 @@ end
 
 
 # Doit retourner SoC, P_ch, P_dch
-function compute_operation_soc(liion::Liion, model::ModelTP3SOC, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_soc(liion::Liion, model::ModelTP3SOC, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 
     C_rate = abs(decision)/liion.Erated[y,s]
 
@@ -146,7 +189,7 @@ end
 # La fonction va surtout avoir pour rôle de calculer le nombre d'heure succéssive de charge ou décharge. (Cela peut être réalisé dans un fonction annexe)
 # Puis ce nombre va être traité pour induire une dégradation.
 
-function compute_operation_soh(liion::Liion, model::ModelTP3SOH, h::Int64,y::Int64 ,s::Int64 , Δh::Int64)
+function compute_operation_soh(liion::Liion, model::ModelTP3SOH, h::Int64,y::Int64 ,s::Int64 , Δh::Float64)
 
     nb_consecutif = get_nb_consecutif(liion.soc, h, y, s)
 	
@@ -156,51 +199,48 @@ function compute_operation_soh(liion::Liion, model::ModelTP3SOH, h::Int64,y::Int
 
 end
 
-function get_nb_consecutif(soc::SharedArray{Float64, 3}, h::Int64, y::Int64, s::Int64)
-
-    index = h
-    tot = 0
-    same_sign = true
-    sign = (soc[index+1, y, s] - soc[index, y, s]) > 0 ? 1 : 0 # 0 negatif, 1 positif
-
-    while index >= 1 && same_sign
-        soc_diff = soc[index+1, y, s] - soc[index, y, s] 
-
-        if soc_diff > 0
-            new_sign = 1
-        else 
-            new_sign = 0
-        end
-
-        if new_sign != sign || soc_diff == 0
-            same_sign = false
-        else
-            tot += 1
-        end
-
-        index -= 1 
-    end
-
-    return tot
-
-end
-
-
-
-function get_nb_consecutif(soc::SharedArray{Float64, 3}, h::Int64, y::Int64, s::Int64)
-
-    diff = [soc[i, y, s] - soc[i+1, y, s] for i in (h-1):-1:1] .>= 0
-
-    sign = diff[1]
-    counter=1
-    while sign == diff[counter]
-        counter+=1
-    end
-
-    return counter
-
-end
 
 
 
 
+
+
+#################### test ############################
+
+
+nh, ny, ns = 8760, 10, 1
+
+microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = .5))
+
+# Add the equipment to the microgrid
+add!(microgrid, Demand(carrier = Electricity()),
+                Solar(),
+                Liion( SoH_model = ModelTP3SOH(), eff_model = ModelTP3SOC()), 
+                Grid(carrier = Electricity()))
+
+
+
+using JLD2, FileIO
+
+data_optim = JLD2.load(joinpath(pwd(), "Cours", "Cours3", "data_light_4.jld2"))
+        
+
+# Load data Scenarios
+ω_a = Scenarios(microgrid, data_optim, true)
+            
+generations = Dict("Solar" => 25.)
+storages = Dict("Liion" => 40.)
+subscribed_power = Dict("Electricity" => 10.)
+                
+
+
+designer = initialize_designer!(microgrid, Manual(generations = generations, storages = storages, subscribed_power = subscribed_power), ω_a)
+
+controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = 2)), ω_a)
+
+simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
+
+
+metrics = Metrics(microgrid, designer)
+    
+plot_operation(microgrid, y=1:ny, s=1:1)

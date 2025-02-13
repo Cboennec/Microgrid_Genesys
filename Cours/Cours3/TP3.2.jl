@@ -152,13 +152,25 @@ end
 ####################################################
 ####################################################
 
+abstract type AbstractBarageAgingModel end
+
+mutable struct FixedLifetimeBarrage <: AbstractBarageAgingModel
+
+	lifetime::Int64
+
+	FixedLifetimeBarrage(;lifetime = 40) = new(lifetime)
+end
+
 # Nouveau composant 
 mutable struct Barrage <: AbstractStorage
 
+    SoH_model::AbstractBarageAgingModel
     η_E_O::Float64 # la conversion m^3/Wh 
     η_O_E::Float64 # la conversion Wh/m^3
     volume_ini::Float64 # 
     soc_ini::Float64 #initial SoC
+    soh_ini::Float64 #initial SoC
+    SoH_threshold::Float64 # limit for replacement
     facteur_pluie::Float64 # Facteur arbitraire relatif au remplissage par précipitation
     facteur_evaporation::Float64 # Facteur arbitraire relatif  àl'évaporation
     lifetime::Int64 # Si on n'utilise pas la mécanique de SoH il faut renseigner une durée de vie.
@@ -171,23 +183,29 @@ mutable struct Barrage <: AbstractStorage
     volume::AbstractArray{Float64,2} # Le volume total de la retenu d'eau
 	carrier::Electricity #Type of energy
     soc::AbstractArray{Float64,3} #3 dim matrix nh*ny*ns ∈ [0-1] 0 indiquant que la retenue d'eau est tarie et 1 qu'elle est prête à deborder
+    soh::AbstractArray{Float64,3} #3 dim matrix nh*ny*ns ∈ [0-1] 0 indiquant que la retenue d'eau est tarie et 1 qu'elle est prête à deborder
 
     cost::AbstractArray{Float64,2} 
 
-    Barrage(;η_E_O = 0.8,
+
+
+    Barrage(;SoH_model = FixedLifetimeBarrage(),
+    η_E_O = 0.8,
     η_O_E = 0.9,
     volume_ini = 1e-6,
     soc_ini = 0.5,
+    soh_ini = 1.,
+    SoH_threshold = .2,
     facteur_pluie = 1/100,
     facteur_evaporation = 1/500,
     lifetime = 40,
-    lim_debit_pompe = 12,
-    lim_debit_turbine = 20,
-    ) = new(η_E_O, η_O_E, volume_ini, soc_ini, facteur_pluie, facteur_evaporation, lifetime, lim_debit_pompe, lim_debit_turbine) 
+    lim_debit_pompe = 20,
+    lim_debit_turbine = 25,
+    ) = new(SoH_model, η_E_O, η_O_E, volume_ini, soc_ini, soh_ini, SoH_threshold, facteur_pluie, facteur_evaporation, lifetime, lim_debit_pompe, lim_debit_turbine) 
 
 end
 
-
+# Alloue la mémoire aux différents tableau de la structures et initialise certaines valeurs
 function preallocate!(barage::Barrage, nh::Int64, ny::Int64, ns::Int64)
     barage.volume = convert(SharedArray,zeros(ny+1, ns)) ; barage.volume[1,:] .= barage.volume_ini
     barage.carrier = Electricity()
@@ -195,29 +213,34 @@ function preallocate!(barage::Barrage, nh::Int64, ny::Int64, ns::Int64)
     barage.ensoleillement = convert(SharedArray,zeros(nh, ny, ns))  
 
     barage.soc = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; barage.soc[1,1,:] .= barage.soc_ini
+    barage.soh = convert(SharedArray,zeros(nh+1, ny+1, ns)) ; barage.soh[1,1,:] .= barage.soh_ini
+
     barage.cost = convert(SharedArray,zeros(ny, ns))
     
     return barage
  end
 
-
+# Met le composant en état initial
  function initialize_investments!(s::Int64, barage::Barrage, decision::Union{Float64, Int64})
     barage.volume[1,s] = decision
     barage.soc[1,1,s] = barage.soc_ini
+    barage.soh[1,1,s] = barage.soh_ini
+
  end
  
-
- function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, barage::Barrage, decision::Float64, Δh::Int64)
+# Function used to apply decisions
+ function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, barage::Barrage, decision::Float64, Δh::Float64)
 
 	barage.soc[h+1,y,s], power_ch, power_dch = compute_operation_soc(barage, h ,y ,s , decision, Δh)
 	
 	barage.carrier.power[h,y,s] = power_ch + power_dch 
 
+    barage.soh[h+1,y,s] = compute_operation_soh(barage, h ,y ,s, Δh)
 end
 
 
-
-function compute_operation_dynamics(h::Int64, y::Int64, s::Int64, barage::Barrage, decision::Float64, Δh::Int64)
+#Function used to test decisions (for RB control)
+function compute_operation_dynamics(h::Int64, y::Int64, s::Int64, barage::Barrage, decision::Float64, Δh::Float64)
 
 	soc_next, power_ch, power_dch  = compute_operation_soc(barage, h ,y ,s , decision, Δh)
 	
@@ -226,8 +249,8 @@ function compute_operation_dynamics(h::Int64, y::Int64, s::Int64, barage::Barrag
 end
 
 
-
-function compute_operation_soc(barage::Barrage, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Int64)
+# Fonction de calcul de la nouvelle valeur de SoC prenant en compte la pluie, l'évaporation, le pompage et le turbinage
+function compute_operation_soc(barage::Barrage, h::Int64,  y::Int64,  s::Int64, decision::Float64, Δh::Float64)
 	if decision >= 0 
 		η = barage.η_O_E 
 	else
@@ -247,9 +270,14 @@ function compute_operation_soc(barage::Barrage, h::Int64,  y::Int64,  s::Int64, 
 
 end
 
+#Fonction de calcul de la nouvelle valeur du SoH
+function compute_operation_soh(barage::Barrage, h::Int64, y::Int64, s::Int64, Δh::Float64)
 
+    return barage.soh[h,y,s] - (Δh / (barage.lifetime * 8760))
 
+end
 
+# Mise à jour de la fonction de récupération des données (activée dans simulate, à chaque pas de temps)
 function update_operation_informations!(h::Int64, y::Int64, s::Int64, mg::Microgrid, ω::Scenarios)
     # Demands
     for (k, a) in enumerate(mg.demands)
@@ -271,23 +299,25 @@ function update_operation_informations!(h::Int64, y::Int64, s::Int64, mg::Microg
 
 end
 
-
+# Fonction de remplacement du barage (si la decision de remplacement est prise)
 function compute_investment_dynamics!(y::Int64, s::Int64, barage::Barrage, decision::Union{Float64, Int64})
-	barage.volume[y+1,s], barage.soc[1,y+1,s] = compute_investment_dynamics(barage, (volume = barage.volume[y,s], soc = barage.soc[end,y,s]), decision, s)
+	barage.volume[y+1,s], barage.soc[1,y+1,s], barage.soh[1,y+1,s] = compute_investment_dynamics(barage, (volume = barage.volume[y,s], soc = barage.soc[end,y,s], soh = barage.soh[end,y,s]), decision, s)
  end
 
 
- 
-function compute_investment_dynamics(barage::Barrage, state::NamedTuple{(:volume, :soc), Tuple{Float64, Float64}}, decision::Union{Float64, Int64}, s::Int64)
+# Fonction de remplacement du barage (si la decision de remplacement est prise)
+function compute_investment_dynamics(barage::Barrage, state::NamedTuple{(:volume, :soc, :soh), Tuple{Float64, Float64, Float64}}, decision::Union{Float64, Int64}, s::Int64)
     if decision > 1e-2
         volume_next = decision
         soc_next = barage.soc_ini
+        soh_next = barage.soh_ini
     else
         volume_next = state.volume
         soc_next = state.soc
+        soh_next = state.soh
     end
 
-    return volume_next, soc_next
+    return volume_next, soc_next, soh_next
 end
 
 
@@ -316,7 +346,7 @@ using JLD2, FileIO
 
 data_optim = JLD2.load(joinpath(pwd(),"Cours", "cours4", "Data_base_TP4.jld2"))
             
-ω_a = Scenarios(microgrid, data_optim; same_year=true, seed=1:ns)
+ω_a = Scenarios(microgrid, data_optim, true)
             
 generations = Dict("Solar" => 30.)
 storages = Dict( "Barrage" => 400.)
@@ -330,9 +360,8 @@ controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_s
 
 simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
 
-
-metrics = Metrics(microgrid, designer)
+#metrics = Metrics(microgrid, designer)
     
-plot_operation2(microgrid, y=1:ny, s=1:1)
+plot_operation(microgrid, y=1:ny, s=1:1)
 
 

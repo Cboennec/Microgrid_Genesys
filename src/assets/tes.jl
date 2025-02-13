@@ -103,15 +103,15 @@ function preallocate!(tes::ThermalStorage, nh::Int64, ny::Int64, ns::Int64)
 end
 
 """
- compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, tes::ThermalStorage, decision::Float64, Δh::Int64)
+ compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, tes::ThermalStorage, decision::Float64, Δh::Float64)
 
 Compute the operation dynamics of the thermal energy storage for a given hour (h), year (y), and scenario (s), using the given decision variable and time step (Δh).
 """
-function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, tes::ThermalStorage, decision::Float64, Δh::Int64)
+function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, tes::ThermalStorage, decision::Float64, Δh::Float64)
   tes.soc[h+1,y,s], tes.carrier.power[h,y,s] = compute_operation_dynamics(tes, (Erated = tes.Erated[y,s], soc = tes.soc[h,y,s]), decision, Δh)
 end
 
-function compute_operation_dynamics(tes::ThermalStorage, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(tes::ThermalStorage, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Float64)
   # Control power constraint and correction
   power_dch = max(min(decision, tes.α_p_dch * state.Erated, tes.eff_model.η_dch * (state.soc * (1. - tes.eff_model.η_self * Δh) - tes.α_soc_min) * state.Erated / Δh), 0.)
   power_ch = min(max(decision, -tes.α_p_ch * state.Erated, (state.soc * (1. - tes.eff_model.η_self * Δh) - tes.α_soc_max) * state.Erated / Δh / tes.eff_model.η_ch), 0.)
@@ -140,7 +140,7 @@ end
 
 
 """
- compute_operation_dynamics(tes::ThermalStorage, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Int64)
+ compute_operation_dynamics(tes::ThermalStorage, state::NamedTuple{(:Erated, :soc), Tuple{Float64, Float64}}, decision::Float64, Δh::Float64)
 
 Compute the operation dynamics of the thermal energy storage, given the current state (Erated and soc), decision variable, and time step (Δh).
 """

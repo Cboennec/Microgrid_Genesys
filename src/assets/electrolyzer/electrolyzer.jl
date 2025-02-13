@@ -252,7 +252,7 @@ end
 
 
 ### Operation dynamic
-function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, elyz::Electrolyzer, decision::Float64, Δh::Int64)
+function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, elyz::Electrolyzer, decision::Float64, Δh::Float64)
 
   elyz.carrier[1].power[h,y,s], elyz.carrier[2].power[h,y,s], elyz.carrier[3].power[h,y,s] = compute_operation_efficiency(elyz, elyz.eff_model, h ,y ,s , decision)
 
@@ -262,7 +262,7 @@ end
 
 
 ### Operation dynamic
-function compute_operation_dynamics(elyz::Electrolyzer, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(elyz::Electrolyzer, h::Int64, y::Int64, s::Int64, decision::Float64, Δh::Float64)
 
   return compute_operation_efficiency(elyz, elyz.eff_model, h ,y ,s , decision)
 
@@ -344,7 +344,7 @@ end
 
 
 
-function compute_operation_soh(elyz::Electrolyzer, model::FunctHoursAgingElectrolyzer, h::Int64,  y::Int64,  s::Int64,  Δh::Int64)
+function compute_operation_soh(elyz::Electrolyzer, model::FunctHoursAgingElectrolyzer, h::Int64,  y::Int64,  s::Int64,  Δh::Float64)
 
   if (h%convert(Int64,floor(8760/model.update_by_year))) == 0 
     interval = (h-convert(Int64,floor(8760/model.update_by_year))+1):h
@@ -393,7 +393,7 @@ end
 
 
 
-function compute_operation_soh(elyz::Electrolyzer, model::FixedLifetimeElectrolyzer, h::Int64,  y::Int64,  s::Int64,  Δh::Int64)
+function compute_operation_soh(elyz::Electrolyzer, model::FixedLifetimeElectrolyzer, h::Int64,  y::Int64,  s::Int64,  Δh::Float64)
 
   if (h%convert(Int64,floor(8760/model.update_by_year))) == 0 
     duration = convert(Int64,floor(8760/model.update_by_year))

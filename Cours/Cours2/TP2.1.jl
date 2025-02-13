@@ -16,10 +16,11 @@ n=12
 @variable(m, affectation[1:n,1:n], Bin) # Une matrice de variable binaire n*n
 
 @constraint(m, 2 * m[:x1] + 3 * m[:x2] <= 12 ) # Contrainte 1
-@constraint(m, m[:x1] - m[:x2] >= -2 )# Contrainte 2
-@constraint(m, m[:x2] >= 4 )
+@constraint(m, m[:x1] - m[:x2] >= -4 )# Contrainte 2
+@constraint(m, m[:x1] >= 4 )
 
-@constraint(m, [i in 1:n], sum(m[:affectation][j,i] for j in 1:n) >= 5 ) 
+@constraint(m, [i in 1:n], sum(m[:affectation][i,j] for j in 1:n) >= 5 ) 
+@constraint(m, [j in 1:n], sum(m[:affectation][i,j] for i in 1:n) <= 8 ) 
 
 
 @objective(m, Max, m[:x1] * 10  +  m[:x2] * 16) # Fonction Objectif
@@ -164,7 +165,7 @@ data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jl
 
 data_selected = data_fix
      
-ω_a = Scenarios(microgrid, data_selected; same_year=true, seed=1:ns)
+ω_a = Scenarios(microgrid, data_selected, true; seed=1:ns)
 
 
 
@@ -213,23 +214,11 @@ end
 
 
 ################## Execution du modèle #############################
-mod1 = get_model_3(h_interval)
+mod1 = get_model_1(Cbc, microgrid, ω_a)
 JuMP.optimize!(mod1)
 
 println("La solution optimale vaut : ", round(objective_value(mod1), digits=2), " €")
 println("Le problème à été résolu en : ", round(solve_time(mod1), digits=2), " secondes")
-
-
-
-
-
-
-mod1 = get_model_3(h_interval)
-
-JuMP.optimize!(mod1)
-
-
-
 
 
 
@@ -544,13 +533,12 @@ JuMP.optimize!(mod3)
 println("La solution optimale vaut : ", round(objective_value(mod3), digits=2), " €")
 println("Le problème à été résolu en : ", round(solve_time(mod3), digits=2), " secondes")
 
-T1 = []
-T2 = []
-T3 = []
+d_max= 10
+T1 = zeros(d_max)
+T2 = zeros(d_max)
+T3 = zeros(d_max)
 
-minlp_exec = true
-
-for i in 61:65
+for i in 1:d_max
     h_interval = 1:(i*24)
 
     mod1 = get_model_1(h_interval)
@@ -569,8 +557,6 @@ for i in 61:65
     
     T2[i] = solve_time(mod2)
 
-    
-    
     mod3 = get_model_3(h_interval)
     JuMP.optimize!(mod3)
     
@@ -658,7 +644,7 @@ data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jl
 
 data_selected = data_fix
      
-ω_a = Scenarios(microgrid, data_selected; same_year=true, seed=1:ns)
+ω_a = Scenarios(microgrid, data_selected, true; seed=1:ns)
 
 cost_in = ω_a.grids[1].cost_in[h_interval,1,1]
 cost_out = ω_a.grids[1].cost_out[h_interval,1,1]

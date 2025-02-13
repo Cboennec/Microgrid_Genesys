@@ -82,11 +82,11 @@ function preallocate!(heater::Heater, nh::Int64, ny::Int64, ns::Int64)
 end
 
 ### Operation dynamic
-function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, heater::Heater, decision::Float64, Δh::Int64)
+function compute_operation_dynamics!(h::Int64, y::Int64, s::Int64, heater::Heater, decision::Float64, Δh::Float64)
  heater.carrier[1].power[h,y,s], heater.carrier[2].power[h,y,s] = compute_operation_dynamics(heater, (powerMax = heater.powerMax[y,s],), decision, Δh)
 end
 
-function compute_operation_dynamics(heater::Heater, state::NamedTuple{(:powerMax,), Tuple{Float64}}, decision::Float64, Δh::Int64)
+function compute_operation_dynamics(heater::Heater, state::NamedTuple{(:powerMax,), Tuple{Float64}}, decision::Float64, Δh::Float64)
  # Power constraint and correction
  power_E = min(max(decision, -state.powerMax), 0.)
  # Power computation

@@ -63,6 +63,7 @@ Pkg.add("FileIO")
 Pkg.add("Plots")
 Pkg.add("PlotlyJS")
 Pkg.add("BenchmarkTools")
+Pkg.add("Gurobi")
 
 using Pandas, Seaborn, ProgressMeter, Dates, Distributed, SharedArrays, CSV, DataFrames, Random, JLD2, FileIO, Plots, PlotlyJS, BenchmarkTools
 
