@@ -79,13 +79,13 @@ Genesys.Grid
 
 
 
-# Scenario
+## Scenario
 
 ```@docs
 Genesys.Scenarios
 ```
 
-## Scenarios Reducer
+### Scenarios Reducer
 
 ```@docs
 Genesys.ManualReducer
@@ -94,25 +94,25 @@ Genesys.MeanValueReducer
 Genesys.FeatureBasedReducer
 ```
 
-## Dimention Reducer
+### Dimention Reducer
 ```@docs
 Genesys.PCAReduction
 Genesys.StatsReduction
 ```
 
-## Transformation
+### Transformation
 ```@docs
 Genesys.UnitRangeTransform
 Genesys.ZScoreTransform
 ```
 
-## Custering
+### Custering
 ```@docs
 Genesys.KmedoidsClustering
 ```
 
 
-## Generator
+### Generator
 ```@docs
 Genesys.MarkovGenerator
 Genesys.AnticipativeGenerator
@@ -122,15 +122,15 @@ Genesys.AnticipativeGenerator
 
 
 
-## Base generic function
+### Base generic function
 
 
-### Generate
+#### Generate
 ```@docs
 Genesys.generate
 ```
 
-### Reduce
+#### Reduce
 ```@docs
 Genesys.reduce
 ```
