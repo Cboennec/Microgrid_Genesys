@@ -23,8 +23,6 @@ function Plot_dayly_prices(ω; label = "")
         display(p)
     else
         PyPlot.scatter(1:24, ω.grids[1].cost_in[1:24,1,1], label = label)
-        PyPlot.xlabel("Hours")
-        PyPlot.ylabel("Price (€)")
         legend()
     end
   
@@ -32,7 +30,7 @@ end
 
 
 #La place de ce code est normalement dans le fichier src/optimization/controller/rb.jl 
-#Redefinition de la fonction de selection de Rule Base controller pour ajouter 101, 102, 103
+#Redefinition de la fonction de selection de Rule Base controller
 
 function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
     # Chose policy
@@ -61,6 +59,8 @@ function compute_operation_decisions!(h::Int64, y::Int64, s::Int64, mg::Microgri
     end
 end
 
+
+
 #Il faut ici déterminer, en fonction des inputs (load, generation), les décisions pour les éléments de stockage et de conversion
 #Il faut affecter les valeurs pour le pas de temps donné aux variables de décisions.
 # P^{PV}_h est accéssible dans la variable    mg.generations[1].carrier.power[h,y,s]
@@ -68,16 +68,16 @@ end
 
 #Décisions négative = charge, Décision positive = décharge (car on se place du point de vue de notre microréseau)
 
-function RB_autonomie(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC) # policy 101
-   #controller.decisions.storages[1][h,y,s] = calcul de votre décision
+function RB_autonomie(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
+   #controller.decisions.storages[1][h,y,s] = 
 end
 
-function RB_vieillissement(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC) # policy 102
-    #controller.decisions.storages[1][h,y,s] = calcul de votre décision
+function RB_vieillissement(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
+    #controller.decisions.storages[1][h,y,s] = 
 end
 
-function RB_opex(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC) # policy 103
-    #controller.decisions.storages[1][h,y,s] = calcul de votre décision
+function RB_opex(h::Int64, y::Int64, s::Int64, mg::Microgrid, controller::RBC)
+    #controller.decisions.storages[1][h,y,s] = 
 end
 
 
@@ -98,23 +98,22 @@ add!(microgrid, Demand(carrier = Electricity()),
 
 using JLD2, FileIO
 
-# Load data
 data_fix = JLD2.load(joinpath(pwd(), "Cours" , "Cours1", "data_light_4.jld2"))
 data_HP_HC = JLD2.load(joinpath(pwd(), "Cours", "Cours1", "data_light_4_HP_HC.jld2"))
+data_HP_HC["ld_E"]["power"][:,1,:] = data_HP_HC["ld_E"]["power"][:,2,:]
 
-data_selected = data_HP_HC
+data_selected = data_HP_HC # Select data
      
-# Load data Scenarios
-ω_a = Scenarios(microgrid, data_selected, true)
+ω_a = Scenarios(microgrid, data_selected, false) # load data scenarios
 
 Plot_dayly_prices(ω_a; label = "HP HC")
 
 
 
 ############# Dimentionnement manuel du réseau #####################
-generations = Dict("Solar" => 0.) # Scalar Value for PV panel peak power 
-storages = Dict("Liion" => 0.) # Scalar value for Li-ion battery capacity [kwh]
-subscribed_power = Dict("Electricity" => 20.) # Maximum available power from grid [kVA]
+generations = Dict("Solar" => 10.) 
+storages = Dict("Liion" => 10.)
+subscribed_power = Dict("Electricity" => 20.)
 
 designer = initialize_designer!(microgrid, Manual(generations = generations, storages = storages, subscribed_power = subscribed_power), ω_a)
 ###################################################################
@@ -123,12 +122,11 @@ designer = initialize_designer!(microgrid, Manual(generations = generations, sto
 ############# Controle du réseau ##################################
 RB_choisie = 101 # 101, 102 ou 103
 
-controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = RB_choisie)), ω_a)
+controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = 2)), ω_a)
 ###################################################################
 
 ############## Evaluation, métriques et affichage ###############
-using BenchmarkTools
-@benchmark simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
+simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
 
 metrics = Metrics(microgrid, designer)
 # Cout d'operation
@@ -145,35 +143,10 @@ else
     plot_operation2(microgrid, y=1:ny, s=1:1)
 end
 ###################################################################
-
-
-##########################################################################
-############################ Metric part #################################
-##########################################################################
-
-##########################################################################
-############################ Plot part #################################
-##########################################################################
-
-# PyPlot example
-for s in 1:ns
-    PyPlot.plot(s * [x for x in 1:100], label="s = $s", linewidth =2*s)  # Implicite x values (1 to n for n values)
-    #  PyPlot.plot([x for x in 1:100], s * [x for x in 1:100], label="s = $s", linewidth =2*s) # synthaxe with explicit x values
-    PyPlot.legend()
-    PyPlot.xlabel("axe x")
-    PyPlot.ylabel("axe y")
-end
-
-
-
-
-##########################################################################
-##########################################################################
 ##########################################################################
 ##################### Les solutions du TP ###############################
 ##########################################################################
-##########################################################################
-##########################################################################
+
 
 
 

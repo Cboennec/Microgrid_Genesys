@@ -8,7 +8,7 @@ using Gurobi
 
 
 ##################### Exemple ############################
-m = Model(Gurobi.Optimizer)
+m = Model(Cbc.Optimizer)
 
 @variable(m, x1, Int) # variable de décision 1
 @variable(m, 4 >= x2 >= 0., Int) # variable de décision 2
@@ -224,7 +224,21 @@ println("Le problème à été résolu en : ", round(solve_time(mod1), digits=2)
 
 
 
+
+
+
+
+
+
+
+
+################################################################
+################################################################
+################################################################
 #################### Exercice 3 Solutions #######################
+################################################################
+################################################################
+################################################################
 
 
 ################################################################
@@ -257,7 +271,7 @@ function get_model_1(h_interval)
     grid_seuil = 10. # puissance souscrite au réseau kW
 
     #Déclaration du model et du solver
-    m1 = Model(Gurobi.Optimizer)
+    m1 = Model(Cbc.Optimizer)
 
     #variables de décisions
     @variable(m1, p_ch[1:length(h_interval)] >= 0.)

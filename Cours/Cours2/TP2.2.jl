@@ -4,7 +4,7 @@ include(joinpath(pwd(),"src","Genesys2.jl"))
 
 nh, ny, ns = 8760, 2, 2
 
-plotlyjs() 
+#plotlyjs() 
 
 microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = .5))
 
@@ -116,7 +116,7 @@ end
 
 
 
-varID = Dict("Solar" => 1, "Liion" => 2, "Electricity" => 3)
+varID = Dict("Solar" => 2, "Liion" => 1, "Electricity" => 3)
 
 ub_var = [200., 1000., 50.]
 lb_var = [1., 1., 1.] 
@@ -126,12 +126,15 @@ controller = RBC(options = RBCOptions(policy_selection = 101)) # Executez vos RB
 
 
 designer = initialize_designer!(microgrid, 
-Metaheuristic(options = MetaheuristicOptions(;method = Clearing(nind = 50), multithreads=false, iterations = 20, controller = controller)),
+Metaheuristic(options = MetaheuristicOptions(;method = Clearing(nind = 50), multithreads=false, iterations = 5, controller = controller)),
  ω_opti,
  ub_var,
  lb_var,
  varID;
  f_obj = fobj_cours)  
+
+ 
+
 
 
  controller_eval = initialize_controller!(microgrid, controller, ω_opti)
@@ -184,3 +187,85 @@ Metaheuristic(options = MetaheuristicOptions(;method = Clearing(nind = 50), mult
 
 sum(metrics.cost.total[:,1])
 return metrics.npv.total[1,1] - λ1 * δ_res
+
+
+
+
+
+
+
+
+################################################################################
+############################ multi obj #########################################
+
+
+
+ 
+# Objective functions
+function fobj_cours_2obj(decisions::Array{Float64,1}, mg::Microgrid, designer::Metaheuristic, ω::Scenarios, varID::Dict)
+    # Paramters
+    nh, ny, ns = size(ω.demands[1].power)
+
+    # Initialize mg
+    mg_m = deepcopy(mg)
+    mg_m.parameters = GlobalParameters(nh, ny, ns)
+
+    # Initialize with the manual designer
+    converters, generations, storages, subscribed_power = Dict(), Dict(), Dict(), Dict()
+    for a in mg_m.converters
+        if a isa Electrolyzer
+            converters[string(typeof(a))] = (surface = decisions[varID[string(typeof(a))].surface], N_cell=Int64(round(decisions[varID[string(typeof(a))].N_cell])))
+        elseif a isa FuelCell 
+            converters[string(typeof(a))] = (surface = decisions[varID[string(typeof(a))].surface], N_cell=Int64(round(decisions[varID[string(typeof(a))].N_cell])))
+        elseif a isa Heater
+            converters[string(typeof(a))] = decisions[varID[string(typeof(a))]]
+        end
+    end
+    for a in mg_m.generations
+        generations[string(typeof(a))] = decisions[varID[string(typeof(a))]]
+    end
+    for a in mg_m.storages
+        storages[string(typeof(a))] = decisions[varID[string(typeof(a))]]  
+    end
+    for a in mg_m.grids
+        subscribed_power[string(typeof(a.carrier))] = decisions[varID[string(typeof(a.carrier))]] 
+    end
+    
+
+    designer_m = initialize_designer!(mg_m, Manual(generations = generations, storages = storages, converters = converters, subscribed_power = subscribed_power), ω)
+
+
+    ######################## Solution #######################################
+    # Initialize controller
+    controller_m = initialize_controller!(mg_m, designer.options.controller, ω)
+
+    # Simulate
+    simulate!(mg_m, controller_m, designer_m, ω, options = Options(mode = "serial"))
+
+    # Metrics
+    metrics = Metrics(mg_m, designer_m)
+
+    # The algorithm minimize objectives, therefore if you want to maximize, use opposite values.
+    critere = [-mean(metrics.npv.total), -mean(metrics.renewable_share)]
+    contraintes = [get_δ_eq(mg_m, Electricity)]
+
+    return contraintes, critere 
+
+end
+
+ results = generate_designers_MO(microgrid, 
+    Metaheuristic(options = MetaheuristicOptions(;method = NSGAII(lb_var, ub_var; nb_ind = 50), multithreads=true, iterations = 20, controller = controller)),
+    ω_opti,
+    ub_var,
+    lb_var,
+    varID, 
+    f_obj = fobj_cours_2obj) 
+
+res_values = -[ind.critere[2] for ind in results.results.population]
+npv_values = -[ind.critere[1] for ind in results.results.population]
+
+pv_val =  [ind.val_param[2] for ind in results.results.population]
+
+pygui(true)
+figure()
+PyPlot.scatter(npv_values,res_values)

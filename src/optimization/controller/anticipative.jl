@@ -21,16 +21,10 @@ mutable struct Anticipative <: AbstractController
 end
 
 ### Models
-function build_model(mg::Microgrid, controller::Anticipative, ω::Scenarios; representative = false, assignments=[])
+function build_model(mg::Microgrid, controller::Anticipative, ω::Scenarios)
     # Sets
     nh, ns = size(ω.demands[1].power, 1), size(ω.demands[1].power, 3)
 
-    factor = zeros(nh)
-    if length(assignments) > 0
-        for i in 1:Int(nh/24)
-            factor[((i-1)*24+1):(i*24)] .= count(==(i), assignments)
-        end
-    end
     # Initialize
     m = Model(controller.options.solver.Optimizer)
     #set_optimizer_attribute(m,"CPX_PARAM_SCRIND", 0)

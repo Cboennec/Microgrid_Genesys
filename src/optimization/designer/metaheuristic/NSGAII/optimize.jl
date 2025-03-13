@@ -61,15 +61,15 @@ function optimizeMetaheuristic(f::Function,
         pop = Affecte_niche(pop, nb_pop, nb_front, taille_front)
         pop = Trie_niche(pop, nb_front, taille_front)
 
-        SA = compute_SA(real_track)
+        #SA = compute_SA(real_track)
 
         # Les resultats sont une structure contenant : 
         # - La method
-        # - Le tracking pour le calcul de SA
+        ## - Le tracking pour le calcul de SA
         # - La pop
         # - Les indices de sobol de premier ordre et les correlation de pearson
 
         plot_results(pop[1:nb_ind], cross)
         
-        return NSGAIIResults(method, real_track, pop[1:nb_ind], SA)
+        return NSGAIIResults(method, real_track, pop[1:nb_ind])#, SA)
 end

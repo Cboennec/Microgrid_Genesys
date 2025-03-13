@@ -428,7 +428,7 @@ function generate_designers_MO(mg::Microgrid, designer::Metaheuristic, ω::Scena
         f_obj(decisions, mg, designer, ω, varID)#, lk)
       end
 
-    return designer, designer.results.sensitivity
+    return designer #, designer.results.sensitivity
 end
 
 function generate_designers_MO(mg_vec::Vector{Microgrid}, designer::Metaheuristic, ω::Scenarios, ub::Vector{Float64}, lb::Vector{Float64}, varID::Dict; f_obj = fobj2)

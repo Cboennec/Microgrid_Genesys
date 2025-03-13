@@ -358,8 +358,8 @@ function add_technical_constraints!(m::Model, storages::Vector{AbstractStorage},
         na = length(storages)
         @constraints(m, begin
         # Power bounds
-        #[h in 1:nh, s in 1:ns, a in 1:na], m[:p_dch][h,s,a] <= storages[a].α_p_dch * m[:r_sto][a]
-        #[h in 1:nh, s in 1:ns, a in 1:na], m[:p_ch][h,s,a]  <= storages[a].α_p_ch * m[:r_sto][a]
+        [h in 1:nh, s in 1:ns, a in 1:na], m[:p_dch][h,s,a] <= storages[a].α_p_dch * m[:r_sto][a]
+        [h in 1:nh, s in 1:ns, a in 1:na], m[:p_ch][h,s,a]  <= storages[a].α_p_ch * m[:r_sto][a]
         # SoC bounds
         [h in 1:nh+1, s in 1:ns, a in 1:na], m[:soc][h,s,a] <= storages[a].α_soc_max * m[:r_sto][a]
         [h in 1:nh+1, s in 1:ns, a in 1:na], m[:soc][h,s,a] >= storages[a].α_soc_min * m[:r_sto][a]

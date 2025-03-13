@@ -83,6 +83,6 @@ mutable struct NSGAIIResults <: MetaheuristicResults
     method::NSGAII
     pop_track::Vector{Individu}
     population::Vector{Individu}
-    sensitivity::NSGAIISensitivityAnalysis
+    #sensitivity::NSGAIISensitivityAnalysis
 end
 

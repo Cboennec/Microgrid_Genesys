@@ -16,7 +16,6 @@
 # Retirer les 29 fevrier pour avoir des années de 8760 heures
 
 
-
 # 3 création de la banque de données
 # Récuperer des données depuis notre vrai banque de donnée pour avoir des profil de conso d'Elec et de chaleur
 # Reshape les données pour avoir (nh*1*ns)
@@ -180,8 +179,7 @@ data.DateTime[2:2:end] .+= Hour(1)
 hourly_df_wind = data
 
 
-
-const nh, ny, ns = 8760, 1, 10
+nh, ny, ns = 8760, 1, 10
 
 # Load input data
 data2 = JLD2.load(joinpath(pwd(),"Cours","Cours4","ausgrid_10_optim_cours4.jld2"))
