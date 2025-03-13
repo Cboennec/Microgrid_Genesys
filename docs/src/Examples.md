@@ -218,7 +218,7 @@ cost_heater = 0 * ones(2, ns)
 save(joinpath("data", "ausgrid_5_twostage.jld"), "ω_optim", ω_optim, "ω_simu", ω_simu)
 ```
 
-For more information on  `initialize_generator` and  `generate` see [Scenario page](Scenario.md)
+For more information on  `initialize_generator` and  `generate` see [Scenario page](documentation.md)
      
 
 
