@@ -1,6 +1,6 @@
 # Microgrid
 ```@docs
-Genesys.microgrid
+Genesys.Microgrid
 Genesys.GlobalParameters
 ```
 
