@@ -1,10 +1,12 @@
-# Microgrid
+# Structures and Functions
+
+## Microgrid
 ```@docs
 Genesys.Microgrid
 Genesys.GlobalParameters
 ```
 
-# Assets
+
 
 ## Storages
 
