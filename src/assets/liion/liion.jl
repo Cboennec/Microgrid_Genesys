@@ -62,6 +62,7 @@ mutable struct FixedLiionEfficiency <: AbstractLiionEffModel
 
 end
 
+
 """
 PolynomialLiionEfficiency <: AbstractLiionEffModel
 

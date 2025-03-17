@@ -1,5 +1,6 @@
 include(joinpath(pwd(),"src","Genesys2.jl"))
 
+using Pkg
 
 pyplot_installed = true
 if !(isdir(Pkg.dir("PyPlot")))
@@ -11,7 +12,6 @@ else
     using PyPlot
     pygui(true)
 end
-
 
 
 function Plot_dayly_prices(ω; label = "")
@@ -122,7 +122,7 @@ designer = initialize_designer!(microgrid, Manual(generations = generations, sto
 ############# Controle du réseau ##################################
 RB_choisie = 101 # 101, 102 ou 103
 
-controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = 2)), ω_a)
+controller = initialize_controller!(microgrid, RBC(options = RBCOptions(policy_selection = RB_choisie)), ω_a)
 ###################################################################
 
 ############## Evaluation, métriques et affichage ###############

@@ -116,17 +116,15 @@ end
 
 
 
-varID = Dict("Solar" => 2, "Liion" => 1, "Electricity" => 3)
+varID = Dict("Solar" => 1, "Liion" => 2, "Electricity" => 3)
 
 ub_var = [200., 1000., 50.]
 lb_var = [1., 1., 1.] 
 
 controller = RBC(options = RBCOptions(policy_selection = 101)) # Executez vos RB du TP1 ou celles de la corrections pour avoir accès à ces 
 
-
-
 designer = initialize_designer!(microgrid, 
-Metaheuristic(options = MetaheuristicOptions(;method = Clearing(nind = 50), multithreads=false, iterations = 5, controller = controller)),
+Metaheuristic(options = MetaheuristicOptions(;method = Clearing(nind = 50), multithreads=false, iterations = 10, controller = controller)),
  ω_opti,
  ub_var,
  lb_var,

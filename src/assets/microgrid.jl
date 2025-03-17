@@ -32,10 +32,18 @@ end
 """
     Microgrid()
 
-Structure containing every element of the grid including immaterial ones like electrical
- demands.
+Structure containing every element/component of the microgrid including immaterial ones like electrical
+demands.
 
-Those elements are divided in 5 types and stored in 5 vectors with one field for each element of a type :
+# Fields:
+- `parameters::GlobalParameters`
+- `demands::Vector{AbstractDemand}`
+- `generations::Vector{AbstractGeneration}` 
+- `storages::Vector{AbstractStorage}`
+- `converters::Vector{AbstractConverter}`
+- `grids::Vector{AbstractGrid}`
+
+Elements are divided in 5 categories and stored in 5 vectors with one cell for each element of a type :
 * demands inheriting from AbstractDemand and containing a demand one or multiple `Main.Genesys.EnergyCarrier` (Electricity, Heat ,Hydrogen);
 * generations inheriting from AbstractGeneration and containing energy production/generation element;
 * storages inheriting from AbstractStorage and containing element responsible for the storage of different energy vectors;
@@ -43,8 +51,8 @@ Those elements are divided in 5 types and stored in 5 vectors with one field for
 * grids inheriting from AbstractGrid and containing elements that sell or buy energy vectors.
 (usually an external grid from which can be bought and sold energy);
 
-These assets can be later added with the add!(mg::Microgrid, assets...) 
-See also `Main.Genesys.add!` for a step by step declaration
+These assets (components) can be later added with the add!(mg::Microgrid, assets...) 
+See also `Main.Genesys.add!` for a step by step declaration.
 """
 mutable struct Microgrid
     parameters::GlobalParameters
