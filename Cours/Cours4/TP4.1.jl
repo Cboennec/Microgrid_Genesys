@@ -102,8 +102,8 @@ filter!(:DateTime =>  date -> !(day(date) == 29 && month(date) == 2), hourly_df_
 
 
 
-# Parameters (seul le nombre de scénario est supposé changer) le nombre d'année c'est 2 mais on en utilisera que 1.
-const nh, ny, ns = 8760, 1, 10
+# Parameters (seul le nombre de scénario est supposé changer) le nombre d'année c'est 2 mais on en utilisera que 1. 
+nh, ny, ns = 8760, 1, 10
 
 # Ces données vont venir completer ce que l'on vient de collecter (elles ne sont pas en cohérence avec le reste car elles ne proviennent pas de Toulouse)
 data2 = JLD2.load(joinpath(pwd(),"Cours","Cours4","ausgrid_10_optim_cours4.jld2"))

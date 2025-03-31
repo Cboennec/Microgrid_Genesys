@@ -2,7 +2,7 @@
 include(joinpath(pwd(),"src","Genesys2.jl"))
 
 
-
+using Pkg
 pyplot_installed = true
 if !(isdir(Pkg.dir("PyPlot")))
     Pkg.add("plotlyjs")
@@ -52,7 +52,6 @@ simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "seria
 
 #metrics = Metrics(microgrid, designer)
     
-pygui(true)
 plot_operation(microgrid, y=1:ny, s=1:1)
 
 

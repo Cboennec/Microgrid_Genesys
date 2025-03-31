@@ -5,6 +5,7 @@
 
 1. [Introduction](Examples.md#introduction)
 2. [Generating Data Scenarios](Examples.md#generating-data-scenarios)
+3. [Architechture Building and Model Selection](Examples.md#microgrid-architecture-and-model-selection)
 3. [Optimizing and Simulating the Microgrid](Examples.md#optimizing-and-simulating-the-microgrid)
 4. [Extracting Metrics and Figures](Examples.md#extracting-metrics-and-figures)
 
@@ -12,7 +13,8 @@
 
 This page provides example code snippets on how to use the main functionalities of our Julia package for modeling, optimizing and simulating microgrids. This package is designed to make it easy for users to design and analyze microgrid systems. The examples provided in this document cover the following key features:
 
-- Generating data scenarios for simulation
+- Generating data scenarios for optimization and simulation
+- Building the microgrid achitecture
 - Optimizing and simulating the microgrid
 - Extracting metrics and figures
 
@@ -94,10 +96,8 @@ save(joinpath("data", "ausgrid_deterministic.jld"), "ω", ω)
 ### Stochastic generation
 
 ```julia
-include("..\\src\\Genesys.jl")
-
-using Main.Genesys
-using Distributions, CSV, JLD, Dates, Seaborn, Statistics, ProgressMeter
+include(joinpath(pwd(),"src","Genesys2.jl"))
+using FileIO, CSV, Dates, JLD2
 
 # Global constants
 const nh, ny, ns = 8760, 1, 2000
@@ -221,39 +221,40 @@ save(joinpath("data", "ausgrid_5_twostage.jld"), "ω_optim", ω_optim, "ω_simu"
 For more information on  `initialize_generator` and  `generate` see [Scenario page](documentation.md)
      
 
-
-## Optimizing and Simulating the Microgrid
-
-Once you have generated the data scenarios for your microgrid system, you can optimize and simulate its performance using the functions provided in our package. In this section, we demonstrate how to perform optimization and simulation using the data scenarios created in the previous section.
-
-
-### Constructing the grid
-The first step is to build the microgrid get the data and add assets to it. The following code show this process for the case of a single energy grid with battery storage and Solar panel over 21 years for 1 scenario. For more details about the assets see [Assets page](documentation.md)
-
-```julia
-
-using JLD, Dates
-
-const nh, ny, ns = 8760, 21, 1 #nh = number of timestep per year, ny = time horizon (in years), ns = number of scenario used
-
-data = load(joinpath("example","data","ausgrid_5_twostage.jld")) #Get the data for scenarios 
-
-microgrid = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = 1.)) # Instantiate a Microgrid 
-
-
-add!(microgrid, Demand(carrier = Electricity()),
-                Solar(),
-                Liion_electro_chimique(),
-                Grid(carrier = Electricity())) # Add assets to it
-
-ω_d = Scenarios(microgrid, data["ω_optim"]) # Build the right number of scenarios with the right length for the microgrid
-
-```
-
 It is also possible to get 2 set of scenarios as explained in section [Stochastic generation](#stochastic-generation) of this page. One for design and one for assessment.
 ```julia
 ω_d, ω_a = Scenarios(microgrid, data["ω_optim"]), Scenarios(microgrid, data["ω_simu"])
 ```
+
+
+## Microgrid Architecture and Model Selection
+
+
+### Constructing the grid
+The first step is to build the microgrid get the data and add assets to it. The following code show this process for the case of a single energy grid with battery storage and Solar panel over 20 years for 4 scenarios (with a 1-hour operation step). The Example below show how to select battery models for SoC and SoH dynamics. For more details about the assets see [Assets page](documentation.md)
+
+```julia
+
+nh, ny, ns = 8760, 20, 4
+
+mg = Microgrid(parameters = GlobalParameters(nh, ny, ns, renewable_share = .5))
+
+# Add the equipment to the microgrid
+add!(mg, Demand(carrier = Electricity()),
+                Solar(),
+                Liion(eff_model = PolynomialLiionEfficiency(), SoH_model = SemiEmpiricalLiion()),
+                Grid(carrier = Electricity()))
+
+```
+
+
+
+
+## Optimizing and Simulating the Microgrid
+
+Once you have generated the data scenarios for your microgrid system and your architecture is defined, you can optimize and simulate its performance using the functions provided in our package. In this section, we demonstrate how to perform optimization and simulation using the data scenarios created in the previous section.
+
+
 
 ### Sizing the grid
 
@@ -297,10 +298,9 @@ Please note that the models used in the MILP formulation are linear models. Even
 Now that everything is declared the microgrid can be simulated to assess techno-economic indicators.
 
 ```julia
-@time simulate!(microgrid, controller, designer, ω_a, options = Genesys.Options(mode = "serial", firstyear = false))
+@time simulate!(microgrid, controller, designer, ω_a, options = Options(mode = "serial"))
 ```
 Here the microgrid will be simulated using the sizing stored in `desginer`, the operation stored in `controller` under the conditions of `ω_a`.
-The first year option can be use to compare a first year without any asset installed (as some kind of reference) to another year. 
 
 
 
@@ -309,9 +309,20 @@ After optimizing and simulating your microgrid system, you may want to analyze i
 
 
 ```julia
- #Example code: Generating Metrics and Figures
+metrics = Metrics(microgrid, designer)
+
+# Cout d'operation
+println("Cout d'opération : ", round.(metrics.cost.opex[1,1:ns], digits=2), " €")
+# Part de renouvelable
+println("Part de renouvelable : ", round.(metrics.renewable_share[1,1:ns] * 100, digits=2), " %")
+# Cout total (investissement compris)
+println("Cout total : ", round.(metrics.cost.total[:,1:ns], digits=2), " €")
+
+println("Cout d'opération somme des scenarios : ", sum(metrics.cost.opex[1,1:ns]), " €")
+
+# Affiche les dynamiques des différents états traqués au cours de la simulation. (pour le scénario 1 à 2 sur l'ensemble de l'horizon temporel).
+plot_operation(microgrid, y=1:ny, s=1:2)
 ```
 
 
-
-Once you have completed the examples in this document, you should be familiar with the main functionalities of our Julia package for modeling, optimizing, and simulating microgrids. If you have any questions or need further assistance, please refer to our package documentation or contact us for support.
+Once you have completed the examples in this document, you should be familiar with the main functionalities of our Julia package for modeling, optimizing, and simulating microgrids. If you have any questions or need further assistance, please refer to our package documentation and the courses.
